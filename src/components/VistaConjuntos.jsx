@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
+import html2canvas from 'html2canvas'
 
 function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -82,6 +83,8 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   const [dialogoVisible, setDialogoVisible] = useState(false)
   const [conjuntoADuplicar, setConjuntoADuplicar] = useState(null)
   const [duplicarVisible, setDuplicarVisible] = useState(false)
+  const [maletaADuplicar, setMaletaADuplicar] = useState(null)
+  const [duplicarMaletaVisible, setDuplicarMaletaVisible] = useState(false)
   
   const [maxZ, setMaxZ] = useState(100)
 
@@ -123,17 +126,13 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   function solicitarEliminacionMaleta(id, e) {
     e.stopPropagation(); vibrar(50);
     setDialogoInfo({ tipo: 'maleta', id, mensaje: '¿Eliminar maleta y todos sus outfits?' })
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setDialogoVisible(true))
-    })
+    requestAnimationFrame(() => requestAnimationFrame(() => setDialogoVisible(true)))
   }
 
   function solicitarEliminacionConjunto(id) {
     vibrar(50);
     setDialogoInfo({ tipo: 'conjunto', id, mensaje: '¿Eliminar outfit de la maleta?' })
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setDialogoVisible(true))
-    })
+    requestAnimationFrame(() => requestAnimationFrame(() => setDialogoVisible(true)))
   }
 
   function cerrarDialogo() {
@@ -157,11 +156,8 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   }
 
   function abrirMenuCopia(conj) {
-    vibrar(30);
-    setConjuntoADuplicar(conj)
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setDuplicarVisible(true))
-    })
+    vibrar(30); setConjuntoADuplicar(conj)
+    requestAnimationFrame(() => requestAnimationFrame(() => setDuplicarVisible(true)))
   }
 
   function cerrarMenuCopia() {
@@ -185,6 +181,63 @@ export default function VistaConjuntos({ onCrearMaleta }) {
     vibrar([50, 50])
     cerrarMenuCopia()
     if (maletaDestino == maletaActiva.id) setMaletaActiva({...maletaActiva}) 
+  }
+
+  function abrirMenuCopiaMaleta(maleta, e) {
+    e.stopPropagation(); vibrar(30)
+    setMaletaADuplicar(maleta)
+    requestAnimationFrame(() => requestAnimationFrame(() => setDuplicarMaletaVisible(true)))
+  }
+
+  function cerrarMenuCopiaMaleta() {
+    setDuplicarMaletaVisible(false)
+    setTimeout(() => setMaletaADuplicar(null), 300)
+  }
+
+  async function ejecutarDuplicadoMaleta(e) {
+    e.preventDefault()
+    const nombreNuevo = e.target.nombreCopiaMaleta.value
+
+    const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{ nombre: nombreNuevo }]).select().single()
+    if (errM) return alert("Error al clonar la maleta.")
+
+    const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index)').eq('maleta_id', maletaADuplicar.id)
+    
+    if (conjuntosViejos && conjuntosViejos.length > 0) {
+      for (const cViejo of conjuntosViejos) {
+        const { data: cNuevo } = await supabase.from('conjuntos').insert([{ nombre: cViejo.nombre, maleta_id: nuevaMaleta.id }]).select().single()
+        if (cNuevo && cViejo.conjunto_prenda.length > 0) {
+          const copiasRel = cViejo.conjunto_prenda.map(cp => ({
+            conjunto_id: cNuevo.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
+          }))
+          await supabase.from('conjunto_prenda').insert(copiasRel)
+        }
+      }
+    }
+
+    vibrar([50, 50])
+    cerrarMenuCopiaMaleta()
+    const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id)').order('nombre')
+    setMaletas(listaMaletas)
+    localStorage.setItem('cache_maletas', JSON.stringify(listaMaletas))
+  }
+
+  async function exportarOutfit(id, nombre) {
+    vibrar(30)
+    const elemento = document.getElementById(`lienzo-${id}`)
+    if (!elemento) return
+    try {
+      const canvas = await html2canvas(elemento, { useCORS: true, scale: 2 })
+      const url = canvas.toDataURL('image/jpeg', 0.9)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.jpg`
+      a.click()
+      vibrar([30, 30])
+    } catch (e) {
+      console.error(e)
+      alert("Error al generar la imagen.")
+    }
   }
 
   function abrirMaleta(maleta) {
@@ -236,7 +289,10 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-12 md:gap-y-16 gap-x-2 md:gap-x-6 pt-4 md:pt-12 px-1">
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative group flex flex-col items-center justify-end w-full animate-pop-in">
-              <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="absolute -top-4 -right-1 md:-top-6 md:-right-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-all duration-300 text-[10px] md:text-base touch-manipulation">✕</button>
+              <div className="absolute -top-4 -right-2 md:-top-6 md:-right-4 flex gap-1 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
+                <button onClick={(e) => abrirMenuCopiaMaleta(m, e)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-teal-500 in-[.modo-oscuro]:text-[#A394D6] w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation text-[10px] md:text-base" title="Copiar Maleta">⎘</button>
+                <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation text-[10px] md:text-base" title="Eliminar Maleta">✕</button>
+              </div>
 
               <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-23.75 md:max-w-41.25 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation">
                  <div className="absolute -top-3 md:-top-7 left-1/2 -translate-x-1/2 w-10 md:w-20 h-3 md:h-7 flex justify-between z-0">
@@ -265,8 +321,10 @@ export default function VistaConjuntos({ onCrearMaleta }) {
                     )}
                  </div>
 
-                 {/* Animación de apertura en 3D con Tailwind estandarizado */}
-                 <div className={`absolute top-0 left-0 w-full h-full rounded-lg md:rounded-[1.8rem] origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)] transform-3d ${abriendo === m.id ? 'transform-[rotateY(-105deg)_translateX(-2px)]' : ''}`}>
+                 <div 
+                   className="absolute top-0 left-0 w-full h-full rounded-lg md:rounded-[1.8rem] origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)] transform-3d"
+                   style={{ transform: abriendo === m.id ? 'perspective(1500px) rotateY(-105deg)' : 'perspective(1500px) rotateY(0deg)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
+                 >
                     <div className="absolute inset-0 bg-linear-to-br from-[#f8fafc] via-[#cbd5e1] to-[#94a3b8] in-[.modo-oscuro]:from-[#494463] in-[.modo-oscuro]:via-[#3B3852] in-[.modo-oscuro]:to-[#2A273F] rounded-lg md:rounded-[1.8rem] border border-white/60 in-[.modo-oscuro]:border-[#7A7593]/40 overflow-hidden">
                       <div className="absolute inset-0 flex justify-evenly px-0.5 md:px-2 py-1 md:py-4">
                           {[...Array(7)].map((_, i) => <div key={i} className="w-[1.5px] md:w-1.75 h-full bg-linear-to-r from-black/5 via-transparent to-white/60 in-[.modo-oscuro]:from-black/40 in-[.modo-oscuro]:via-transparent in-[.modo-oscuro]:to-white/10 rounded-full shadow-[1px_0_2px_rgba(0,0,0,0.1)]"></div>)}
@@ -286,13 +344,14 @@ export default function VistaConjuntos({ onCrearMaleta }) {
             <div key={conj.id} className="relative border border-white/50 in-[.modo-oscuro]:border-[#322F44]/50 p-6 rounded-4xl bg-white/50 in-[.modo-oscuro]:bg-[#1F1D2B]/50 backdrop-blur-md shadow-lg group animate-fade-in-up w-full flex flex-col">
               
               <div className="absolute top-5 right-5 flex gap-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
+                <button onClick={() => exportarOutfit(conj.id, conj.nombre)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-emerald-500 in-[.modo-oscuro]:text-emerald-400 w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation text-lg" title="Descargar Imagen">↓</button>
                 <button onClick={() => abrirMenuCopia(conj)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-teal-500 in-[.modo-oscuro]:text-[#A394D6] w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation" title="Copiar Outfit">⎘</button>
                 <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation" title="Eliminar Outfit">✕</button>
               </div>
 
-              <h3 className="font-extrabold text-xl mb-4 text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] pl-1 pr-20 truncate">{conj.nombre}</h3>
+              <h3 className="font-extrabold text-xl mb-4 text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] pl-1 pr-32 truncate">{conj.nombre}</h3>
               
-              <div className="relative w-full h-112.5 md:h-150 bg-rose-50/30 in-[.modo-oscuro]:bg-[#13111C]/40 rounded-3xl border-2 border-dashed border-rose-200 in-[.modo-oscuro]:border-[#433D60] overflow-hidden shadow-inner touch-none">
+              <div id={`lienzo-${conj.id}`} className="relative w-full h-112.5 md:h-150 bg-rose-50/30 in-[.modo-oscuro]:bg-[#13111C]/40 rounded-3xl border-2 border-dashed border-rose-200 in-[.modo-oscuro]:border-[#433D60] overflow-hidden shadow-inner touch-none">
                 {conj.conjunto_prenda.map((cp, idx) => (
                   <PrendaArrastrable key={cp.prendas.id} cp={cp} index={idx} maxZ={maxZ} setMaxZ={setMaxZ} onGuardarEstado={actualizarEstado} />
                 ))}
@@ -302,7 +361,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         </div>
       )}
 
-      {/* Ventanas con transición de Bezier perfecta y aceleración por GPU */}
+      {/* Menú Clonar Outfit */}
       {conjuntoADuplicar && (
         <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${duplicarVisible ? 'opacity-100' : 'opacity-0'}`}>
           <form onSubmit={ejecutarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${duplicarVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
@@ -320,6 +379,23 @@ export default function VistaConjuntos({ onCrearMaleta }) {
             <div className="flex gap-3 justify-center">
               <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-[#7E67C9] text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Clonar</button>
               <button type="button" onClick={cerrarMenuCopia} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Menú Clonar Maleta */}
+      {maletaADuplicar && (
+        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${duplicarMaletaVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <form onSubmit={ejecutarDuplicadoMaleta} className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${duplicarMaletaVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
+            <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-4">Duplicar Maleta Entera</h3>
+            <div className="mb-5">
+              <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] mb-1">Nombre de la nueva maleta:</label>
+              <input type="text" name="nombreCopiaMaleta" autoComplete="off" defaultValue={`${maletaADuplicar.nombre} (Copia)`} required className="w-full p-3 rounded-xl bg-white in-[.modo-oscuro]:bg-[#13111C] border border-rose-200 in-[.modo-oscuro]:border-[#433D60] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] outline-none transition-colors" />
+            </div>
+            <div className="flex gap-3 justify-center">
+              <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-[#7E67C9] text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Clonar</button>
+              <button type="button" onClick={cerrarMenuCopiaMaleta} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
             </div>
           </form>
         </div>
