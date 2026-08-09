@@ -47,7 +47,7 @@ export default function App() {
   async function iniciarCreacionConjunto(idsSeleccionados) {
     const { data } = await supabase.from('maletas').select('*').order('nombre')
     if (!data || data.length === 0) {
-      alert("Debes crear al menos una maleta en la pestaña 'Mis Viajes' antes de guardar ropa.")
+      alert("Debes crear al menos una maleta en la pestaña 'Mis maletas' antes de guardar ropa.")
       return
     }
     setMaletasDisponibles(data)
@@ -88,9 +88,9 @@ export default function App() {
         </header>
 
         <main className="flex-1 w-full p-2 md:p-6 lg:p-8">
-          <div className="flex border-b-2 border-rose-200/50 in-[.modo-oscuro_&]:border-slate-700/50 mb-4 md:mb-6 gap-2 md:gap-4 overflow-x-auto w-full hide-scrollbar">
-            <button onClick={() => setPestañaActiva('ropa')} className={`py-2.5 px-4 font-bold cursor-pointer whitespace-nowrap transition-all active:scale-95 text-sm md:text-base ${pestañaActiva === 'ropa' ? 'border-b-4 border-teal-400 in-[.modo-oscuro_&]:border-indigo-400 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300' : 'text-slate-400 in-[.modo-oscuro_&]:text-slate-500 hover:text-slate-600 in-[.modo-oscuro_&]:hover:text-slate-300'}`}>Mi Ropa</button>
-            <button onClick={() => setPestañaActiva('conjuntos')} className={`py-2.5 px-4 font-bold cursor-pointer whitespace-nowrap transition-all active:scale-95 text-sm md:text-base ${pestañaActiva === 'conjuntos' ? 'border-b-4 border-teal-400 in-[.modo-oscuro_&]:border-indigo-400 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300' : 'text-slate-400 in-[.modo-oscuro_&]:text-slate-500 hover:text-slate-600 in-[.modo-oscuro_&]:hover:text-slate-300'}`}>Mis Viajes</button>
+          <div className="flex border-b-2 border-rose-200/50 in-[.modo-oscuro]:border-slate-700/50 mb-4 md:mb-6 gap-2 md:gap-4 overflow-x-auto w-full hide-scrollbar">
+            <button onClick={() => setPestañaActiva('ropa')} className={`py-2.5 px-4 font-bold cursor-pointer whitespace-nowrap transition-all active:scale-95 text-sm md:text-base ${pestañaActiva === 'ropa' ? 'border-b-4 border-teal-400 in-[.modo-oscuro]:border-indigo-400 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300' : 'text-slate-400 in-[.modo-oscuro_&]:text-slate-500 hover:text-slate-600 in-[.modo-oscuro_&]:hover:text-slate-300'}`}>Mi Ropa</button>
+            <button onClick={() => setPestañaActiva('conjuntos')} className={`py-2.5 px-4 font-bold cursor-pointer whitespace-nowrap transition-all active:scale-95 text-sm md:text-base ${pestañaActiva === 'conjuntos' ? 'border-b-4 border-teal-400 in-[.modo-oscuro]:border-indigo-400 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300' : 'text-slate-400 in-[.modo-oscuro_&]:text-slate-500 hover:text-slate-600 in-[.modo-oscuro_&]:hover:text-slate-300'}`}>Mis maletas</button>
           </div>
 
           <div className="bg-white/60 backdrop-blur-sm in-[.modo-oscuro_&]:bg-slate-800/60 p-3 md:p-6 lg:p-8 border border-white/50 in-[.modo-oscuro_&]:border-slate-700/50 min-h-[70vh] md:min-h-175 rounded-3xl md:rounded-3xl shadow-xl shadow-rose-100/20 in-[.modo-oscuro_&]:shadow-black/20 w-full">
