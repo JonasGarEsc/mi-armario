@@ -6,7 +6,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
-  const [limiteVisibles, setLimiteVisibles] = useState(18)
+  const [limiteVisibles, setLimiteVisibles] = useState(24) // Aumentado para rellenar más rápido la vista
   const [dialogoConfirmacion, setDialogoConfirmacion] = useState(null)
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
     obtenerPrendas()
   }, [])
 
-  useEffect(() => { setLimiteVisibles(18) }, [busqueda])
+  useEffect(() => { setLimiteVisibles(24) }, [busqueda])
 
   function alternarSeleccion(id) {
     if (seleccionadas.includes(id)) setSeleccionadas(seleccionadas.filter(item => item !== id))
@@ -28,7 +28,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   function solicitarEliminacionPrenda(id, urlImagen, e) {
     e.stopPropagation()
     setDialogoConfirmacion({
-      mensaje: '¿Estás segura de eliminar esta prenda del armario?',
+      mensaje: '¿Eliminar prenda del armario?',
       accion: async () => {
         await supabase.from('prendas').delete().eq('id', id)
         const nombreArchivo = urlImagen.split('/').pop()
@@ -65,36 +65,40 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
       )}
 
       {cargando ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-4">
-          {[...Array(12)].map((_, i) => <div key={i} className="rounded-2xl aspect-square bg-white/50 animate-shimmer shadow-sm"></div>)}
+        /* Skeletons adaptados a 4 columnas */
+        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-4">
+          {[...Array(16)].map((_, i) => <div key={i} className="rounded-2xl aspect-square bg-white/50 animate-shimmer shadow-sm"></div>)}
         </div>
       ) : prendasFiltradas.length === 0 ? (
         <p className="text-center text-slate-400 py-10 border-2 border-dashed border-rose-200/50 rounded-2xl text-sm">Vacío.</p>
       ) : (
         <>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 md:gap-4 overflow-y-auto p-1 pb-4 hide-scrollbar">
+          {/* GALERÍA ROPA: 4 columnas en móvil (grid-cols-4) */}
+          <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 md:gap-4 overflow-y-auto p-1 pb-4 hide-scrollbar">
             {prendasVisibles.map((prenda, index) => (
               <div 
                 key={prenda.id} 
                 onClick={() => alternarSeleccion(prenda.id)}
-                className={`group relative rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-xl active:scale-95 ${
+                className={`group relative rounded-xl md:rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-xl active:scale-95 ${
                   seleccionadas.includes(prenda.id) ? 'ring-2 md:ring-4 ring-teal-400 scale-[1.02] shadow-md' : 'border border-rose-100'
                 }`}
                 style={{ animationDelay: `${(index % 18) * 40}ms` }}
               >
-                <div className="aspect-square w-full bg-rose-50/30 relative flex items-center justify-center p-1.5 md:p-2">
+                <div className="aspect-square w-full bg-rose-50/30 relative flex items-center justify-center p-1 md:p-2">
                   <img src={prenda.imagen_url} className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" alt={prenda.nombre} />
-                  {seleccionadas.includes(prenda.id) && <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-teal-400 text-white w-4 h-4 md:w-6 md:h-6 rounded-full flex items-center justify-center font-bold text-[10px] md:text-xs shadow-md z-10">✓</div>}
+                  {/* Icono de selección más pequeño en móvil */}
+                  {seleccionadas.includes(prenda.id) && <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-teal-400 text-white w-4 h-4 md:w-6 md:h-6 rounded-full flex items-center justify-center font-bold text-[9px] md:text-xs shadow-md z-10">✓</div>}
                 </div>
 
+                {/* Botones de acción reducidos */}
                 <div className="absolute top-1 right-1 md:top-2 md:right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
-                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 text-red-500 hover:bg-red-500 hover:text-white w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[10px] md:text-xs cursor-pointer transition-all active:scale-90 border border-rose-100">✕</button>
-                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 text-teal-500 hover:bg-teal-500 hover:text-white w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-xs md:text-sm cursor-pointer transition-all active:scale-90 border border-rose-100">✎</button>
+                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 text-red-500 hover:bg-red-500 hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-xs cursor-pointer transition-all active:scale-90 border border-rose-100">✕</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 text-teal-500 hover:bg-teal-500 hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-sm cursor-pointer transition-all active:scale-90 border border-rose-100">✎</button>
                 </div>
 
-                <div className="p-2 md:p-3 bg-white/90 backdrop-blur z-10 relative border-t border-rose-50">
-                  <p className="font-bold text-slate-800 text-[10px] md:text-sm truncate leading-tight">{prenda.nombre}</p>
-                  <p className="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1 capitalize truncate">{prenda.categorias?.nombre}</p>
+                <div className="p-1.5 md:p-3 bg-white/90 backdrop-blur z-10 relative border-t border-rose-50">
+                  <p className="font-bold text-slate-800 text-[9px] md:text-sm truncate leading-tight">{prenda.nombre}</p>
+                  <p className="text-[8px] md:text-xs text-slate-400 mt-0.5 md:mt-1 capitalize truncate">{prenda.categorias?.nombre}</p>
                 </div>
               </div>
             ))}
@@ -102,7 +106,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
 
           {limiteVisibles < prendasFiltradas.length && (
             <div className="w-full flex justify-center mt-4 md:mt-6 mb-4">
-              <button onClick={() => setLimiteVisibles(prev => prev + 18)} className="bg-white/80 text-slate-700 font-bold py-2 md:py-3 px-6 md:px-8 rounded-full shadow-sm active:scale-95 border border-rose-100 text-sm md:text-base">
+              <button onClick={() => setLimiteVisibles(prev => prev + 24)} className="bg-white/80 text-slate-700 font-bold py-2 md:py-3 px-6 md:px-8 rounded-full shadow-sm active:scale-95 border border-rose-100 text-sm md:text-base">
                 Cargar más ↓
               </button>
             </div>
