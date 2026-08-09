@@ -19,7 +19,7 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'https://cdn-icons-png.flaticon.com/512/3342/3342137.png',
+            src: '"C:\\Users\\jonas\\mi-armario\\public\\weno.png"',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
