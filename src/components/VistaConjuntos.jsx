@@ -9,8 +9,6 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   })
   const [zIndex, setZIndex] = useState(cp.z_index ?? 10)
   const [isDragging, setIsDragging] = useState(false)
-  
-  // Guarda el punto exacto donde el usuario hace clic dentro de la imagen
   const [offset, setOffset] = useState({ x: 0, y: 0 })
 
   const handlePointerDown = (e) => {
@@ -20,7 +18,6 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       y: e.clientY - rect.top
     })
     
-    // Eleva la prenda a la capa superior
     const nuevoZ = maxZ + 1
     setZIndex(nuevoZ)
     setMaxZ(nuevoZ)
@@ -34,11 +31,9 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
     
     const contenedor = e.currentTarget.parentElement.getBoundingClientRect()
     
-    // Calcula la posición restando el offset para que la prenda siga al dedo exactamente
     let newX = e.clientX - contenedor.left - offset.x
     let newY = e.clientY - contenedor.top - offset.y
 
-    // Límite de colisiones: Evita que la prenda salga de la casilla (128px es el ancho/alto de w-32/h-32)
     const itemSize = 128
     const maxAncho = contenedor.width - itemSize
     const maxAlto = contenedor.height - itemSize
@@ -55,7 +50,6 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
     if (!isDragging) return
     setIsDragging(false)
     e.currentTarget.releasePointerCapture(e.pointerId)
-    // Guarda X, Y y Z en la base de datos
     onGuardarEstado(cp.conjunto_id, cp.prenda_id, pos.x, pos.y, zIndex)
   }
 
@@ -65,9 +59,9 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-32 h-32 flex items-center justify-center transition-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'cursor-grab active:scale-105'}`}
+      className={`absolute w-32 h-32 flex items-center justify-center select-none [-webkit-tap-highlight-color:transparent] ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform cursor-grab active:scale-105'}`}
     >
-      <img src={cp.prendas.imagen_url} draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md" alt="Ropa" />
+      <img src={cp.prendas.imagen_url} draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md select-none" alt="Ropa" />
     </div>
   )
 }
@@ -187,32 +181,104 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         <p className="text-center text-slate-400 py-10 border-2 border-dashed border-rose-200/50 rounded-3xl bg-white/30">Vacío.</p>
       ) : !maletaActiva ? (
         
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-y-16 gap-x-8 pt-8 px-2">
+       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-y-20 gap-x-6 pt-12 px-2">
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative group flex flex-col items-center justify-end w-full animate-pop-in">
               <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="absolute -top-6 -right-2 z-50 opacity-0 group-hover:opacity-100 bg-white text-red-500 w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 active:scale-90 transition-all">✕</button>
 
-              <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-65 aspect-4/3 perspective-[1400px] cursor-pointer transition-transform duration-500 hover:scale-105 mb-3">
-                 <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-28 h-12 border-[7px] border-b-0 border-[#3d2516] rounded-t-3xl z-0 shadow-inner"></div>
-                 <div className="absolute top-0 left-0 w-full h-full bg-linear-to-t from-black via-[#2a170b] to-[#4a2e1b] rounded-2xl shadow-xl border-4 border-[#3d2516] overflow-hidden z-10 flex flex-col justify-end p-2 pb-1">
-                    <div className="absolute inset-0 shadow-[inset_0_20px_35px_rgba(0,0,0,0.9)] pointer-events-none"></div>
+              {/* CONTENEDOR MALETA FOTORREALISTA */}
+              <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-41.25 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-500 hover:scale-[1.03] mb-4 mx-auto drop-shadow-2xl">
+                 
+                 {/* Asa telescópica (Parte trasera) */}
+                 <div className="absolute -top-7 left-1/2 -translate-x-1/2 w-20 h-7 flex justify-between z-0">
+                    <div className="w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro_&]:from-slate-600 in-[.modo-oscuro_&]:to-slate-700 border-x border-slate-400"></div>
+                    <div className="w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro_&]:from-slate-600 in-[.modo-oscuro_&]:to-slate-700 border-x border-slate-400"></div>
+                    <div className="absolute top-0 left-0 w-full h-3 bg-linear-to-b from-slate-200 to-slate-400 in-[.modo-oscuro_&]:from-slate-500 in-[.modo-oscuro_&]:to-slate-700 rounded-t-sm shadow-sm border border-slate-400/50"></div>
+                 </div>
+
+                 {/* Ruedas Spinner 360 (Realistas) */}
+                 <div className="absolute -bottom-4 left-3 w-5 h-6 bg-linear-to-b from-slate-300 to-slate-400 in-[.modo-oscuro_&]:from-slate-600 in-[.modo-oscuro_&]:to-slate-800 rounded-b-md z-0 flex flex-col items-center justify-end pb-0.5 shadow-md border-x border-slate-400/50">
+                   <div className="w-6 h-3 bg-[#111] rounded-full border-[1.5px] border-slate-300 flex items-center justify-center -mb-1 shadow-lg">
+                      <div className="w-1.5 h-1.5 bg-slate-300 rounded-full"></div>
+                   </div>
+                 </div>
+                 <div className="absolute -bottom-4 right-3 w-5 h-6 bg-linear-to-b from-slate-300 to-slate-400 in-[.modo-oscuro_&]:from-slate-600 in-[.modo-oscuro_&]:to-slate-800 rounded-b-md z-0 flex flex-col items-center justify-end pb-0.5 shadow-md border-x border-slate-400/50">
+                   <div className="w-6 h-3 bg-[#111] rounded-full border-[1.5px] border-slate-300 flex items-center justify-center -mb-1 shadow-lg">
+                      <div className="w-1.5 h-1.5 bg-slate-300 rounded-full"></div>
+                   </div>
+                 </div>
+
+                 {/* INTERIOR DE LA MALETA (Forro y Correas) */}
+                 <div className="top-0 left-0 w-full h-full bg-[#1e293b] rounded-[1.8rem] shadow-[inset_0_0_40px_rgba(0,0,0,1)] border border-slate-600 overflow-hidden z-10 flex flex-col justify-center relative">
+                    {/* Textura de tela interior */}
+                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), repeating-linear-gradient(45deg, #000 25%, #1e293b 25%, #1e293b 75%, #000 75%, #000)', backgroundPosition: '0 0, 4px 4px', backgroundSize: '8px 8px' }}></div>
+                    
+                    {/* Correas de compresión (Forma de X) */}
+                    <div className="absolute inset-3 border border-slate-700/50 rounded-xl z-10 overflow-hidden pointer-events-none">
+                       <div className="absolute top-1/2 left-1/2 w-[150%] h-3 bg-slate-800 -translate-x-1/2 -translate-y-1/2 rotate-45 shadow-sm flex items-center justify-center">
+                          <div className="w-6 h-4 bg-slate-900 border border-slate-600 rounded-sm"></div>
+                       </div>
+                       <div className="absolute top-1/2 left-1/2 w-[150%] h-3 bg-slate-800 -translate-x-1/2 -translate-y-1/2 -rotate-45 shadow-sm"></div>
+                    </div>
+
+                    {/* Ropa interior (Aparece fluidamente) */}
                     {m.conjuntos && m.conjuntos.length > 0 && (
-                       <div className={`w-[85%] mx-auto transition-all duration-700 ease-out flex flex-col items-center justify-end z-10 ${abriendo === m.id ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-                           <div className="w-[90%] h-5 bg-linear-to-r from-rose-400 to-rose-300 rounded-md border-t border-white/40 -mb-1 shadow-sm rotate-2"></div>
-                           <div className="w-[96%] h-6 bg-linear-to-r from-slate-200 to-slate-100 rounded-md border-t border-white/60 -mb-1 shadow-sm -rotate-1"></div>
-                           <div className="w-full h-8 bg-linear-to-r from-teal-600 to-teal-500 rounded-md border-t border-white/30 shadow-md"></div>
+                       <div className={`w-[85%] mx-auto transition-all duration-800 delay-100 flex flex-col items-center justify-end z-20 pb-4 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${abriendo === m.id ? 'translate-x-0 opacity-100 scale-100' : '-translate-x-10 opacity-0 scale-95'}`}>
+                           <div className="w-[80%] h-5 bg-linear-to-r from-rose-500 to-rose-400 rounded-md border-t border-white/30 -mb-1 shadow-[0_2px_4px_rgba(0,0,0,0.5)] rotate-2"></div>
+                           <div className="w-[90%] h-6 bg-linear-to-r from-slate-300 to-slate-200 rounded-md border-t border-white/50 -mb-1 shadow-[0_2px_4px_rgba(0,0,0,0.5)] -rotate-1"></div>
+                           <div className="w-[95%] h-8 bg-linear-to-r from-teal-700 to-teal-500 rounded-md border-t border-white/20 shadow-[0_4px_8px_rgba(0,0,0,0.6)] relative overflow-hidden">
+                             <div className="absolute top-0 right-4 w-2 h-full bg-teal-800/40"></div>
+                           </div>
                        </div>
                     )}
                  </div>
-                 <div className={`absolute top-0 left-0 w-full h-full bg-linear-to-br from-[#8A5A44] via-[#6d3c23] to-[#4c2a16] rounded-2xl origin-top transition-transform duration-650 border border-[#a06a38] z-30 shadow-[0_15px_30px_rgba(0,0,0,0.6)] overflow-hidden ${abriendo === m.id ? 'transform-[rotateX(115deg)]' : ''}`}>
-                    <div className="absolute inset-3 border border-dashed border-white/20 rounded-xl opacity-80"></div>
-                    <div className="absolute left-[20%] top-0 w-10 h-full bg-linear-to-b from-[#3a2214] to-[#241309] shadow-[3px_0_10px_rgba(0,0,0,0.5)] border-x border-white/5"></div>
-                    <div className="absolute right-[20%] top-0 w-10 h-full bg-linear-to-b from-[#3a2214] to-[#241309] shadow-[-3px_0_10px_rgba(0,0,0,0.5)] border-x border-white/5"></div>
-                    <div className="absolute bottom-6 left-[20%] -translate-x-1/2 w-10 h-8 bg-linear-to-b from-[#F3C623] via-[#B58500] to-[#805B00] border border-yellow-800 rounded-md shadow-lg z-40"></div>
-                    <div className="absolute bottom-6 right-[20%] translate-x-1/2 w-10 h-8 bg-linear-to-b from-[#F3C623] via-[#B58500] to-[#805B00] border border-yellow-8₀ rounded-md shadow-lg z-4₀"></div>
+
+                 {/* TAPA EXTERIOR METÁLICA (Animación física fluida) */}
+                 <div className={`absolute top-0 left-0 w-full h-full rounded-[1.8rem] origin-left transition-transform duration-800 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[5px_0_20px_rgba(0,0,0,0.5)] transform-3d ${abriendo === m.id ? 'transform-[rotateY(-105deg)_translateX(-5px)]' : ''}`}>
+                    
+                    {/* Base de aluminio cepillado */}
+                    <div className="absolute inset-0 bg-linear-to-br from-[#f8fafc] via-[#cbd5e1] to-[#94a3b8] in-[.modo-oscuro]:from-[#64748b] in-[.modo-oscuro_&]:via-[#475569] in-[.modo-oscuro_&]:to-[#334155] rounded-[1.8rem] border-[1.5px] border-white/60 in-[.modo-oscuro_&]:border-slate-400/30 overflow-hidden">
+                      
+                      {/* Reflejo de luz central */}
+                      <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/40 to-transparent w-[200%] -translate-x-1/2"></div>
+                      
+                      {/* Estrías verticales extruidas */}
+                      <div className="absolute inset-0 flex justify-evenly px-2 py-4">
+                          {[...Array(7)].map((_, i) => (
+                            <div key={i} className="w-1.75 h-full bg-linear-to-r from-black/5 via-transparent to-white/60 in-[.modo-oscuro_&]:from-black/40 in-[.modo-oscuro_&]:to-white/10 rounded-full shadow-[1px_0_2px_rgba(0,0,0,0.1)]"></div>
+                          ))}
+                      </div>
+
+                      {/* Candados laterales TSA (Fotorrealistas) */}
+                      <div className="absolute top-[25%] -right-0.5 w-1.5 h-6 bg-linear-to-l from-slate-200 to-slate-400 border border-slate-500/50 rounded-l-sm shadow-sm"></div>
+                      <div className="absolute bottom-[25%] -right-0.5 w-1.5 h-6 bg-linear-to-l from-slate-200 to-slate-400 border border-slate-500/50 rounded-l-sm shadow-sm"></div>
+                      <div className="absolute top-[50%] -translate-y-1/2 -left-0.5 w-1 h-12 bg-slate-300 rounded-r-sm opacity-60"></div>
+                      
+                      {/* Chapa central de la marca */}
+                      <div className="absolute top-6 left-1/2 -translate-x-1/2 w-10 h-2.5 bg-linear-to-b from-slate-200 to-slate-400 rounded-sm shadow-sm border border-slate-500/40 flex items-center justify-between px-1">
+                         <div className="w-0.5 h-0.5 bg-slate-600 rounded-full"></div>
+                         <div className="w-0.5 h-0.5 bg-slate-600 rounded-full"></div>
+                      </div>
+                    </div>
+
+                    {/* Protectores de esquinas remachados (Metal pulido) */}
+                    <div className="absolute top-0 left-0 w-8 h-8 bg-linear-to-br from-white to-slate-300 in-[.modo-oscuro_&]:from-slate-400 in-[.modo-oscuro_&]:to-slate-600 rounded-tl-[1.8rem] rounded-br-2xl shadow-[inset_-1px_-1px_3px_rgba(0,0,0,0.1),1px_1px_3px_rgba(0,0,0,0.2)] border-b border-r border-slate-400 flex items-center justify-center pb-2 pr-2">
+                       <div className="w-1.5 h-1.5 bg-slate-200 rounded-full shadow-inner border border-slate-300"></div>
+                    </div>
+                    <div className="absolute top-0 right-0 w-8 h-8 bg-linear-to-bl from-white to-slate-300 in-[.modo-oscuro_&]:from-slate-400 in-[.modo-oscuro_&]:to-slate-600 rounded-tr-[1.8rem] rounded-bl-2xl shadow-[inset_1px_-1px_3px_rgba(0,0,0,0.1),-1px_1px_3px_rgba(0,0,0,0.2)] border-b border-l border-slate-400 flex items-center justify-center pb-2 pl-2">
+                       <div className="w-1.5 h-1.5 bg-slate-200 rounded-full shadow-inner border border-slate-300"></div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 w-8 h-8 bg-linear-to-tr from-slate-200 to-slate-400 in-[.modo-oscuro_&]:from-slate-500 in-[.modo-oscuro_&]:to-slate-700 rounded-bl-[1.8rem] rounded-tr-2xl shadow-[inset_-1px_1px_3px_rgba(0,0,0,0.1),1px_-1px_3px_rgba(0,0,0,0.2)] border-t border-r border-slate-400 flex items-center justify-center pt-2 pr-2">
+                       <div className="w-1.5 h-1.5 bg-slate-300 rounded-full shadow-inner border border-slate-400"></div>
+                    </div>
+                    <div className="absolute bottom-0 right-0 w-8 h-8 bg-linear-to-tl from-slate-200 to-slate-400 in-[.modo-oscuro_&]:from-slate-500 in-[.modo-oscuro_&]:to-slate-700 rounded-br-[1.8rem] rounded-tl-2xl shadow-[inset_1px_1px_3px_rgba(0,0,0,0.1),-1px_-1px_3px_rgba(0,0,0,0.2)] border-t border-l border-slate-400 flex items-center justify-center pt-2 pl-2">
+                       <div className="w-1.5 h-1.5 bg-slate-300 rounded-full shadow-inner border border-slate-400"></div>
+                    </div>
+
                  </div>
               </div>
-              <p className="mt-3 font-bold text-slate-800 in-[.modo-oscuro_&]:text-slate-100 text-center text-lg px-2 w-full truncate drop-shadow-sm">{m.nombre}</p>
+
+              <p className="mt-4 font-bold text-slate-800 in-[.modo-oscuro_&]:text-slate-100 text-center text-lg px-2 w-full truncate tracking-wide">{m.nombre}</p>
             </div>
           ))}
         </div>
