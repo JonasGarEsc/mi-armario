@@ -61,7 +61,13 @@ export default function App() {
     const maleta_id = e.target.maletaId.value
 
     const idsOrdenados = [...prendasParaConjunto].sort().join(',')
-    const { data: conjuntosExistentes } = await supabase.from('conjuntos').select('id, conjunto_prenda(prenda_id)')
+    
+    // Filtro añadido: .eq('maleta_id', maleta_id)
+    const { data: conjuntosExistentes } = await supabase
+      .from('conjuntos')
+      .select('id, conjunto_prenda(prenda_id)')
+      .eq('maleta_id', maleta_id)
+      
     const esDuplicado = conjuntosExistentes.some(conj => conj.conjunto_prenda.map(cp => cp.prenda_id).sort().join(',') === idsOrdenados)
 
     if (esDuplicado) return alert('Denegado: Ya existe un conjunto con esa combinación exacta.')
