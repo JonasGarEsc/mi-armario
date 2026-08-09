@@ -25,6 +25,10 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      // Ampliación del límite de caché para el motor de IA
+      workbox: {
+        maximumFileSizeToCacheInBytes: 30000000
       }
     })
   ],
