@@ -14,7 +14,6 @@ export default function App() {
   
   const [modalActivo, setModalActivo] = useState(null) 
   const [prendaAEditar, setPrendaAEditar] = useState(null)
-  
   const [prendasParaConjunto, setPrendasParaConjunto] = useState([])
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
 
@@ -87,7 +86,7 @@ export default function App() {
             {temaOscuro ? '☀️ Modo Claro' : '🌙 Modo Oscuro'}
           </button>
           <h1 className="text-5xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-teal-500 to-rose-400 in-[.modo-oscuro_&]:from-indigo-300 in-[.modo-oscuro_&]:to-purple-400 mb-8 text-center drop-shadow-sm">Armario Virtual</h1>
-          <button onClick={() => setPantalla('armario')} className="bg-teal-400/90 backdrop-blur in-[.modo-oscuro_&]:bg-indigo-500/90 text-slate-900 in-[.modo-oscuro_&]:text-white text-lg md:text-xl font-bold py-4 px-10 rounded-2xl cursor-pointer hover:bg-teal-400 in-[.modo-oscuro_&]:hover:bg-indigo-400 w-full md:w-auto shadow-xl shadow-teal-200/50 in-[.modo-oscuro_&]:shadow-indigo-900/50 transition-all hover:scale-1<|fim_suffix|>5 active:scale-95 border border-white/20">
+          <button onClick={() => setPantalla('armario')} className="bg-teal-400/90 backdrop-blur in-[.modo-oscuro_&]:bg-indigo-500/90 text-slate-900 in-[.modo-oscuro_&]:text-white text-lg md:text-xl font-bold py-4 px-10 rounded-2xl cursor-pointer hover:bg-teal-400 in-[.modo-oscuro_&]:hover:bg-indigo-400 w-full md:w-auto shadow-xl shadow-teal-200/50 in-[.modo-oscuro_&]:shadow-indigo-9₀/5０ transition-all hover:scale-1０５ active:scale-9５ border border-white/2０0 in-[.modo-oscuro_&]:border-slate-70">
             Entrar en tu armario
           </button>
         </div>
@@ -98,7 +97,6 @@ export default function App() {
   return (
     <div className={temaOscuro ? 'modo-oscuro' : ''}>
       <div className="min-h-screen bg-linear-to-br from-rose-50 via-white to-teal-50 in-[.modo-oscuro_&]:from-slate-900 in-[.modo-oscuro_&]:via-slate-800 in-[.modo-oscuro_&]:to-indigo-950 text-slate-800 in-[.modo-oscuro_&]:text-slate-200 flex flex-col w-full overflow-x-hidden transition-colors duration-500">
-        
         <header className="bg-white/70 backdrop-blur-md in-[.modo-oscuro_&]:bg-slate-900/70 shadow-sm border-b border-rose-100/50 in-[.modo-oscuro_&]:border-slate-700/50 p-4 flex justify-between items-center w-full sticky top-0 z-10">
           <h2 className="text-xl md:text-2xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-teal-500 to-rose-400 in-[.modo-oscuro_&]:from-indigo-300 in-[.modo-oscuro_&]:to-purple-400">Armario Virtual</h2>
           <div className="flex gap-4 items-center">
@@ -112,10 +110,10 @@ export default function App() {
         <main className="flex-1 w-full p-4 md:p-6 lg:p-8">
           <div className="flex border-b-2 border-rose-200/50 in-[.modo-oscuro_&]:border-slate-700/50 mb-6 gap-2 md:gap-4 overflow-x-auto w-full hide-scrollbar">
             <button onClick={() => setPestañaActiva('ropa')} className={`py-3 px-4 font-bold cursor-pointer whitespace-nowrap transition-all active:scale-95 ${pestañaActiva === 'ropa' ? 'border-b-4 border-teal-400 in-[.modo-oscuro_&]:border-indigo-400 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300' : 'text-slate-400 in-[.modo-oscuro_&]:text-slate-500 hover:text-slate-600 in-[.modo-oscuro_&]:hover:text-slate-300'}`}>Mi Ropa</button>
-            <button onClick={() => setPestañaActiva('conjuntos')} className={`py=3 px=4 font-bold cursor-pointer whitespace-nowrap transition-all active:scale=95 ${pestañaActiva === 'conjuntos' ? 'border-b=4 border-teal=400 in=[.modo=oscuro_&]:border-indigo=400 text-teal=600 in=[.modo=oscuro_&]:text-indigo=300' : 'text-slate=400 in=[.modo=oscuro_&]:text-slate=500 hover:text-slate=600 in=[.modo=oscuro_&]:hover:text-slate=300'}`}>Mis Viajes</button>
+            <button onClick={() => setPestañaActiva('conjuntos')} className={`py-3 px-4 font-bold cursor-pointer whitespace-nowrap transition-all active:scale-95 ${pestañaActiva === 'conjuntos' ? 'border-b-4 border-teal-400 in-[.modo-oscuro_&]:border-indigo-400 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300' : 'text-slate-400 in-[.modo-oscuro_&]:text-slate-500 hover:text-slate-600 in-[.modo-oscuro_&]:hover:text-slate-300'}`}>Mis Viajes</button>
           </div>
 
-          <div className="bg-white/60 backdrop-blur-sm in-[.modo-oscuro_&]:bg-slate-800/60 p-4 md:p-6 lg:p-8 border border-white/50 in-[.modo-oscuro_&]:border-slate-700/50 min-h-[60vh] md:min-h-175 rounded-3xl shadow-xl shadow-rose-100/20 in-[.modo-oscuro_&]:shadow-black/20 w-full animate-fade-in-up">
+          <div className="bg-white/60 backdrop-blur-sm in-[.modo-oscuro_&]:bg-slate-800/60 p-4 md:p-6 lg:p-8 border border-white/50 in-[.modo-oscuro_&]:border-slate-700/50 min-h-[60vh] md:min-h-[7００px] rounded-3xl shadow-xl shadow-rose-1００/2０ in-[.modo-oscuro_&]:shadow-black/2０ w-full">
             {pestañaActiva === 'ropa' && (
               <div className="flex flex-col h-full w-full">
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4 border-b border-rose-100/50 in-[.modo-oscuro_&]:border-slate-700/50 pb-6 w-full">
@@ -124,25 +122,29 @@ export default function App() {
                   </button>
                   <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                     <button onClick={() => setModalActivo('tipos')} className="bg-white/80 in-[.modo-oscuro_&]:bg-slate-700/80 text-slate-700 in-[.modo-oscuro_&]:text-slate-200 text-sm md:text-base font-bold py-3 px-4 rounded-xl cursor-pointer hover:bg-rose-50 in-[.modo-oscuro_&]:hover:bg-slate-600 flex-1 xl:flex-none text-center shadow-sm border border-rose-100 in-[.modo-oscuro_&]:border-slate-600 active:scale-95 transition-transform">Tipos</button>
-                    <button onClick={() => setModalActivo('categorias')} className="bg-white/80 in-[.modo-oscuro_&]:bg-slate-700/80 text-slate-700 in-[.modo-oscuro_&]:text-slate-200 text-sm md:text-base font-bold py-3 px-4 rounded-xl cursor-pointer hover:bg-rose-50 in-[.modo-oscuro_&]:hover:bg-slate-600 flex-1 xl:flex-none text-center shadow-sm border border-rose-100 in-[.modo-oscuro_&]:border-slate-600 active:scale-95 transition-transform">Prendas</button>
+                    <button onClick={() => setModalActivo('categorias')} className="bg-white/80 in-[.modo-oscuro_&]:bg-slate-700/80 text-slate-700 in-[.modo-oscuro_&]:text-slate-200 text-sm md:text-base font-bold py=3 px=4 rounded-xl cursor-pointer hover:bg-rose=5０ in-[.modoOscuro_&]:hover:bg-slate=6０ flex=1 xl:flex-none text-center shadow-sm border border=rose=1００ in-[.modoOscuro_&]:border-slate=6００ active:scale=95 transition-transform">Prendas</button>
                   </div>
                 </div>
                 <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} key={`g-${actualizaciones}`} />
               </div>
             )}
-            
             {pestañaActiva === 'conjuntos' && <VistaConjuntos onCrearMaleta={() => setModalActivo('crear_maleta')} key={`c-${actualizaciones}`} />}
           </div>
         </main>
 
+        {/* ESTRUCTURA BOTTOM SHEET (Hoja Inferior) */}
         {modalActivo && (
-          <div className="fixed inset-0 bg-rose-900/20 in-[.modo-oscuro_&]:bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-md">
-            <div className="bg-white/95 in-[.modo-oscuro_&]:bg-slate-800/95 border border-white/50 in-[.modo-oscuro_&]:border-slate-700 rounded-3xl shadow-2xl shadow-rose-900/20 in-[.modo-oscuro_&]:shadow-black/50 w-full max-w-2xl p-6 relative max-h-[95vh] overflow-y-auto animate-pop-in">
-              <button onClick={cerrarModal} className="absolute top-4 right-4 bg-rose-50 in-[.modo-oscuro_&]:bg-slate-700 text-slate-400 hover:text-rose-500 in-[.modo-oscuro_&]:hover:text-rose-300 w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg cursor-pointer transition-all active:scale-90">✕</button>
+          <div className="fixed inset-0 bg-rose-900/30 in-[.modo-oscuro_&]:bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm transition-opacity">
+            <div className="bg-white/95 in-[.modo-oscuro_&]:bg-slate-800/95 border-t sm:border border-white/50 in-[.modo-oscuro_&]:border-slate-700 rounded-t-4xl sm:rounded-3xl shadow-2xl shadow-rose-900/30 in-[.modo-oscuro_&]:shadow-black/50 w-full max-w-2xl p-6 sm:p-8 relative max-h-[90vh] overflow-y-auto animate-slide-up">
+              
+              {/* Barra de arrastre visual (Indicador móvil) */}
+              <div className="w-12 h-1.5 bg-slate-300 in-[.modo-oscuro_&]:bg-slate-600 rounded-full mx-auto mb-6 sm:hidden"></div>
+              
+              <button onClick={cerrarModal} className="absolute top-6 right-6 bg-rose-50 in-[.modo-oscuro_&]:bg-slate-700 text-slate-400 hover:text-rose-500 in-[.modo-oscuro_&]:hover:text-rose-300 w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg cursor-pointer transition-all active:scale-90">✕</button>
               
               {modalActivo === 'formulario' && (
                 <>
-                  <h2 className="text-xl md:text-2xl font-bold mb-6 border-b border-rose-100 in-[.modo-oscuro_&]:border-slate-700 pb-2 pr-8 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300">Añadir Nueva Prenda</h2>
+                  <h2 className="text-xl md:text-2xl font-bold mb-6 border-b border-rose-100 in-[.modo-oscuro_&]:border-slate-700 pb-2 pr-8 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300">Añadir Prenda</h2>
                   <FormularioPrenda onExito={() => { cerrarModal(); recargarVistas(); }} />
                 </>
               )}
@@ -156,22 +158,22 @@ export default function App() {
 
               {modalActivo === 'crear_maleta' && (
                 <>
-                  <h2 className="text-xl md:text-2xl font-bold mb-2 border-b border-rose-100 in-[.modo-oscuro_&]:border-slate-700 pb-2 pr-8 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300">Diseñar Nueva Maleta</h2>
+                  <h2 className="text-xl md:text-2xl font-bold mb-2 border-b border-rose-100 in-[.modo-oscuro_&]:border-slate-700 pb-2 pr-8 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300">Diseñar Maleta</h2>
                   <FormularioMaleta onExito={() => { cerrarModal(); recargarVistas(); }} onCancelar={cerrarModal} />
                 </>
               )}
 
               {modalActivo === 'crear_conjunto' && (
-                <form onSubmit={guardarConjunto} className="flex flex-col gap-4 mt-4">
+                <form onSubmit={guardarConjunto} className="flex flex-col gap-4 mt-2">
                   <h2 className="text-xl md:text-2xl font-bold mb-4 border-b border-rose-100 in-[.modo-oscuro_&]:border-slate-700 pb-2 text-teal-600 in-[.modo-oscuro_&]:text-indigo-300">Guardar Conjunto</h2>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200 mb-1">Asignar a Maleta:</label>
+                    <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200 mb-1">Destino / Maleta:</label>
                     <select name="maletaId" required className="w-full p-3 rounded-xl bg-rose-50 in-[.modo-oscuro_&]:bg-slate-700 border border-rose-200 in-[.modo-oscuro_&]:border-slate-600 cursor-pointer text-slate-800 in-[.modo-oscuro_&]:text-slate-100 outline-none focus:ring-2 focus:ring-teal-400">
                       {maletasDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200 mb-1">Nombre del Conjunto:</label>
+                    <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200 mb-1">Nombre del Outfit:</label>
                     <input type="text" name="nombreConjunto" required placeholder="Ej. Cena de gala..." className="w-full p-3 rounded-xl border border-rose-200 in-[.modo-oscuro_&]:border-slate-600 bg-rose-50 in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 in-[.modo-oscuro_&]:text-slate-100 outline-none focus:ring-2 focus:ring-teal-400" />
                   </div>
                   <button type="submit" className="mt-4 bg-teal-400 in-[.modo-oscuro_&]:bg-indigo-500 text-slate-900 in-[.modo-oscuro_&]:text-white font-bold py-3 rounded-xl cursor-pointer hover:bg-teal-500 in-[.modo-oscuro_&]:hover:bg-indigo-400 shadow-lg transition-transform active:scale-95">

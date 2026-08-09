@@ -6,6 +6,10 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
+  const [limiteVisibles, setLimiteVisibles] = useState(18)
+  
+  // Estado para la ventana de confirmación personalizada
+  const [dialogoConfirmacion, setDialogoConfirmacion] = useState(null)
 
   useEffect(() => {
     async function obtenerPrendas() {
@@ -19,19 +23,26 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
     obtenerPrendas()
   }, [])
 
+  useEffect(() => { setLimiteVisibles(18) }, [busqueda])
+
   function alternarSeleccion(id) {
     if (seleccionadas.includes(id)) setSeleccionadas(seleccionadas.filter(item => item !== id))
     else setSeleccionadas([...seleccionadas, id])
   }
 
-  async function eliminarPrenda(id, urlImagen, e) {
+  function solicitarEliminacionPrenda(id, urlImagen, e) {
     e.stopPropagation()
-    if (!confirm('¿Eliminar prenda permanentemente?')) return
-    await supabase.from('prendas').delete().eq('id', id)
-    const nombreArchivo = urlImagen.split('/').pop()
-    await supabase.storage.from('prendas').remove([nombreArchivo])
-    setPrendas(prendas.filter(p => p.id !== id))
-    setSeleccionadas(seleccionadas.filter(sel => sel !== id))
+    setDialogoConfirmacion({
+      mensaje: '¿Estás segura de eliminar esta prenda del armario?',
+      accion: async () => {
+        await supabase.from('prendas').delete().eq('id', id)
+        const nombreArchivo = urlImagen.split('/').pop()
+        await supabase.storage.from('prendas').remove([nombreArchivo])
+        setPrendas(prendas.filter(p => p.id !== id))
+        setSeleccionadas(seleccionadas.filter(sel => sel !== id))
+        setDialogoConfirmacion(null)
+      }
+    })
   }
 
   const prendasFiltradas = prendas.filter(prenda => {
@@ -40,8 +51,10 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
            (prenda.categorias?.nombre || '').toLowerCase().includes(term)
   })
 
+  const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
+
   return (
-    <div className="flex flex-col flex-1 animate-fade-in-up">
+    <div className="flex flex-col flex-1 animate-fade-in-up relative">
       <div className="mb-6 w-full">
         <input 
           type="text" 
@@ -53,45 +66,76 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
       </div>
 
       {seleccionadas.length >= 2 && (
-        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-6 w-full bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro_&]:from-indigo-500 in-[.modo-oscuro_&]:to-purple-500 text-white py-4 rounded-2xl font-bold shadow-lg shadow-teal-200/50 in-[.modo-oscuro_&]:shadow-indigo-900/50 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 animate-pop-in">
+        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-6 w-full bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro_&]:from-indigo-500 in-[.modo-oscuro_&]:to-purple-500 text-white py-4 rounded-2xl font-bold shadow-lg shadow-teal-200/50 cursor-pointer hover:scale-[1.02] active:scale-95 animate-pop-in">
           Guardar conjunto ({seleccionadas.length} prendas)
         </button>
       )}
 
       {cargando ? (
-        <p className="text-center text-slate-400 py-10">Cargando...</p>
-      ) : prendasFiltradas.length === 0 ? (
-        <p className="text-center text-slate-400 py-10 border-2 border-dashed border-rose-200/50 rounded-2xl">Vacio.</p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 overflow-y-auto p-2 pb-4 hide-scrollbar">
-          {prendasFiltradas.map((prenda, index) => (
-            <div 
-              key={prenda.id} 
-              onClick={() => alternarSeleccion(prenda.id)}
-              className={`group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 bg-white in-[.modo-oscuro_&]:bg-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-95 ${
-                seleccionadas.includes(prenda.id) 
-                ? 'ring-4 ring-teal-400 in-[.modo-oscuro_&]:ring-indigo-500 scale-[1.02] shadow-md' 
-                : 'border border-rose-100 in-[.modo-oscuro_&]:border-slate-700'
-              }`}
-              style={{ animationDelay: `${index * 50}ms` }} // Efecto cascada
-            >
-              {/* Contenedor de imagen con Zoom al hacer hover */}
-              <div className="h-44 w-full bg-rose-50 in-[.modo-oscuro_&]:bg-slate-700 overflow-hidden">
-                <img src={prenda.imagen_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={prenda.nombre} />
-              </div>
-
-              {/* Botones de acción (Aparecen con rebote) */}
-              <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <button onClick={(e) => eliminarPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 in-[.modo-oscuro_&]:bg-slate-800/95 text-red-500 hover:bg-red-500 hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-md text-xs cursor-pointer transition-all active:scale-90" title="Eliminar">✕</button>
-                <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 in-[.modo-oscuro_&]:bg-slate-800/95 text-teal-500 in-[.modo-oscuro_&]:text-indigo-400 hover:bg-teal-500 in-[.modo-oscuro_&]:hover:bg-indigo-500 hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-md text-sm cursor-pointer transition-all active:scale-90" title="Editar">✎</button>
-              </div>
-
-              <div className="p-4 bg-white/90 backdrop-blur in-[.modo-oscuro_&]:bg-slate-800/90 z-10 relative">
-                <p className="font-bold text-slate-800 in-[.modo-oscuro_&]:text-slate-100 text-sm truncate">{prenda.nombre}</p>
-                <p className="text-xs text-slate-400 in-[.modo-oscuro_&]:text-slate-400 mt-1 capitalize truncate">{prenda.categorias?.nombre}</p>
-              </div>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="rounded-3xl aspect-square bg-white/50 in-[.modo-oscuro_&]:bg-slate-700/50 animate-shimmer overflow-hidden shadow-sm"></div>
           ))}
+        </div>
+      ) : prendasFiltradas.length === 0 ? (
+        <p className="text-center text-slate-400 py-10 border-2 border-dashed border-rose-200/50 rounded-2xl">Vacío.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 overflow-y-auto p-2 pb-4 hide-scrollbar">
+            {prendasVisibles.map((prenda, index) => (
+              <div 
+                key={prenda.id} 
+                onClick={() => alternarSeleccion(prenda.id)}
+                className={`group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 bg-white in-[.modo-oscuro_&]:bg-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-95 ${
+                  seleccionadas.includes(prenda.id) 
+                  ? 'ring-4 ring-teal-400 in-[.modo-oscuro_&]:ring-indigo-500 scale-[1.02] shadow-md' 
+                  : 'border border-rose-100 in-[.modo-oscuro_&]:border-slate-700'
+                }`}
+                style={{ animationDelay: `${(index % 18) * 40}ms` }}
+              >
+                {/* Contenedor Cuadrado con Object-Contain */}
+                <div className="aspect-square w-full bg-rose-50/30 in-[.modo-oscuro_&]:bg-slate-700/50 relative flex items-center justify-center p-2">
+                  <img src={prenda.imagen_url} className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" alt={prenda.nombre} />
+                  
+                  {seleccionadas.includes(prenda.id) && (
+                    <div className="absolute top-2 left-2 bg-teal-400 in-[.modo-oscuro_&]:bg-indigo-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-md animate-pop-in z-10">✓</div>
+                  )}
+                </div>
+
+                {/* Botones de acción restaurados (Hover/Tap) */}
+                <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 in-[.modo-oscuro_&]:bg-slate-800/95 text-red-500 hover:bg-red-500 hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-md text-xs cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro_&]:border-slate-600">✕</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 in-[.modo-oscuro_&]:bg-slate-800/95 text-teal-500 in-[.modo-oscuro_&]:text-indigo-400 hover:bg-teal-500 in-[.modo-oscuro_&]:hover:bg-indigo-500 hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-md text-sm cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro_&]:border-slate-600">✎</button>
+                </div>
+
+                <div className="p-3 bg-white/90 backdrop-blur in-[.modo-oscuro_&]:bg-slate-800/90 z-10 relative border-t border-rose-50 in-[.modo-oscuro_&]:border-slate-700">
+                  <p className="font-bold text-slate-800 in-[.modo-oscuro_&]:text-slate-100 text-sm truncate">{prenda.nombre}</p>
+                  <p className="text-xs text-slate-400 in-[.modo-oscuro_&]:text-slate-400 mt-1 capitalize truncate">{prenda.categorias?.nombre}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {limiteVisibles < prendasFiltradas.length && (
+            <div className="w-full flex justify-center mt-6 mb-4">
+              <button onClick={() => setLimiteVisibles(prev => prev + 18)} className="bg-white/80 in-[.modo-oscuro_&]:bg-slate-700/80 text-slate-700 in-[.modo-oscuro_&]:text-slate-200 font-bold py-3 px-8 rounded-full shadow-sm active:scale-95 border border-rose-100 in-[.modo-oscuro_&]:border-slate-600">
+                Cargar más ↓
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Ventana Modal de Confirmación */}
+      {dialogoConfirmacion && (
+        <div className="fixed inset-0 bg-slate-900/40 in-[.modo-oscuro_&]:bg-black/60 flex items-center justify-center z-100 p-4 backdrop-blur-sm animate-fade-in-up">
+          <div className="bg-white in-[.modo-oscuro_&]:bg-slate-800 border border-rose-100 in-[.modo-oscuro_&]:border-slate-700 rounded-3xl shadow-2xl p-6 max-w-sm w-full text-center">
+            <h3 className="text-xl font-bold text-slate-800 in-[.modo-oscuro_&]:text-slate-100 mb-6">{dialogoConfirmacion.mensaje}</h3>
+            <div className="flex gap-4 justify-center">
+              <button onClick={dialogoConfirmacion.accion} className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl flex-1 active:scale-95 transition-transform shadow-md">Eliminar</button>
+              <button onClick={() => setDialogoConfirmacion(null)} className="bg-slate-100 hover:bg-slate-200 in-[.modo-oscuro_&]:bg-slate-700 in-[.modo-oscuro_&]:hover:bg-slate-600 text-slate-800 in-[.modo-oscuro_&]:text-slate-200 font-bold py-3 px-6 rounded-xl flex-1 active:scale-95 transition-transform">Cancelar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,1 +1,44 @@
 @import "tailwindcss";
+/* Corrección automática para campos de formulario en Modo Oscuro */
+.modo-oscuro input,
+.modo-oscuro select,
+.modo-oscuro textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+.modo-oscuro input::placeholder { color: #94a3b8 !important; }
+
+/* 1. Shimmer Effect (Skeleton Loading) */
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(to right, rgba(225,29,72,0.05) 4%, rgba(225,29,72,0.15) 25%, rgba(225,29,72,0.05) 36%);
+  background-size: 1000px 100%;
+}
+.modo-oscuro .animate-shimmer {
+  background: linear-gradient(to right, rgba(255,255,255,0.02) 4%, rgba(255,255,255,0.08) 25%, rgba(255,255,255,0.02) 36%);
+  background-size: 1000px 100%;
+}
+
+/* 2. Bottom Sheet Slide (Estilo iOS) */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slideUpSheet 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 3. Utilidades Generales */
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.9); }
+  70% { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-pop-in { animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
