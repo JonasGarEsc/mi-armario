@@ -30,13 +30,7 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
         <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200">
           Nombre Descriptivo (Ej. Pantalón negro cuero)
         </label>
-        <input 
-          type="text" 
-          required 
-          value={nombre} 
-          onChange={e => setNombre(e.target.value)} 
-          className="border border-rose-200 in-[.modo-oscuro_&]:border-slate-700 w-full p-3 rounded-xl bg-white in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 in-[.modo-oscuro_&]:text-slate-100 outline-none focus:ring-2 focus:ring-teal-400 in-[.modo-oscuro_&]:focus:ring-indigo-400 mt-1 shadow-sm" 
-        />
+        <input type="text" autoComplete="off" required value={nombre} onChange={e => setNombre(e.target.value)} className="border border-rose-200 in-[.modo-oscuro_&]:border-slate-700 w-full p-3 rounded-xl bg-white in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 in-[.modo-oscuro_&]:text-slate-100 outline-none focus:ring-2 focus:ring-teal-400 in-[.modo-oscuro_&]:focus:ring-indigo-400 mt-1 shadow-sm" />
       </div>
 
       <div className="flex gap-4 mt-4">

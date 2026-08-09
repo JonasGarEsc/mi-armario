@@ -152,7 +152,7 @@ export default function App() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200 mb-1">Nombre del Outfit:</label>
-                    <input type="text" name="nombreConjunto" required placeholder="Ej. Cena de gala..." className="w-full p-3 rounded-xl border border-rose-200 in-[.modo-oscuro_&]:border-slate-600 bg-rose-50 in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 outline-none focus:ring-2 focus:ring-teal-400" />
+                    <input type="text" name="nombreConjunto" autoComplete="off" required placeholder="Ej. Cena de gala..." className="w-full p-3 rounded-xl border border-rose-200 in-[.modo-oscuro_&]:border-slate-600 bg-rose-50 in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 outline-none focus:ring-2 focus:ring-teal-400" />
                   </div>
                   <button type="submit" className="mt-4 bg-teal-400 in-[.modo-oscuro_&]:bg-indigo-500 text-slate-900 in-[.modo-oscuro_&]:text-white font-bold py-3 rounded-xl cursor-pointer hover:bg-teal-500 shadow-lg transition-transform active:scale-95">
                     Guardar

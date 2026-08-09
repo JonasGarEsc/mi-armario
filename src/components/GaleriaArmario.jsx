@@ -90,7 +90,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
                 </div>
 
                 {/* Botones de acción reducidos */}
-                <div className="absolute top-1 right-1 md:top-2 md:right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                <div className="absolute top-1 right-1 md:top-2 md:right-2 flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 z-20">
                   <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 text-red-500 hover:bg-red-500 hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-xs cursor-pointer transition-all active:scale-90 border border-rose-100">✕</button>
                   <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 text-teal-500 hover:bg-teal-500 hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-sm cursor-pointer transition-all active:scale-90 border border-rose-100">✎</button>
                 </div>

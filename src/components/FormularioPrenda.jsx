@@ -109,7 +109,7 @@ export default function FormularioPrenda({ onExito }) {
 
       <div>
         <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro]:text-slate-200">2. Nombre Descriptivo (Ej. Pantalón negro cuero)</label>
-        <input type="text" name="nombrePrenda" required className="border border-rose-200 in-[.modo-oscuro]:border-slate-700 w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 bg-white in-[.modo-oscuro]:bg-slate-700 text-slate-800 in-[.modo-oscuro]:text-slate-100 shadow-sm mt-1" />
+        <input type="text" name="nombrePrenda" autoComplete="off" required className="border border-rose-200 in-[.modo-oscuro_&]:border-slate-700 w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 bg-white in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 in-[.modo-oscuro_&]:text-slate-100 shadow-sm mt-1" />
       </div>
       
       <div className="grid grid-cols-2 gap-4">

@@ -157,7 +157,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-10 md:gap-y-16 gap-x-2 md:gap-x-6 pt-6 md:pt-12 px-1">
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative group flex flex-col items-center justify-end w-full animate-pop-in">
-              <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="absolute -top-4 -right-1 md:-top-6 md:-right-2 z-50 opacity-0 group-hover:opacity-100 bg-white text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 active:scale-90 transition-all text-[10px] md:text-base">✕</button>
+              <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="absolute -top-4 -right-1 md:-top-6 md:-right-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 bg-white text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 active:scale-90 transition-all text-[10px] md:text-base">✕</button>
 
               <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-17.5 md:max-w-41.25 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-500 hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl">
                  <div className="absolute -top-3 md:-top-7 left-1/2 -translate-x-1/2 w-8 md:w-20 h-3 md:h-7 flex justify-between z-0">
@@ -199,7 +199,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 px-1 w-full">
           {itemsFiltrados.map((conj, i) => (
             <div key={conj.id} className="relative border border-white/50 p-2 md:p-6 rounded-xl md:rounded-4xl bg-white/50 backdrop-blur-md shadow-lg group animate-fade-in-up w-full flex flex-col">
-              <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="absolute top-1.5 right-1.5 md:top-5 md:right-5 opacity-0 group-hover:opacity-100 bg-white text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md active:scale-90 z-50 text-[10px] md:text-base">✕</button>
+              <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="absolute top-1.5 right-1.5 md:top-5 md:right-5 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 bg-white text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md active:scale-90 z-50 text-[10px] md:text-base">✕</button>
               
               <h3 className="font-extrabold text-xs md:text-xl mb-2 md:mb-4 text-slate-800 pl-1 truncate w-[85%]">{conj.nombre}</h3>
               
