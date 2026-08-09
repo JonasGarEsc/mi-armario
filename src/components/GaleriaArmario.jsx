@@ -35,7 +35,9 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   function solicitarEliminacionPrenda(id, urlImagen, e) {
     e.stopPropagation(); vibrar(50);
     setDialogoConfirmacion({ id, urlImagen })
-    setTimeout(() => setDialogoVisible(true), 10)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setDialogoVisible(true))
+    })
   }
 
   function cerrarDialogo() {
@@ -63,7 +65,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
 
   return (
-    <div className="flex flex-col flex-1 animate-fade-in-up relative">
+    <div className="flex flex-col flex-1 animate-fade-in-up relative transform-gpu">
       <div className="mb-4 md:mb-6 w-full">
         <input 
           type="text" 
@@ -76,7 +78,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
       </div>
 
       {seleccionadas.length >= 2 && (
-        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-4 md:mb-6 w-full bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro]:from-[#7E67C9] in-[.modo-oscuro]:to-[#9985D8] text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-teal-200/50 cursor-pointer active:scale-95 transition-all duration-300 text-sm md:text-base">
+        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-4 md:mb-6 w-full bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro]:from-[#7E67C9] in-[.modo-oscuro]:to-[#9985D8] text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-teal-200/50 cursor-pointer active:scale-95 transition-transform duration-300 text-sm md:text-base touch-manipulation">
           Guardar conjunto ({seleccionadas.length} prendas)
         </button>
       )}
@@ -94,18 +96,18 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
               <div 
                 key={prenda.id} 
                 onClick={() => alternarSeleccion(prenda.id)}
-                className={`group relative rounded-xl md:rounded-3xl overflow-hidden cursor-pointer transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] bg-white in-[.modo-oscuro]:bg-[#2A273F] shadow-sm hover:shadow-xl active:scale-[0.97] ${
+                className={`group relative rounded-xl md:rounded-3xl overflow-hidden cursor-pointer transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] bg-white in-[.modo-oscuro]:bg-[#2A273F] shadow-sm md:hover:shadow-xl active:scale-[0.97] md:hover:scale-[1.03] touch-manipulation will-change-transform ${
                   seleccionadas.includes(prenda.id) ? 'ring-2 md:ring-4 ring-teal-400 in-[.modo-oscuro]:ring-[#A394D6] scale-[1.02] shadow-md' : 'border border-rose-100 in-[.modo-oscuro]:border-[#433D60]'
                 }`}
               >
                 <div className="aspect-square w-full bg-rose-50/30 in-[.modo-oscuro]:bg-[#1F1D2B]/50 relative flex items-center justify-center p-1 md:p-2">
-                  <img src={prenda.imagen_url} loading="lazy" className="max-w-full max-h-full object-contain transition-transform duration-600 group-hover:scale-110" alt={prenda.nombre} />
+                  <img src={prenda.imagen_url} loading="lazy" className="max-w-full max-h-full object-contain transition-transform duration-600 lg:group-hover:scale-110" alt={prenda.nombre} />
                   {seleccionadas.includes(prenda.id) && <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-teal-400 in-[.modo-oscuro]:bg-[#A394D6] text-white w-4 h-4 md:w-6 md:h-6 rounded-full flex items-center justify-center font-bold text-[9px] md:text-xs shadow-md z-10 transition-transform duration-300 scale-in">✓</div>}
                 </div>
 
                 <div className="absolute top-1 right-1 md:top-2 md:right-2 flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 z-20">
-                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 in-[.modo-oscuro]:bg-[#2A273F]/95 text-red-500 hover:bg-red-500 hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-xs cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro]:border-[#433D60]">✕</button>
-                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 in-[.modo-oscuro]:bg-[#2A273F]/95 text-teal-500 in-[.modo-oscuro]:text-[#A394D6] hover:bg-teal-500 in-[.modo-oscuro]:hover:bg-[#A394D6] hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-sm cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro]:border-[#433D60]">✎</button>
+                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 in-[.modo-oscuro]:bg-[#2A273F]/95 text-red-500 md:hover:bg-red-500 md:hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-xs cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro]:border-[#433D60] touch-manipulation">✕</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 in-[.modo-oscuro]:bg-[#2A273F]/95 text-teal-500 in-[.modo-oscuro]:text-[#A394D6] md:hover:bg-teal-500 in-[.modo-oscuro]:md:hover:bg-[#A394D6] md:hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-sm cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro]:border-[#433D60] touch-manipulation">✎</button>
                 </div>
 
                 <div className="p-1.5 md:p-3 bg-white/90 in-[.modo-oscuro]:bg-[#2A273F]/90 backdrop-blur z-10 relative border-t border-rose-50 in-[.modo-oscuro]:border-[#322F44]">
@@ -118,7 +120,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
 
           {limiteVisibles < prendasFiltradas.length && (
             <div className="w-full flex justify-center mt-4 md:mt-6 mb-4">
-              <button onClick={() => setLimiteVisibles(prev => prev + 24)} className="bg-white/80 in-[.modo-oscuro]:bg-[#2A273F]/80 text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] font-bold py-2 md:py-3 px-6 md:px-8 rounded-full shadow-sm active:scale-95 transition-all border border-rose-100 in-[.modo-oscuro]:border-[#433D60] text-sm md:text-base">
+              <button onClick={() => setLimiteVisibles(prev => prev + 24)} className="bg-white/80 in-[.modo-oscuro]:bg-[#2A273F]/80 text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] font-bold py-2 md:py-3 px-6 md:px-8 rounded-full shadow-sm active:scale-95 transition-transform border border-rose-100 in-[.modo-oscuro]:border-[#433D60] text-sm md:text-base touch-manipulation">
                 Cargar más ↓
               </button>
             </div>
@@ -127,12 +129,12 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
       )}
 
       {dialogoConfirmacion && (
-        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[100] p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full text-center transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${dialogoVisible ? 'scale-100 translate-y-0 opacity-100' : 'scale-90 translate-y-4 opacity-0'}`}>
+        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <div className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full text-center transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${dialogoVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
             <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-5">¿Eliminar prenda del armario?</h3>
             <div className="flex gap-3 justify-center">
-              <button onClick={ejecutarEliminacion} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm">Eliminar</button>
-              <button onClick={cerrarDialogo} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] hover:bg-slate-200 in-[.modo-oscuro]:hover:bg-[#34304D] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm">Cancelar</button>
+              <button onClick={ejecutarEliminacion} className="bg-red-500 md:hover:bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Eliminar</button>
+              <button onClick={cerrarDialogo} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] md:hover:bg-slate-200 in-[.modo-oscuro]:md:hover:bg-[#34304D] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
             </div>
           </div>
         </div>

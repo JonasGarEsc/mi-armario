@@ -61,7 +61,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none [-webkit-tap-highlight-color:transparent] ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-grab active:scale-105'}`}
+      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none [-webkit-tap-highlight-color:transparent] will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-grab active:scale-105'}`}
     >
       <img src={cp.prendas.imagen_url} loading="lazy" draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md select-none" alt="Ropa" />
     </div>
@@ -123,13 +123,17 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   function solicitarEliminacionMaleta(id, e) {
     e.stopPropagation(); vibrar(50);
     setDialogoInfo({ tipo: 'maleta', id, mensaje: '¿Eliminar maleta y todos sus outfits?' })
-    setTimeout(() => setDialogoVisible(true), 10)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setDialogoVisible(true))
+    })
   }
 
   function solicitarEliminacionConjunto(id) {
     vibrar(50);
     setDialogoInfo({ tipo: 'conjunto', id, mensaje: '¿Eliminar outfit de la maleta?' })
-    setTimeout(() => setDialogoVisible(true), 10)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setDialogoVisible(true))
+    })
   }
 
   function cerrarDialogo() {
@@ -155,7 +159,9 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   function abrirMenuCopia(conj) {
     vibrar(30);
     setConjuntoADuplicar(conj)
-    setTimeout(() => setDuplicarVisible(true), 10)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setDuplicarVisible(true))
+    })
   }
 
   function cerrarMenuCopia() {
@@ -193,10 +199,10 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   const itemsFiltrados = !maletaActiva ? maletas.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase())) : conjuntos.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
 
   return (
-    <div className="flex flex-col h-full w-full animate-fade-in-up relative">
+    <div className="flex flex-col h-full w-full animate-fade-in-up relative transform-gpu">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3 md:gap-4 pb-4 md:pb-6 w-full">
         {maletaActiva ? (
-          <button onClick={() => { setMaletaActiva(null); vibrar(30); }} className="font-bold text-slate-700 in-[.modo-oscuro]:text-[#E0D8F0] bg-white/60 in-[.modo-oscuro]:bg-[#2A273F]/60 px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl cursor-pointer shadow-sm active:scale-95 transition-all border border-rose-200/50 in-[.modo-oscuro]:border-[#433D60] text-sm md:text-base">← Cerrar</button>
+          <button onClick={() => { setMaletaActiva(null); vibrar(30); }} className="font-bold text-slate-700 in-[.modo-oscuro]:text-[#E0D8F0] bg-white/60 in-[.modo-oscuro]:bg-[#2A273F]/60 px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl cursor-pointer shadow-sm active:scale-95 transition-transform border border-rose-200/50 in-[.modo-oscuro]:border-[#433D60] text-sm md:text-base touch-manipulation">← Cerrar</button>
         ) : (
           <h3 className="font-bold text-xl md:text-2xl text-transparent bg-clip-text bg-linear-to-r from-teal-600 to-rose-400 in-[.modo-oscuro]:from-[#A394D6] in-[.modo-oscuro]:to-[#C2A3FF] hidden sm:block">Mis maletas</h3>
         )}
@@ -204,7 +210,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         <div className="flex w-full sm:w-auto gap-2 md:gap-4">
           <input type="text" autoComplete="off" placeholder={!maletaActiva ? "Buscar maleta..." : "Buscar conjunto..."} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 border border-rose-200/50 in-[.modo-oscuro]:border-[#433D60] bg-white/80 in-[.modo-oscuro]:bg-[#2A273F]/80 text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] rounded-xl p-2.5 md:p-3 px-4 text-xs md:text-sm focus:ring-4 focus:ring-teal-400/30 in-[.modo-oscuro]:focus:ring-[#A394D6]/30 outline-none shadow-sm transition-all" />
           {!maletaActiva && (
-            <button onClick={onCrearMaleta} className="bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro]:from-[#7E67C9] in-[.modo-oscuro]:to-[#9985D8] text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold shadow-lg cursor-pointer hover:scale-105 active:scale-95 transition-all duration-300 text-xs md:text-base whitespace-nowrap">+ Preparar</button>
+            <button onClick={onCrearMaleta} className="bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro]:from-[#7E67C9] in-[.modo-oscuro]:to-[#9985D8] text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold shadow-lg cursor-pointer md:hover:scale-105 active:scale-95 transition-transform duration-300 text-xs md:text-base whitespace-nowrap touch-manipulation">+ Preparar</button>
           )}
         </div>
       </div>
@@ -230,9 +236,9 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-12 md:gap-y-16 gap-x-2 md:gap-x-6 pt-4 md:pt-12 px-1">
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative group flex flex-col items-center justify-end w-full animate-pop-in">
-              <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="absolute -top-4 -right-1 md:-top-6 md:-right-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-all duration-300 text-[10px] md:text-base">✕</button>
+              <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="absolute -top-4 -right-1 md:-top-6 md:-right-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-all duration-300 text-[10px] md:text-base touch-manipulation">✕</button>
 
-              <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-23.75 md:max-w-41.25 aspect-2/3 cursor-pointer transition-transform duration-400 hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl">
+              <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-23.75 md:max-w-41.25 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation">
                  <div className="absolute -top-3 md:-top-7 left-1/2 -translate-x-1/2 w-10 md:w-20 h-3 md:h-7 flex justify-between z-0">
                     <div className="w-0.75 md:w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:via-[#494463] in-[.modo-oscuro]:to-[#2E2A44] border-x border-slate-400 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
                     <div className="w-0.75 md:w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:via-[#494463] in-[.modo-oscuro]:to-[#2E2A44] border-x border-slate-400 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
@@ -250,7 +256,6 @@ export default function VistaConjuntos({ onCrearMaleta }) {
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 md:h-3 bg-slate-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 rotate-45 flex items-center justify-center"></div>
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 md:h-3 bg-slate-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
                     </div>
-                    
                     {m.conjuntos && m.conjuntos.length > 0 && (
                        <div className={`absolute bottom-2 md:bottom-5 w-[75%] left-[12.5%] flex flex-col justify-end z-20 transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-90'}`}>
                            <div className="w-[75%] h-2.5 md:h-4 bg-linear-to-b from-rose-500 to-rose-700 in-[.modo-oscuro]:from-[#A394D6] in-[.modo-oscuro]:to-[#7E67C9] rounded-sm border-t border-rose-400 in-[.modo-oscuro]:border-[#C2A3FF] shadow-[0_2px_4px_rgba(0,0,0,0.6)] mx-auto rotate-3 -mb-0.5 md:-mb-1"></div>
@@ -260,10 +265,8 @@ export default function VistaConjuntos({ onCrearMaleta }) {
                     )}
                  </div>
 
-                 <div 
-                   className="absolute top-0 left-0 w-full h-full rounded-lg md:rounded-[1.8rem] origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_1０px_rgba(０,０,０,０.６)]"
-                   style={{ transform: abriendo === m.id ? 'perspective(15００px) rotateY(-1０５deg)' : 'perspective(15００px) rotateY(０deg)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
-                 >
+                 {/* Animación de apertura en 3D con Tailwind estandarizado */}
+                 <div className={`absolute top-0 left-0 w-full h-full rounded-lg md:rounded-[1.8rem] origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)] transform-3d ${abriendo === m.id ? 'transform-[rotateY(-105deg)_translateX(-2px)]' : ''}`}>
                     <div className="absolute inset-0 bg-linear-to-br from-[#f8fafc] via-[#cbd5e1] to-[#94a3b8] in-[.modo-oscuro]:from-[#494463] in-[.modo-oscuro]:via-[#3B3852] in-[.modo-oscuro]:to-[#2A273F] rounded-lg md:rounded-[1.8rem] border border-white/60 in-[.modo-oscuro]:border-[#7A7593]/40 overflow-hidden">
                       <div className="absolute inset-0 flex justify-evenly px-0.5 md:px-2 py-1 md:py-4">
                           {[...Array(7)].map((_, i) => <div key={i} className="w-[1.5px] md:w-1.75 h-full bg-linear-to-r from-black/5 via-transparent to-white/60 in-[.modo-oscuro]:from-black/40 in-[.modo-oscuro]:via-transparent in-[.modo-oscuro]:to-white/10 rounded-full shadow-[1px_0_2px_rgba(0,0,0,0.1)]"></div>)}
@@ -283,8 +286,8 @@ export default function VistaConjuntos({ onCrearMaleta }) {
             <div key={conj.id} className="relative border border-white/50 in-[.modo-oscuro]:border-[#322F44]/50 p-6 rounded-4xl bg-white/50 in-[.modo-oscuro]:bg-[#1F1D2B]/50 backdrop-blur-md shadow-lg group animate-fade-in-up w-full flex flex-col">
               
               <div className="absolute top-5 right-5 flex gap-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
-                <button onClick={() => abrirMenuCopia(conj)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-teal-500 in-[.modo-oscuro]:text-[#A394D6] w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform" title="Copiar Outfit">⎘</button>
-                <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform" title="Eliminar Outfit">✕</button>
+                <button onClick={() => abrirMenuCopia(conj)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-teal-500 in-[.modo-oscuro]:text-[#A394D6] w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation" title="Copiar Outfit">⎘</button>
+                <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation" title="Eliminar Outfit">✕</button>
               </div>
 
               <h3 className="font-extrabold text-xl mb-4 text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] pl-1 pr-20 truncate">{conj.nombre}</h3>
@@ -299,10 +302,10 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         </div>
       )}
 
-      {/* Ventanas con transición de Bezier perfecta */}
+      {/* Ventanas con transición de Bezier perfecta y aceleración por GPU */}
       {conjuntoADuplicar && (
-        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${duplicarVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <form onSubmit={ejecutarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${duplicarVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
+        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${duplicarVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <form onSubmit={ejecutarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${duplicarVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
             <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-4">Duplicar Outfit</h3>
             <div className="mb-3">
               <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] mb-1">Nueva Maleta:</label>
@@ -315,20 +318,20 @@ export default function VistaConjuntos({ onCrearMaleta }) {
               <input type="text" name="nombreCopia" autoComplete="off" defaultValue={`${conjuntoADuplicar.nombre} (Copia)`} required className="w-full p-3 rounded-xl bg-white in-[.modo-oscuro]:bg-[#13111C] border border-rose-200 in-[.modo-oscuro]:border-[#433D60] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] outline-none transition-colors" />
             </div>
             <div className="flex gap-3 justify-center">
-              <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-[#7E67C9] text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm">Clonar</button>
-              <button type="button" onClick={cerrarMenuCopia} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm">Cancelar</button>
+              <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-[#7E67C9] text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Clonar</button>
+              <button type="button" onClick={cerrarMenuCopia} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
             </div>
           </form>
         </div>
       )}
 
       {dialogoInfo && (
-        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full text-center transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${dialogoVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
+        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <div className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full text-center transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${dialogoVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
             <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-5">{dialogoInfo.mensaje}</h3>
             <div className="flex gap-3 justify-center">
-              <button onClick={ejecutarEliminacion} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm">Eliminar</button>
-              <button onClick={cerrarDialogo} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm">Cancelar</button>
+              <button onClick={ejecutarEliminacion} className="bg-red-500 md:hover:bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm touch-manipulation">Eliminar</button>
+              <button onClick={cerrarDialogo} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
             </div>
           </div>
         </div>
