@@ -161,7 +161,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
     
     vibrar([50, 50])
     setConjuntoADuplicar(null)
-    if (maletaDestino == maletaActiva.id) setMaletaActiva({...maletaActiva}) // Fuerza recarga si es la misma maleta
+    if (maletaDestino == maletaActiva.id) setMaletaActiva({...maletaActiva}) 
   }
 
   function abrirMaleta(maleta) {
@@ -177,7 +177,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
 
   return (
     <div className="flex flex-col h-full w-full animate-fade-in-up relative">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3 md:gap-4 border-b border-rose-100/50 in-[.modo-oscuro_&]:border-[#322F44]/50 pb-4 md:pb-6 w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3 md:gap-4 pb-4 md:pb-6 w-full">
         {maletaActiva ? (
           <button onClick={() => { setMaletaActiva(null); vibrar(30); }} className="font-bold text-slate-700 in-[.modo-oscuro_&]:text-[#E0D8F0] bg-white/60 in-[.modo-oscuro_&]:bg-[#2A273F]/60 px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl cursor-pointer shadow-sm active:scale-95 border border-rose-200/50 in-[.modo-oscuro_&]:border-[#433D60] text-sm md:text-base">← Cerrar</button>
         ) : (
@@ -210,26 +210,43 @@ export default function VistaConjuntos({ onCrearMaleta }) {
       ) : itemsFiltrados.length === 0 ? (
         <p className="text-center text-slate-400 in-[.modo-oscuro_&]:text-[#7A7593] py-10 border-2 border-dashed border-rose-200/50 in-[.modo-oscuro_&]:border-[#433D60]/50 rounded-2xl text-sm md:text-base">Vacío.</p>
       ) : !maletaActiva ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-12 md:gap-y-16 gap-x-2 md:gap-x-6 pt-8 md:pt-12 px-1">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-12 md:gap-y-16 gap-x-2 md:gap-x-6 pt-4 md:pt-12 px-1">
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative group flex flex-col items-center justify-end w-full animate-pop-in">
               <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="absolute -top-4 -right-1 md:-top-6 md:-right-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 bg-white in-[.modo-oscuro_&]:bg-[#2A273F] text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro_&]:border-[#433D60] active:scale-90 transition-all text-[10px] md:text-base">✕</button>
 
-              <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-23.75 md:max-w-41.25 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-500 hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl">
+              <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-23.75 md:max-w-41.25 aspect-2/3 cursor-pointer transition-transform duration-500 hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl">
+                 
+                 {/* Asas y Ruedas */}
                  <div className="absolute -top-3 md:-top-7 left-1/2 -translate-x-1/2 w-10 md:w-20 h-3 md:h-7 flex justify-between z-0">
                     <div className="w-0.75 md:w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro_&]:from-[#3B3852] in-[.modo-oscuro_&]:via-[#494463] in-[.modo-oscuro_&]:to-[#2E2A44] border-x border-slate-400 in-[.modo-oscuro_&]:border-[#1F1D2B]"></div>
                     <div className="w-0.75 md:w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro_&]:from-[#3B3852] in-[.modo-oscuro_&]:via-[#494463] in-[.modo-oscuro_&]:to-[#2E2A44] border-x border-slate-400 in-[.modo-oscuro_&]:border-[#1F1D2B]"></div>
                     <div className="absolute top-0 left-0 w-full h-1 md:h-3 bg-linear-to-b from-slate-200 to-slate-400 in-[.modo-oscuro_&]:from-[#494463] in-[.modo-oscuro_&]:to-[#2E2A44] rounded-t-sm shadow-sm border border-slate-400/50 in-[.modo-oscuro_&]:border-[#1F1D2B]"></div>
                  </div>
+                 <div className="absolute -bottom-2 md:-bottom-4 left-1.5 md:left-3 w-3 md:w-5 h-3 md:h-6 bg-linear-to-b from-slate-300 to-slate-400 in-[.modo-oscuro_&]:from-[#3B3852] in-[.modo-oscuro_&]:to-[#1F1D2B] rounded-b-sm md:rounded-b-md z-0 flex flex-col items-center justify-end md:pb-0.5 shadow-md border-x border-slate-400/50 in-[.modo-oscuro_&]:border-[#13111C]">
+                   <div className="w-3.5 md:w-6 h-1 md:h-3 bg-[#111] rounded-full border border-slate-300 in-[.modo-oscuro_&]:border-[#494463] flex items-center justify-center md:-mb-1 shadow-lg"></div>
+                 </div>
+                 <div className="absolute -bottom-2 md:-bottom-4 right-1.5 md:right-3 w-3 md:w-5 h-3 md:h-6 bg-linear-to-b from-slate-300 to-slate-400 in-[.modo-oscuro_&]:from-[#3B3852] in-[.modo-oscuro_&]:to-[#1F1D2B] rounded-b-sm md:rounded-b-md z-0 flex flex-col items-center justify-end md:pb-0.5 shadow-md border-x border-slate-400/50 in-[.modo-oscuro_&]:border-[#13111C]">
+                   <div className="w-3.5 md:w-6 h-1 md:h-3 bg-[#111] rounded-full border border-slate-300 in-[.modo-oscuro_&]:border-[#494463] flex items-center justify-center md:-mb-1 shadow-lg"></div>
+                 </div>
 
+                 {/* Interior (Oscuro) */}
                  <div className="absolute top-0 left-0 w-full h-full bg-[#1e293b] in-[.modo-oscuro_&]:bg-[#13111C] rounded-lg md:rounded-[1.8rem] shadow-[inset_0_0_20px_rgba(0,0,0,1)] border border-slate-600 in-[.modo-oscuro_&]:border-[#494463] overflow-hidden z-10 flex flex-col justify-center">
                     <div className="absolute inset-1 md:inset-3 border border-slate-700/50 in-[.modo-oscuro_&]:border-[#494463]/30 rounded-md md:rounded-xl z-10 overflow-hidden pointer-events-none">
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 md:h-3 bg-slate-800 in-[.modo-oscuro_&]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 rotate-45 flex items-center justify-center"></div>
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 md:h-3 bg-slate-800 in-[.modo-oscuro_&]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
                     </div>
                     
+                    {/* Animación Ropa Interior */}
                     {m.conjuntos && m.conjuntos.length > 0 && (
-                       <div className={`absolute bottom-2 md:bottom-5 w-[75%] left-[12.5%] flex flex-col justify-end z-20 transition-all duration-800 delay-75 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${abriendo === m.id ? 'translate-x-0 opacity-100 scale-100' : '-translate-x-4 md:-translate-x-8 opacity-0 scale-90'}`}>
+                       <div 
+                         className="absolute bottom-2 md:bottom-5 w-[75%] left-[12.5%] flex flex-col justify-end z-20 transition-all duration-800 ease-out"
+                         style={{ 
+                            transform: abriendo === m.id ? 'translateY(0px) scale(1)' : 'translateY(15px) scale(0.8)',
+                            opacity: abriendo === m.id ? 1 : 0,
+                            transitionDelay: abriendo === m.id ? '150ms' : '0ms'
+                         }}
+                       >
                            <div className="w-[75%] h-2.5 md:h-4 bg-linear-to-b from-rose-500 to-rose-700 in-[.modo-oscuro_&]:from-[#A394D6] in-[.modo-oscuro_&]:to-[#7E67C9] rounded-sm border-t border-rose-400 in-[.modo-oscuro_&]:border-[#C2A3FF] shadow-[0_2px_4px_rgba(0,0,0,0.6)] mx-auto rotate-3 -mb-0.5 md:-mb-1"></div>
                            <div className="w-[90%] h-2.5 md:h-4 bg-linear-to-b from-slate-200 to-slate-400 in-[.modo-oscuro_&]:from-[#494463] in-[.modo-oscuro_&]:to-[#2E2A44] rounded-sm border-t border-white/80 in-[.modo-oscuro_&]:border-[#7A7593] shadow-[0_2px_4px_rgba(0,0,0,0.6)] mx-auto -rotate-2 -mb-0.5 md:-mb-1"></div>
                            <div className="w-full h-3.5 md:h-6 bg-linear-to-b from-teal-600 to-teal-800 in-[.modo-oscuro_&]:from-[#7E67C9] in-[.modo-oscuro_&]:to-[#433D60] rounded-sm border-t border-teal-400 in-[.modo-oscuro_&]:border-[#A394D6] shadow-[0_4px_8px_rgba(0,0,0,0.8)] mx-auto"></div>
@@ -237,11 +254,20 @@ export default function VistaConjuntos({ onCrearMaleta }) {
                     )}
                  </div>
 
-                 <div className={`absolute top-0 left-0 w-full h-full rounded-lg md:rounded-[1.8rem] origin-left transition-transform duration-800 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow_[3px_0_10px_rgba(0,0,0,0.4)] transform-3d ${abriendo === m.id ? 'transform-[rotateY(-1０5deg)_translateX(-2px)]' : ''}`}>
-                    <div className="absolute inset-0 bg-linear-to-br from_[#f8fafc] via_[#cbd5e1] to_[#94a3b8] in-[.modo-oscuro_&]:from_[#494463] in-[.modo-oscuro_&]:via_[#3B3852] in-[.modo-oscuro_&]:to_[#2A273F] rounded-lg md:rounded_[1.8rem] border border-white/6０ in-[.modo-oscuro_&]:border_[#7A7593]/4０ overflow-hidden">
-                      <div className="absolute inset-０ flex justify-evenly px-０.５ md:px-２ py-１ md:py-４">
-                          {[...Array(7)].map((_, i) => <div key={i} className="w_[1.5px] md:w_[7px] h-full bg-linear-to-r from-black/5 via-transparent to-white/6０ in-[.modo-oscuro_&]:from-black/4０ in-[.modo-oscuro_&]:via-transparent in-[.modo-oscuro_&]:to-white/1０ rounded-full shadow_[1px_０_2px_rgba(０,０,０,０.1)]"></div>)}
+                 {/* Tapa Exterior (Apertura Robusta Inline 3D) */}
+                 <div 
+                   className="absolute top-0 left-0 w-full h-full rounded-lg md:rounded-[1.8rem] origin-left transition-transform duration-700 ease-in-out z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)]"
+                   style={{
+                     transform: abriendo === m.id ? 'perspective(1500px) rotateY(-105deg)' : 'perspective(1500px) rotateY(0deg)',
+                     backfaceVisibility: 'hidden',
+                     WebkitBackfaceVisibility: 'hidden'
+                   }}
+                 >
+                    <div className="absolute inset-0 bg-linear-to-br from-[#f8fafc] via-[#cbd5e1] to-[#94a3b8] in-[.modo-oscuro_&]:from-[#494463] in-[.modo-oscuro_&]:via-[#3B3852] in-[.modo-oscuro_&]:to-[#2A273F] rounded-lg md:rounded-[1.8rem] border border-white/60 in-[.modo-oscuro_&]:border-[#7A7593]/40 overflow-hidden">
+                      <div className="absolute inset-0 flex justify-evenly px-0.5 md:px-2 py-1 md:py-4">
+                          {[...Array(7)].map((_, i) => <div key={i} className="w-[1.5px] md:w-1.75 h-full bg-linear-to-r from-black/5 via-transparent to-white/60 in-[.modo-oscuro_&]:from-black/40 in-[.modo-oscuro_&]:via-transparent in-[.modo-oscuro_&]:to-white/10 rounded-full shadow-[1px_0_2px_rgba(0,0,0,0.1)]"></div>)}
                       </div>
+                      <div className="absolute top-1.5 md:top-6 left-1/2 -translate-x-1/2 w-4 md:w-10 h-0.75 md:h-2.5 bg-linear-to-b from-slate-200 to-slate-400 in-[.modo-oscuro_&]:from-[#7A7593] in-[.modo-oscuro_&]:to-[#2E2A44] rounded-sm shadow-sm border border-slate-500/40 in-[.modo-oscuro_&]:border-[#1F1D2B]"></div>
                     </div>
                  </div>
               </div>
@@ -300,7 +326,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
             <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] mb-5">{dialogoConfirmacion.mensaje}</h3>
             <div className="flex gap-3 justify-center">
               <button onClick={dialogoConfirmacion.accion} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm">Eliminar</button>
-              <button onClick={() => setDialogoConfirmacion(null)} className="bg-slate-100 in-[.modo-oscuro_&]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm">Cancelar</button>
+              <button onClick={() => setDialogoConfirmacion(null)} className="bg-slate-100 in-[.modo-oscuro_&]:bg-[#2A273F] hover:bg-slate-200 in-[.modo-oscuro_&]:hover:bg-[#34304D] text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm">Cancelar</button>
             </div>
           </div>
         </div>
