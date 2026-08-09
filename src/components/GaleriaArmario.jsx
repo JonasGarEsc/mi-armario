@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { vibrar } from '../App'
 
 export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   const [prendas, setPrendas] = useState([])
@@ -11,18 +12,11 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
 
   useEffect(() => {
     async function obtenerPrendas() {
-      // Caché local para carga inmediata
       const cache = localStorage.getItem('cache_prendas')
-      if (cache) {
-        setPrendas(JSON.parse(cache))
-        setCargando(false)
-      }
+      if (cache) { setPrendas(JSON.parse(cache)); setCargando(false); }
       
       const { data } = await supabase.from('prendas').select('*, categorias(nombre, tipos(nombre))').order('creado_en', { ascending: false })
-      if (data) {
-        setPrendas(data)
-        localStorage.setItem('cache_prendas', JSON.stringify(data))
-      }
+      if (data) { setPrendas(data); localStorage.setItem('cache_prendas', JSON.stringify(data)); }
       setCargando(false)
     }
     obtenerPrendas()
@@ -31,12 +25,14 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   useEffect(() => { setLimiteVisibles(24) }, [busqueda])
 
   function alternarSeleccion(id) {
+    vibrar(30)
     if (seleccionadas.includes(id)) setSeleccionadas(seleccionadas.filter(item => item !== id))
     else setSeleccionadas([...seleccionadas, id])
   }
 
   function solicitarEliminacionPrenda(id, urlImagen, e) {
     e.stopPropagation()
+    vibrar(50)
     setDialogoConfirmacion({
       mensaje: '¿Eliminar prenda del armario?',
       accion: async () => {
@@ -48,6 +44,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
         localStorage.setItem('cache_prendas', JSON.stringify(nuevasPrendas))
         setSeleccionadas(seleccionadas.filter(sel => sel !== id))
         setDialogoConfirmacion(null)
+        vibrar([50, 50])
       }
     })
   }
@@ -67,7 +64,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
           placeholder="Buscar prenda..." 
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full border border-rose-200/50 in-[.modo-oscuro_&]:border-[#433D60] bg-white/80 backdrop-blur in-[.modo-oscuro_&]:bg-[#2A273F]/80 text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] rounded-xl p-3 md:p-4 text-sm md:text-base focus:ring-4 focus:ring-teal-400/30 in-[.modo-oscuro_&]:focus:ring-[#A394D6]/30 outline-none shadow-sm transition-all"
+          className="w-full border border-rose-200/50 in-[.modo-oscuro_&]:border-[#433D60] bg-white/80 backdrop-blur in-[.modo-oscuro_&]:bg-[#2A273F]/80 text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] rounded-xl p-3 md:p-4 text-sm md:text-base focus:ring-4 focus:ring-teal-400/30 in-[.modo-oscuro]:focus:ring-[#A394D6]/30 outline-none shadow-sm transition-all"
         />
       </div>
 
@@ -96,7 +93,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
                 style={{ animationDelay: `${(index % 18) * 40}ms` }}
               >
                 <div className="aspect-square w-full bg-rose-50/30 in-[.modo-oscuro_&]:bg-[#1F1D2B]/50 relative flex items-center justify-center p-1 md:p-2">
-                  <img src={prenda.imagen_url} className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" alt={prenda.nombre} />
+                  <img src={prenda.imagen_url} loading="lazy" className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" alt={prenda.nombre} />
                   {seleccionadas.includes(prenda.id) && <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-teal-400 in-[.modo-oscuro_&]:bg-[#A394D6] text-white w-4 h-4 md:w-6 md:h-6 rounded-full flex items-center justify-center font-bold text-[9px] md:text-xs shadow-md z-10">✓</div>}
                 </div>
 
@@ -124,7 +121,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
       )}
 
       {dialogoConfirmacion && (
-        <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-[100] p-4 backdrop-blur-sm animate-fade-in-up">
+        <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="bg-white in-[.modo-oscuro_&]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro_&]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full text-center">
             <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] mb-5">{dialogoConfirmacion.mensaje}</h3>
             <div className="flex gap-3 justify-center">
