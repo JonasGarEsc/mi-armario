@@ -68,7 +68,7 @@ export default function Gestores({ seccion, onCambio }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-2xl font-bold border-b pb-2">{titulos[seccion]}</h2>
+      <h2 className="text-2xl font-bold border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 pb-2 text-teal-600 in-[.modo-oscuro]:text-indigo-300">{titulos[seccion]}</h2>
       
       <div className="flex gap-4">
         <input 
@@ -76,58 +76,58 @@ export default function Gestores({ seccion, onCambio }) {
           placeholder="Buscar por nombre..." 
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 p-3 border rounded text-sm outline-none focus:ring-2 focus:ring-black"
+          className="flex-1 p-3 border border-rose-200 in-[.modo-oscuro]:border-slate-600 bg-white in-[.modo-oscuro]:bg-slate-700 text-slate-800 in-[.modo-oscuro]:text-slate-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 in-[.modo-oscuro]:focus:ring-indigo-400"
         />
         <button 
           onClick={() => setModoCreacion(!modoCreacion)} 
-          className="bg-black text-white px-4 py-2 rounded font-bold hover:bg-gray-800 cursor-pointer"
+          className="bg-teal-400 in-[.modo-oscuro]:bg-indigo-500 text-slate-900 in-[.modo-oscuro]:text-white px-5 py-2 rounded-xl font-bold hover:bg-teal-500 in-[.modo-oscuro]:hover:bg-indigo-400 cursor-pointer shadow"
         >
           {modoCreacion ? 'Cancelar' : '+ Crear Nuevo'}
         </button>
       </div>
 
       {modoCreacion && (
-        <form onSubmit={procesarCreacion} className="bg-gray-100 p-4 rounded border flex flex-col md:flex-row gap-4 items-end">
+        <form onSubmit={procesarCreacion} className="bg-rose-50/50 in-[.modo-oscuro]:bg-slate-700/50 p-4 rounded-xl border border-rose-100 in-[.modo-oscuro]:border-slate-600 flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
-            <label className="block text-xs font-bold mb-1">Nombre</label>
-            <input type="text" required value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} className="w-full p-2 border rounded bg-white text-sm" />
+            <label className="block text-xs font-bold mb-1 text-slate-700 in-[.modo-oscuro]:text-slate-200">Nombre</label>
+            <input type="text" required value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} className="w-full p-2 border border-rose-200 in-[.modo-oscuro]:border-slate-600 rounded bg-white in-[.modo-oscuro]:bg-slate-700 text-slate-800 in-[.modo-oscuro]:text-slate-100 text-sm" />
           </div>
           {seccion === 'categorias' && (
             <div className="flex-1 w-full">
-              <label className="block text-xs font-bold mb-1">Pertenece al Tipo</label>
-              <select required value={nuevoTipoId} onChange={e => setNuevoTipoId(e.target.value)} className="w-full p-2 border rounded bg-white text-sm cursor-pointer">
+              <label className="block text-xs font-bold mb-1 text-slate-700 in-[.modo-oscuro]:text-slate-200">Pertenece al Tipo</label>
+              <select required value={nuevoTipoId} onChange={e => setNuevoTipoId(e.target.value)} className="w-full p-2 border border-rose-200 in-[.modo-oscuro]:border-slate-600 rounded bg-white in-[.modo-oscuro]:bg-slate-700 text-slate-800 in-[.modo-oscuro]:text-slate-100 text-sm cursor-pointer">
                 <option value="">Seleccionar tipo...</option>
                 {tiposDisponibles.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
               </select>
             </div>
           )}
-          <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded font-bold hover:bg-blue-700 cursor-pointer w-full md:w-auto h-fit text-sm">
+          <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-indigo-500 text-slate-900 in-[.modo-oscuro]:text-white px-6 py-2 rounded font-bold hover:bg-teal-500 in-[.modo-oscuro]:hover:bg-indigo-400 cursor-pointer w-full md:w-auto h-fit text-sm shadow">
             Guardar
           </button>
         </form>
       )}
 
-      <div className="overflow-y-auto max-h-[400px]">
-        <table className="w-full text-left bg-white border">
-          <thead className="bg-gray-100 sticky top-0">
+      <div className="overflow-y-auto max-h-100 border border-rose-100 in-[.modo-oscuro]:border-slate-700 rounded-xl">
+        <table className="w-full text-left bg-white in-[.modo-oscuro]:bg-slate-800">
+          <thead className="bg-rose-50 in-[.modo-oscuro]:bg-slate-700 sticky top-0">
             <tr>
-              <th className="p-3 border-b text-sm">Nombre</th>
-              {seccion === 'categorias' && <th className="p-3 border-b text-sm">Pertenece al Tipo</th>}
-              <th className="p-3 border-b text-right text-sm">Acciones</th>
+              <th className="p-3 border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 text-sm text-slate-700 in-[.modo-oscuro]:text-slate-200">Nombre</th>
+              {seccion === 'categorias' && <th className="p-3 border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 text-sm text-slate-700 in-[.modo-oscuro]:text-slate-200">Pertenece al Tipo</th>}
+              <th className="p-3 border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 text-right text-sm text-slate-700 in-[.modo-oscuro]:text-slate-200">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {datosFiltrados.map(item => (
-              <tr key={item.id} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium text-sm">{item.nombre}</td>
-                {seccion === 'categorias' && <td className="p-3 text-gray-500 text-sm">{item.tipos?.nombre}</td>}
+              <tr key={item.id} className="border-b border-rose-50 in-[.modo-oscuro]:border-slate-700 hover:bg-rose-50/50 in-[.modo-oscuro]:hover:bg-slate-700/50">
+                <td className="p-3 font-medium text-sm text-slate-800 in-[.modo-oscuro]:text-slate-100">{item.nombre}</td>
+                {seccion === 'categorias' && <td className="p-3 text-slate-500 in-[.modo-oscuro]:text-slate-400 text-sm">{item.tipos?.nombre}</td>}
                 <td className="p-3 text-right">
-                  <button onClick={() => manejarBorrado(item.id)} className="text-red-600 font-bold text-xs cursor-pointer hover:underline border border-red-200 px-2 py-1 rounded bg-red-50">Borrar</button>
+                  <button onClick={() => manejarBorrado(item.id)} className="text-red-500 font-bold text-xs cursor-pointer hover:underline border border-red-200 in-[.modo-oscuro]:border-red-900 px-3 py-1 rounded-lg bg-red-50 in-[.modo-oscuro]:bg-red-950/40">Borrar</button>
                 </td>
               </tr>
             ))}
             {datosFiltrados.length === 0 && (
-              <tr><td colSpan="3" className="p-4 text-center text-gray-500">No hay registros.</td></tr>
+              <tr><td colSpan="3" className="p-4 text-center text-slate-400 in-[.modo-oscuro]:text-slate-500">No hay registros.</td></tr>
             )}
           </tbody>
         </table>

@@ -4,35 +4,18 @@ import { supabase } from '../supabase'
 export default function FormularioPrenda({ onExito }) {
   const [tipos, setTipos] = useState([])
   const [categorias, setCategorias] = useState([])
-  const [etiquetas, setEtiquetas] = useState([])
-  
   const [tipoSeleccionado, setTipoSeleccionado] = useState('')
-  const [etiquetasSeleccionadas, setEtiquetasSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
     async function cargarListas() {
       supabase.from('tipos').select('*').then(({data}) => setTipos(data || []))
       supabase.from('categorias').select('*').then(({data}) => setCategorias(data || []))
-      supabase.from('etiquetas').select('*').then(({data}) => setEtiquetas(data || []))
     }
     cargarListas()
   }, [])
 
   const categoriasFiltradas = categorias.filter(c => c.tipo_id === tipoSeleccionado)
-
-  function manejarSeleccionEtiqueta(e) {
-    const id = e.target.value
-    if (id && !etiquetasSeleccionadas.find(et => et.id === id)) {
-      const etiq = etiquetas.find(et => et.id === id)
-      setEtiquetasSeleccionadas([...etiquetasSeleccionadas, etiq])
-    }
-    e.target.value = '' // Resetear selector
-  }
-
-  function quitarEtiqueta(id) {
-    setEtiquetasSeleccionadas(etiquetasSeleccionadas.filter(et => et.id !== id))
-  }
 
   async function manejarEnvio(e) {
     e.preventDefault()
@@ -56,24 +39,16 @@ export default function FormularioPrenda({ onExito }) {
       
       const { data: { publicUrl } } = supabase.storage.from('prendas').getPublicUrl(nombreArchivo)
 
-      const { data: prendaData, error: errPrenda } = await supabase.from('prendas').insert([{
+      const { error: errPrenda } = await supabase.from('prendas').insert([{
         nombre,
         imagen_url: publicUrl,
-        categoria_id: categoriaId,
-        color_principal: form.color.value,
-        temporada: form.temporada.value
-      }]).select().single()
+        categoria_id: categoriaId
+      }])
 
-      if (errPrenda) throw new Error('Error al guardar registro.')
-
-      if (etiquetasSeleccionadas.length > 0) {
-        const rel = etiquetasSeleccionadas.map(et => ({ prenda_id: prendaData.id, etiqueta_id: et.id }))
-        await supabase.from('prenda_etiqueta').insert(rel)
-      }
+      if (errPrenda) throw new Error('Error al guardar registro en la base de datos.')
 
       form.reset()
       setTipoSeleccionado('')
-      setEtiquetasSeleccionadas([])
       if (onExito) onExito()
 
     } catch (error) {
@@ -86,64 +61,30 @@ export default function FormularioPrenda({ onExito }) {
   return (
     <form onSubmit={manejarEnvio} className="flex flex-col gap-4 text-left">
       <div>
-        <label className="block text-sm font-bold">1. Fotografía</label>
-        <input type="file" name="imagen" accept="image/*" required className="border w-full p-2" />
+        <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200">1. Fotografía</label>
+        <input type="file" name="imagen" accept="image/*" required className="border border-rose-200 in-[.modo-oscuro_&]:border-slate-700 w-full p-2 rounded-xl bg-white in-[.modo-oscuro_&]:bg-slate-700 cursor-pointer shadow-sm" />
       </div>
       <div>
-        <label className="block text-sm font-bold">2. Nombre Descriptivo</label>
-        <input type="text" name="nombrePrenda" required className="border w-full p-2" />
+        <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200">2. Nombre Descriptivo (Ej. Pantalón negro cuero)</label>
+        <input type="text" name="nombrePrenda" required className="border border-rose-200 in-[.modo-oscuro_&]:border-slate-700 w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 bg-white in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 in-[.modo-oscuro_&]:text-slate-100 shadow-sm" />
       </div>
-      
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-bold">3. Tipo</label>
-          <select value={tipoSeleccionado} onChange={(e) => setTipoSeleccionado(e.target.value)} required className="border w-full p-2 bg-white">
+          <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200">3. Tipo</label>
+          <select value={tipoSeleccionado} onChange={(e) => setTipoSeleccionado(e.target.value)} required className="border border-rose-200 in-[.modo-oscuro_&]:border-slate-700 w-full p-3 rounded-xl bg-white in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 in-[.modo-oscuro_&]:text-slate-100 cursor-pointer shadow-sm outline-none focus:ring-2 focus:ring-teal-400">
             <option value="">Seleccionar...</option>
             {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-bold">4. Prenda Específica</label>
-          <select name="categoria" required disabled={!tipoSeleccionado} className="border w-full p-2 bg-white">
+          <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-slate-200">4. Prenda Específica</label>
+          <select name="categoria" required disabled={!tipoSeleccionado} className="border border-rose-200 in-[.modo-oscuro_&]:border-slate-700 w-full p-3 rounded-xl bg-white in-[.modo-oscuro_&]:bg-slate-700 text-slate-800 in-[.modo-oscuro_&]:text-slate-100 cursor-pointer shadow-sm outline-none focus:ring-2 focus:ring-teal-400 disabled:opacity-50">
             <option value="">Seleccionar...</option>
             {categoriasFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
       </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-bold">5. Color</label>
-          <input type="text" name="color" required className="border w-full p-2" />
-        </div>
-        <div>
-          <label className="block text-sm font-bold">6. Temporada</label>
-          <select name="temporada" required className="border w-full p-2 bg-white">
-            <option value="Todas">Todas</option>
-            <option value="Verano">Verano</option>
-            <option value="Invierno">Invierno</option>
-            <option value="Entretiempo">Entretiempo</option>
-          </select>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-bold">7. Etiquetas</label>
-        <select onChange={manejarSeleccionEtiqueta} className="border w-full p-2 bg-white mb-2">
-          <option value="">Añadir etiqueta existente...</option>
-          {etiquetas.map(et => <option key={et.id} value={et.id}>{et.nombre}</option>)}
-        </select>
-        <div className="flex flex-wrap gap-2">
-          {etiquetasSeleccionadas.map(et => (
-            <span key={et.id} className="bg-gray-800 text-white text-xs px-2 py-1 rounded flex gap-1">
-              {et.nombre}
-              <button type="button" onClick={() => quitarEtiqueta(et.id)}>✕</button>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <button type="submit" disabled={cargando} className="bg-black text-white font-bold py-3 w-full mt-2">
+      <button type="submit" disabled={cargando} className="bg-teal-400 in-[.modo-oscuro_&]:bg-indigo-500 text-slate-900 in-[.modo-oscuro_&]:text-white font-bold py-3 w-full mt-4 rounded-xl cursor-pointer hover:bg-teal-500 in-[.modo-oscuro_&]:hover:bg-indigo-400 shadow-lg active:scale-95 transition-transform">
         {cargando ? 'Procesando...' : 'Guardar Prenda'}
       </button>
     </form>
