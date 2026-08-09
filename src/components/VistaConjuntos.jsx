@@ -3,10 +3,9 @@ import { supabase } from '../supabase'
 
 function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-  // Inicialización adaptada: ropa más arriba en móviles para que quepa en el lienzo pequeño
   const [pos, setPos] = useState({ 
     x: cp.pos_x ?? (isMobile ? 10 : 40), 
-    y: cp.pos_y ?? (index * (isMobile ? 40 : 90) + 10) 
+    y: cp.pos_y ?? (index * (isMobile ? 70 : 90) + 10) 
   })
   const [zIndex, setZIndex] = useState(cp.z_index ?? 10)
   const [isDragging, setIsDragging] = useState(false)
@@ -28,8 +27,8 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
     let newX = e.clientX - contenedor.left - offset.x
     let newY = e.clientY - contenedor.top - offset.y
 
-    // Tamaño de ropa reducido a la mitad en móviles (56px) para caber en 2 columnas
-    const itemSize = window.innerWidth >= 768 ? 128 : 56
+    // Tamaño aumentado a 96px (w-24) para que se vean grandes y claras
+    const itemSize = window.innerWidth >= 768 ? 128 : 96
     const maxAncho = contenedor.width - itemSize
     const maxAlto = contenedor.height - itemSize
 
@@ -54,7 +53,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-14 h-14 md:w-32 md:h-32 flex items-center justify-center select-none [-webkit-tap-highlight-color:transparent] ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform cursor-grab active:scale-105'}`}
+      className={`absolute w-24 h-24 md:w-32 md:h-32 flex items-center justify-center select-none [-webkit-tap-highlight-color:transparent] ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform cursor-grab active:scale-105'}`}
     >
       <img src={cp.prendas.imagen_url} draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md select-none" alt="Ropa" />
     </div>
@@ -196,16 +195,16 @@ export default function VistaConjuntos({ onCrearMaleta }) {
           ))}
         </div>
       ) : (
-        /* OUTFITS: 2 columnas en móvil (grid-cols-2) */
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-6 px-1 w-full">
+        /* OUTFITS: 2 columnas estrictas en móvil */
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 px-1 w-full">
           {itemsFiltrados.map((conj, i) => (
-            <div key={conj.id} className="relative border border-white/50 p-2 md:p-6 rounded-xl md:rounded-4xl bg-white/50 backdrop-blur-md shadow-lg group animate-fade-in-up w-full">
-              <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="absolute top-1.5 right-1.5 md:top-5 md:right-5 opacity-0 group-hover:opacity-100 bg-white text-red-500 w-5 h-5 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md active:scale-90 z-50 text-[10px] md:text-base">✕</button>
+            <div key={conj.id} className="relative border border-white/50 p-2 md:p-6 rounded-xl md:rounded-4xl bg-white/50 backdrop-blur-md shadow-lg group animate-fade-in-up w-full flex flex-col">
+              <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="absolute top-1.5 right-1.5 md:top-5 md:right-5 opacity-0 group-hover:opacity-100 bg-white text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md active:scale-90 z-50 text-[10px] md:text-base">✕</button>
               
-              <h3 className="font-extrabold text-[11px] md:text-xl mb-1.5 md:mb-4 text-slate-800 pl-1 truncate">{conj.nombre}</h3>
+              <h3 className="font-extrabold text-xs md:text-xl mb-2 md:mb-4 text-slate-800 pl-1 truncate w-[85%]">{conj.nombre}</h3>
               
-              {/* Altura del lienzo reducida en móviles para mejor experiencia */}
-              <div className="relative w-full h-55 md:h-150 bg-rose-50/30 rounded-lg md:rounded-3xl border-2 border-dashed border-rose-200 overflow-hidden shadow-inner touch-none">
+              {/* Altura del lienzo ampliada a 320px para organizar cómodamente en vertical */}
+              <div className="relative w-full h-80 md:h-150 bg-rose-50/30 rounded-lg md:rounded-3xl border-2 border-dashed border-rose-200 overflow-hidden shadow-inner touch-none">
                 {conj.conjunto_prenda.map((cp, idx) => (
                   <PrendaArrastrable key={cp.prendas.id} cp={cp} index={idx} maxZ={maxZ} setMaxZ={setMaxZ} onGuardarEstado={actualizarEstado} />
                 ))}
