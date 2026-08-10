@@ -12,7 +12,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Armario Virtual',
-        short_name: 'Armario',
+        short_name: 'Perletta',
         description: 'Gestor de armario y maletas',
         theme_color: '#0f172a',
         background_color: '#ffffff',
