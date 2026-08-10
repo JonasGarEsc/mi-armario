@@ -29,6 +29,9 @@ export default function App() {
   const [menuLateralVisible, setMenuLateralVisible] = useState(false)
   const [datosMenu, setDatosMenu] = useState([])
   const [tipoExpandido, setTipoExpandido] = useState(null)
+  
+  // Nuevo estado para el filtro de categorías
+  const [filtroActual, setFiltroActual] = useState(null)
 
   const [temaOscuro, setTemaOscuro] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -46,7 +49,6 @@ export default function App() {
     localStorage.setItem('tema_armario', temaOscuro ? 'dark' : 'light')
   }, [temaOscuro])
 
-  // Cargar datos del menú lateral dinámicamente
   useEffect(() => {
     async function cargarDatosMenu() {
       const { data: tipos } = await supabase.from('tipos').select('*').order('nombre')
@@ -172,6 +174,14 @@ export default function App() {
     setPestañaActiva('conjuntos')
   }
 
+  // Función para manejar el clic en un filtro
+  const aplicarFiltro = (idCategoria) => {
+    setFiltroActual(idCategoria)
+    setPestañaActiva('ropa') // Si estás en maletas, te lleva a la ropa para ver el filtro
+    setMenuLateralVisible(false)
+    vibrar(15)
+  }
+
   return (
     <div className="min-h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
       
@@ -191,7 +201,7 @@ export default function App() {
       <header className="bg-white/80 in-[.modo-oscuro]:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 sticky top-0 z-30 transition-colors duration-300">
         <div className="px-4 md:px-6 h-16 flex items-center justify-between max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-3">
-            <button onClick={() => { setMenuLateralVisible(true); vibrar(20); }} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors">
+            <button onClick={() => { setMenuLateralVisible(true); vibrar(20); }} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors touch-manipulation">
               <svg className="w-6 h-6 text-black in-[.modo-oscuro]:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
@@ -216,39 +226,61 @@ export default function App() {
                 <svg className="w-5 h-5 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
               </div>
             </button>
-            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-neutral-200 to-neutral-300 in-[.modo-oscuro]:from-neutral-800 in-[.modo-oscuro]:to-neutral-700 border-2 border-white in-[.modo-oscuro]:border-neutral-900 shadow-sm overflow-hidden flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
+            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-neutral-200 to-neutral-300 in-[.modo-oscuro]:from-neutral-800 in-[.modo-oscuro]:to-neutral-700 border-2 border-white in-[.modo-oscuro]:border-neutral-900 shadow-sm overflow-hidden flex items-center justify-center cursor-pointer active:scale-95 transition-transform touch-manipulation">
                <svg className="w-6 h-6 text-white in-[.modo-oscuro]:text-neutral-500 mt-2" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Menú Lateral Desplegable */}
+      {/* Menú Lateral Desplegable Funcional */}
       <div className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${menuLateralVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setMenuLateralVisible(false)}>
         <div {...swipeMenuLateral} className={`absolute top-0 left-0 h-full w-[80%] max-w-sm bg-white in-[.modo-oscuro]:bg-[#0a0a0a] shadow-2xl transform transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col ${menuLateralVisible ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="px-6 py-5 border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 flex justify-between items-center bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/30">
             <h2 className="text-xs font-extrabold tracking-widest text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase">Colección</h2>
-            <button onClick={() => setMenuLateralVisible(false)} className="text-neutral-400 active:scale-90 transition-transform">
+            <button onClick={() => setMenuLateralVisible(false)} className="text-neutral-400 active:scale-90 transition-transform touch-manipulation">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 hide-scrollbar">
+            
+            {/* Opción TODO para restablecer */}
+            <button 
+              onClick={() => aplicarFiltro(null)}
+              className={`text-left text-sm md:text-base tracking-[0.15em] uppercase transition-colors touch-manipulation ${filtroActual === null ? 'text-black in-[.modo-oscuro]:text-white font-bold' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400 font-light'}`}
+            >
+              TODO
+            </button>
+
             {datosMenu.length === 0 && <p className="text-sm text-neutral-500">Cargando...</p>}
             {datosMenu.map(tipo => (
               <div key={tipo.id} className="flex flex-col">
                 <button 
                   onClick={() => { setTipoExpandido(tipoExpandido === tipo.id ? null : tipo.id); vibrar(15); }}
-                  className={`text-left text-sm md:text-base font-light tracking-[0.15em] uppercase active:opacity-50 transition-colors ${tipoExpandido === tipo.id ? 'text-black in-[.modo-oscuro]:text-white font-medium' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400'}`}
+                  className={`text-left text-sm md:text-base font-light tracking-[0.15em] uppercase active:opacity-50 transition-colors touch-manipulation ${tipoExpandido === tipo.id ? 'text-black in-[.modo-oscuro]:text-white font-medium' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400'}`}
                 >
                   {tipo.nombre}
                 </button>
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${tipoExpandido === tipo.id ? 'max-h-125 mt-4 opacity-100 gap-4' : 'max-h-0 mt-0 opacity-0 gap-0'}`}>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${tipoExpandido === tipo.id ? 'max-h-125 mt-4 opacity-100 gap-3' : 'max-h-0 mt-0 opacity-0 gap-0'}`}>
                   {tipo.categorias.length === 0 && <span className="text-xs text-neutral-400 italic pl-4">Vacío</span>}
-                  {tipo.categorias.map(cat => (
-                    <span key={cat.id} className="text-[11px] md:text-xs font-medium text-neutral-500 in-[.modo-oscuro]:text-neutral-500 pl-4 tracking-wider uppercase border-l border-neutral-200 in-[.modo-oscuro]:border-neutral-800">
-                      {cat.nombre}
-                    </span>
-                  ))}
+                  
+                  {/* Botones de subcategorías interactivos */}
+                  {tipo.categorias.map(cat => {
+                    const estaSeleccionado = filtroActual === cat.id;
+                    return (
+                      <button 
+                        key={cat.id} 
+                        onClick={() => aplicarFiltro(cat.id)}
+                        className={`text-left text-[11px] md:text-xs tracking-wider uppercase py-1 transition-all touch-manipulation ${
+                          estaSeleccionado 
+                            ? 'border-l-2 border-black in-[.modo-oscuro]:border-white pl-3 text-black in-[.modo-oscuro]:text-white font-bold' 
+                            : 'border-l border-neutral-200 in-[.modo-oscuro]:border-neutral-800 pl-4 text-neutral-500 in-[.modo-oscuro]:text-neutral-500 font-medium active:text-neutral-700'
+                        }`}
+                      >
+                        {cat.nombre}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             ))}
@@ -263,13 +295,15 @@ export default function App() {
         >
           <div className="w-1/2 h-full flex flex-col overflow-y-auto hide-scrollbar p-3 md:p-6">
             <div className="flex gap-2 mb-5 shrink-0">
-              <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base">
+              <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">
                 + Nueva Prenda
               </button>
-              <button onClick={() => { abrirModal('tipos'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base">Tipos</button>
-              <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base">Prendas</button>
+              <button onClick={() => { abrirModal('tipos'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Tipos</button>
+              <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Prendas</button>
             </div>
-            <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} mostrarToast={mostrarToast} key={`g-${actualizaciones}`} />
+            
+            {/* Se le pasa el filtroActual a la galería */}
+            <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} mostrarToast={mostrarToast} filtroCategoria={filtroActual} key={`g-${actualizaciones}`} />
           </div>
 
           <div className="w-1/2 h-full flex flex-col overflow-y-auto hide-scrollbar p-3 md:p-6">
@@ -280,11 +314,11 @@ export default function App() {
 
       <nav className="fixed bottom-0 w-full bg-black text-white pb-safe z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.15)]">
         <div className="flex justify-around items-center h-16 max-w-7xl mx-auto">
-          <button onClick={() => { setPestañaActiva('ropa'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 ${pestañaActiva === 'ropa' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
+          <button onClick={() => { setPestañaActiva('ropa'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 touch-manipulation ${pestañaActiva === 'ropa' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2l2 4h4l2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 10h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10z" /></svg>
             <span className="text-[10px] font-bold tracking-wide uppercase">Ropa</span>
           </button>
-          <button onClick={() => { setPestañaActiva('conjuntos'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 ${pestañaActiva === 'conjuntos' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
+          <button onClick={() => { setPestañaActiva('conjuntos'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 touch-manipulation ${pestañaActiva === 'conjuntos' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
             <span className="text-[10px] font-bold tracking-wide uppercase">Maletas</span>
           </button>
@@ -318,7 +352,7 @@ export default function App() {
                     <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Nombre del Outfit:</label>
                     <input type="text" name="nombreConjunto" autoComplete="off" required placeholder="Ej. Casual día 1" className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm" />
                   </div>
-                  <button type="submit" className="mt-4 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-bold py-4 rounded-xl active:scale-[0.98] transition-transform text-lg">Guardar</button>
+                  <button type="submit" className="mt-4 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-bold py-4 rounded-xl active:scale-[0.98] transition-transform text-lg touch-manipulation">Guardar</button>
                 </form>
               )}
               

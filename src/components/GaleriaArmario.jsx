@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast }) {
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast, filtroCategoria }) {
   const [prendas, setPrendas] = useState([])
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -25,14 +25,17 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
     obtenerPrendas()
   }, [])
 
-  useEffect(() => { setLimiteVisibles(24) }, [busqueda])
+  useEffect(() => { setLimiteVisibles(24) }, [busqueda, filtroCategoria])
 
+  // Lógica actualizada: Combina la búsqueda por texto con el filtro del menú lateral
   const prendasFiltradas = prendas.filter(prenda => {
     const term = busqueda.toLowerCase()
-    return (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
+    const coincideBusqueda = (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
+    const coincideFiltro = filtroCategoria ? prenda.categoria_id === filtroCategoria : true
+    
+    return coincideBusqueda && coincideFiltro
   })
 
-  // Scroll Infinito: Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && limiteVisibles < prendasFiltradas.length) {
@@ -90,7 +93,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
       </div>
 
       {seleccionadas.length >= 2 && (
-        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-4 w-full bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black py-3 rounded-lg font-semibold active:scale-[0.98] transition-transform text-sm">
+        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-4 w-full bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black py-3 rounded-lg font-semibold active:scale-[0.98] transition-transform text-sm touch-manipulation">
           Crear Outfit ({seleccionadas.length})
         </button>
       )}
@@ -108,7 +111,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
               <div 
                 key={prenda.id} 
                 onClick={() => alternarSeleccion(prenda.id)}
-                className={`relative aspect-square cursor-pointer active:opacity-70 transition-opacity bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900 ${
+                className={`relative aspect-square cursor-pointer active:opacity-70 transition-opacity bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900 touch-manipulation ${
                   seleccionadas.includes(prenda.id) ? 'ring-2 ring-inset ring-black in-[.modo-oscuro]:ring-white' : ''
                 }`}
               >
@@ -121,13 +124,12 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
                 )}
 
                 <div className="absolute bottom-1 left-1 flex gap-1 z-10">
-                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-red-500 text-[10px] active:scale-90">✕</button>
-                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-black in-[.modo-oscuro]:text-white text-[10px] active:scale-90">✎</button>
+                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-red-500 text-[10px] active:scale-90 touch-manipulation">✕</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-black in-[.modo-oscuro]:text-white text-[10px] active:scale-90 touch-manipulation">✎</button>
                 </div>
               </div>
             ))}
           </div>
-          {/* Disparador de Scroll Infinito */}
           {limiteVisibles < prendasFiltradas.length && (
             <div ref={observadorReferencia} className="w-full h-10 my-4 flex justify-center items-center">
               <div className="w-5 h-5 border-2 border-neutral-300 border-t-black in-[.modo-oscuro]:border-neutral-700 in-[.modo-oscuro]:border-t-white rounded-full animate-spin"></div>
@@ -138,11 +140,11 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
 
       {dialogoConfirmacion && (
         <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 p-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-2xl p-6 w-full max-w-sm text-center transition-transform duration-300 ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
-            <h3 className="text-lg font-semibold mb-6">¿Eliminar prenda?</h3>
-            <div className="flex flex-col gap-2">
-              <button onClick={ejecutarEliminacion} className="w-full text-red-500 font-bold py-3 rounded-xl bg-red-50 in-[.modo-oscuro]:bg-red-950/30 active:opacity-70">Eliminar</button>
-              <button onClick={cerrarDialogo} className="w-full font-semibold py-3 rounded-xl active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-800">Cancelar</button>
+          <div className={`bg-white in-[.modo-oscuro]:bg-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm text-center transition-transform duration-300 transform-gpu ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
+            <h3 className="text-lg font-bold mb-6 tracking-tight">¿Eliminar prenda?</h3>
+            <div className="flex flex-col gap-3">
+              <button onClick={ejecutarEliminacion} className="w-full text-white font-bold py-3.5 rounded-xl bg-red-500 active:bg-red-600 transition-colors touch-manipulation">Eliminar</button>
+              <button onClick={cerrarDialogo} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-800 transition-colors touch-manipulation">Cancelar</button>
             </div>
           </div>
         </div>
