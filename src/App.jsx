@@ -202,8 +202,8 @@ export default function App() {
               </svg>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-lg md:text-xl font-extrabold tracking-tight leading-none">ARMARIO</h1>
-              <span className="text-[10px] md:text-xs font-semibold text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase tracking-widest mt-0.5">Gestor Inteligente</span>
+              <h1 className="text-lg md:text-xl font-extrabold tracking-tight leading-none">PERLETTA</h1>
+              <span className="text-[10px] md:text-xs font-semibold text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase tracking-widest mt-0.5">Gestion de mi armario</span>
             </div>
           </div>
 
