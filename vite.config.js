@@ -19,7 +19,7 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: '"C:\\Users\\jonas\\mi-armario\\public\\weno.png"',
+            src: '/weno.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'

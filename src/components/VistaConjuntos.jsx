@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
-import html2canvas from 'html2canvas'
+import { toPng } from 'html-to-image'
 
 function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -206,12 +206,16 @@ export default function VistaConjuntos({ onCrearMaleta }) {
     const elemento = document.getElementById(`lienzo-${id}`)
     if (!elemento) return
     try {
-      const canvas = await html2canvas(elemento, { useCORS: true, scale: 2, backgroundColor: null })
-      const url = canvas.toDataURL('image/png')
+      // Usamos la nueva librería moderna
+      const dataUrl = await toPng(elemento, { 
+        cacheBust: true, 
+        pixelRatio: 2,
+        skipFonts: true // Evita cuelgues con fuentes externas en móviles
+      })
       
-      // Si el navegador soporta compartir nativo (iOS / Android moderno)
+      // Lógica nativa de móviles
       if (navigator.share) {
-        const res = await fetch(url)
+        const res = await fetch(dataUrl)
         const blob = await res.blob()
         const file = new File([blob], `Outfit_${nombre.replace(/\s+/g, '_')}.png`, { type: 'image/png' })
         await navigator.share({
@@ -221,13 +225,13 @@ export default function VistaConjuntos({ onCrearMaleta }) {
       } else {
         // Fallback para PC
         const a = document.createElement('a')
-        a.href = url
+        a.href = dataUrl
         a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`
         a.click()
       }
       vibrar([30, 30])
     } catch (e) {
-      console.error(e)
+      console.error('Fallo en la exportación:', e)
       alert("Error al generar o compartir la imagen.")
     }
   }
