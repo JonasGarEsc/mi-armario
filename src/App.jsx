@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
+// Forzando actualizacion en Vercel
 import { useSwipeable } from 'react-swipeable'
 import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
