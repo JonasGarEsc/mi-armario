@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
-import { toPng } from 'html-to-image'
+import { toJpeg } from 'html-to-image'
 
 function WidgetClima({ destino }) {
   const [clima, setClima] = useState(null)
@@ -249,15 +249,15 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     const elemento = document.getElementById(`lienzo-${id}`)
     if (!elemento) return
     try {
-      const dataUrl = await toPng(elemento, { cacheBust: true, pixelRatio: 2, skipFonts: true })
+      const dataUrl = await toJpeg(elemento, { cacheBust: true, pixelRatio: 2, quality: 0.85, skipFonts: true })
       if (navigator.share) {
         const res = await fetch(dataUrl)
         const blob = await res.blob()
-        const file = new File([blob], `Outfit_${nombre.replace(/\s+/g, '_')}.png`, { type: 'image/png' })
+        const file = new File([blob], `Outfit_${nombre.replace(/\s+/g, '_')}.jpg`, { type: 'image/jpeg' })
         await navigator.share({ files: [file], title: `Outfit: ${nombre}` })
       } else {
         const a = document.createElement('a')
-        a.href = dataUrl; a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`; a.click()
+        a.href = dataUrl; a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.jpg`; a.click()
       }
       vibrar([30, 30])
     } catch (e) { mostrarToast("Error al exportar", "error") }
@@ -321,7 +321,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
       ) : itemsFiltrados.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">Vacío.</div>
       ) : !maletaActiva ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-2 gap-y-6 pt-2 pb-4 px-1">
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-2 gap-y-6 pt-2 pb-4 px-1">
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative flex flex-col items-center w-full">
               <div className="absolute -top-2 right-0 flex flex-col gap-1 z-20">
@@ -348,15 +348,15 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
                     </div>
                     
-                    <div className={`absolute inset-0 z-20 transition-all duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-75'}`}>
+                    <div className={`absolute inset-0 z-20 transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] delay-[150ms] ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-75'}`}>
                       {extraerImagenesMaleta(m).map((url, idx) => {
-                         const posiciones = [
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] -rotate-6 z-10",
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] rotate-12 z-20",
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75%] h-[75%] -rotate-12 z-30",
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] rotate-6 z-40"
-                         ]
-                         return <img key={idx} src={url} className={`absolute ${posiciones[idx]} object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.5)]`} alt="Prenda interior" />
+                        const posiciones = [
+                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] -rotate-6 z-10",
+                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] rotate-12 z-20",
+                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75%] h-[75%] -rotate-12 z-30",
+                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] rotate-6 z-40"
+                        ]
+                        return <img key={idx} src={`${url}?width=150&quality=70`} className={`absolute ${posiciones[idx]} object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.5)]`} alt="Prenda interior" />
                       })}
                     </div>
                  </div>
