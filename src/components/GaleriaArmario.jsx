@@ -2,15 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast, filtroCategoria }) {
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState([])
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [limiteVisibles, setLimiteVisibles] = useState(24)
-  
-  const [dialogoConfirmacion, setDialogoConfirmacion] = useState(null)
-  const [dialogoVisible, setDialogoVisible] = useState(false)
   const observadorReferencia = useRef(null)
 
   useEffect(() => {
@@ -31,7 +28,6 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
     const term = busqueda.toLowerCase()
     const coincideBusqueda = (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
     const coincideFiltro = filtroCategoria ? prenda.categoria_id === filtroCategoria : true
-    
     return coincideBusqueda && coincideFiltro
   })
 
@@ -52,28 +48,23 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
   }
 
   function solicitarEliminacionPrenda(id, urlImagen, e) {
-    e.stopPropagation(); vibrar(50);
-    setDialogoConfirmacion({ id, urlImagen })
-    requestAnimationFrame(() => requestAnimationFrame(() => setDialogoVisible(true)))
-  }
-
-  function cerrarDialogo() {
-    setDialogoVisible(false)
-    setTimeout(() => setDialogoConfirmacion(null), 300)
-  }
-
-  async function ejecutarEliminacion() {
-    const { id, urlImagen } = dialogoConfirmacion
-    await supabase.from('prendas').delete().eq('id', id)
-    const nombreArchivo = urlImagen.split('/').pop()
-    await supabase.storage.from('prendas').remove([nombreArchivo])
-    const nuevasPrendas = prendas.filter(p => p.id !== id)
-    setPrendas(nuevasPrendas)
-    localStorage.setItem('cache_prendas', JSON.stringify(nuevasPrendas))
-    setSeleccionadas(seleccionadas.filter(sel => sel !== id))
-    vibrar([50, 50])
-    cerrarDialogo()
-    mostrarToast("Prenda eliminada", "info")
+    e.stopPropagation()
+    setDialogoGlobal({
+      mensaje: '¿Eliminar prenda del armario?',
+      esDestructivo: true,
+      textoConfirmar: 'Eliminar',
+      onConfirm: async () => {
+        await supabase.from('prendas').delete().eq('id', id)
+        const nombreArchivo = urlImagen.split('/').pop()
+        await supabase.storage.from('prendas').remove([nombreArchivo])
+        const nuevasPrendas = prendas.filter(p => p.id !== id)
+        setPrendas(nuevasPrendas)
+        localStorage.setItem('cache_prendas', JSON.stringify(nuevasPrendas))
+        setSeleccionadas(seleccionadas.filter(sel => sel !== id))
+        vibrar([50, 50])
+        mostrarToast("Prenda eliminada", "info")
+      }
+    })
   }
 
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
@@ -134,18 +125,6 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
               <div className="w-5 h-5 border-2 border-neutral-300 border-t-black in-[.modo-oscuro]:border-neutral-700 in-[.modo-oscuro]:border-t-white rounded-full animate-spin"></div>
             </div>
           )}
-        </div>
-      )}
-
-      {dialogoConfirmacion && (
-        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 px-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-3xl p-6 w-full max-w-sm text-center transition-transform duration-300 transform-gpu ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
-            <h3 className="text-lg font-bold mb-6 tracking-tight">¿Eliminar prenda?</h3>
-            <div className="flex flex-col gap-3">
-              <button onClick={ejecutarEliminacion} className="w-full text-white font-bold py-3.5 rounded-xl bg-red-500 active:bg-red-600 transition-colors touch-manipulation">Eliminar</button>
-              <button onClick={cerrarDialogo} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-700 transition-colors touch-manipulation">Cancelar</button>
-            </div>
-          </div>
         </div>
       )}
     </div>

@@ -25,13 +25,13 @@ export default function App() {
 
   const [toasts, setToasts] = useState([])
   
-  // Estado y datos para el menú lateral
   const [menuLateralVisible, setMenuLateralVisible] = useState(false)
   const [datosMenu, setDatosMenu] = useState([])
   const [tipoExpandido, setTipoExpandido] = useState(null)
-  
-  // Nuevo estado para el filtro de categorías
   const [filtroActual, setFiltroActual] = useState(null)
+
+  // ESTADO GLOBAL DE DIÁLOGOS DE CONFIRMACIÓN
+  const [dialogoGlobal, setDialogoGlobal] = useState(null)
 
   const [temaOscuro, setTemaOscuro] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -72,11 +72,9 @@ export default function App() {
         const { data: prendas } = await supabase.from('prendas').select('imagen_url')
         if (!prendas) return
         const urlsActivas = prendas.map(p => p.imagen_url.split('/').pop())
-        
         const { data: archivos } = await supabase.storage.from('prendas').list()
         if (!archivos) return
         const archivosBorrables = archivos.filter(a => a.name !== '.emptyFolderPlaceholder' && !urlsActivas.includes(a.name)).map(a => a.name)
-
         if (archivosBorrables.length > 0) await supabase.storage.from('prendas').remove(archivosBorrables)
       } catch (error) { console.error("Fallo silencioso en limpieza.") }
     }, 5000)
@@ -108,6 +106,11 @@ export default function App() {
       setPrendaAEditar(null)
       setPrendasParaConjunto([])
     }, 300) 
+  }
+
+  const solicitarConfirmacionGlobal = (config) => {
+    vibrar(30)
+    setDialogoGlobal(config)
   }
 
   const swipeNavegacion = useSwipeable({
@@ -184,8 +187,7 @@ export default function App() {
   return (
     <div className="h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
       
-      {/* Toasts */}
-      <div className="fixed top-safe mt-4 left-0 w-full z-100 flex flex-col gap-3 items-center pointer-events-none">
+      <div className="fixed top-safe mt-4 left-0 w-full z-200 flex flex-col gap-3 items-center pointer-events-none">
         {toasts.map(toast => (
           <div key={toast.id} className="animate-fade-in-down flex items-center gap-3.5 px-5 py-3 bg-white/80 in-[.modo-oscuro]:bg-[#1a1a1a]/80 backdrop-blur-xl border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 text-neutral-900 in-[.modo-oscuro]:text-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] w-max max-w-[90%] pointer-events-auto">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${toast.tipo === 'exito' ? 'bg-emerald-100 in-[.modo-oscuro]:bg-emerald-900/30 text-emerald-600 in-[.modo-oscuro]:text-emerald-400' : toast.tipo === 'error' ? 'bg-red-100 in-[.modo-oscuro]:bg-red-900/30 text-red-600 in-[.modo-oscuro]:text-red-400' : 'bg-blue-100 in-[.modo-oscuro]:bg-blue-900/30 text-blue-600 in-[.modo-oscuro]:text-blue-400'}`}>
@@ -202,9 +204,7 @@ export default function App() {
         <div className="px-4 md:px-6 h-16 flex items-center justify-between max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-3">
             <button onClick={() => { setMenuLateralVisible(true); vibrar(20); }} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors touch-manipulation">
-              <svg className="w-6 h-6 text-black in-[.modo-oscuro]:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <svg className="w-6 h-6 text-black in-[.modo-oscuro]:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <div className="w-10 h-10 items-center justify-center transition-colors duration-300 hidden sm:flex">
               <svg viewBox="0 0 512 512" fill="none" className="w-8 h-8 text-black in-[.modo-oscuro]:text-white">
@@ -218,12 +218,8 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             <button onClick={() => { setTemaOscuro(!temaOscuro); vibrar(30); }} className="relative w-10 h-10 rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 flex items-center justify-center overflow-hidden transition-colors active:scale-95 touch-manipulation">
-              <div className={`absolute transition-transform duration-500 ease-in-out ${temaOscuro ? 'translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}>
-                <svg className="w-5 h-5 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-              </div>
-              <div className={`absolute transition-transform duration-500 ease-in-out ${temaOscuro ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}>
-                <svg className="w-5 h-5 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-              </div>
+              <div className={`absolute transition-transform duration-500 ease-in-out ${temaOscuro ? 'translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}><svg className="w-5 h-5 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg></div>
+              <div className={`absolute transition-transform duration-500 ease-in-out ${temaOscuro ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}><svg className="w-5 h-5 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg></div>
             </button>
             <div className="w-10 h-10 rounded-full bg-linear-to-tr from-neutral-200 to-neutral-300 in-[.modo-oscuro]:from-neutral-800 in-[.modo-oscuro]:to-neutral-700 border-2 border-white in-[.modo-oscuro]:border-neutral-900 shadow-sm overflow-hidden flex items-center justify-center cursor-pointer active:scale-95 transition-transform touch-manipulation">
                <svg className="w-6 h-6 text-white in-[.modo-oscuro]:text-neutral-500 mt-2" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -232,7 +228,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Menú Lateral Desplegable */}
       <div className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${menuLateralVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setMenuLateralVisible(false)}>
         <div {...swipeMenuLateral} className={`absolute top-0 left-0 h-full w-[80%] max-w-sm bg-white in-[.modo-oscuro]:bg-[#0a0a0a] shadow-2xl transform transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col ${menuLateralVisible ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="px-6 py-5 border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 flex justify-between items-center bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/30">
@@ -242,38 +237,19 @@ export default function App() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 hide-scrollbar">
-            
-            <button 
-              onClick={() => aplicarFiltro(null)}
-              className={`text-left text-sm md:text-base tracking-[0.15em] uppercase transition-colors touch-manipulation ${filtroActual === null ? 'text-black in-[.modo-oscuro]:text-white font-bold' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400 font-light'}`}
-            >
-              TODO
-            </button>
-
+            <button onClick={() => aplicarFiltro(null)} className={`text-left text-sm md:text-base tracking-[0.15em] uppercase transition-colors touch-manipulation ${filtroActual === null ? 'text-black in-[.modo-oscuro]:text-white font-bold' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400 font-light'}`}>TODO</button>
             {datosMenu.length === 0 && <p className="text-sm text-neutral-500">Cargando...</p>}
             {datosMenu.map(tipo => (
               <div key={tipo.id} className="flex flex-col">
-                <button 
-                  onClick={() => { setTipoExpandido(tipoExpandido === tipo.id ? null : tipo.id); vibrar(15); }}
-                  className={`text-left text-sm md:text-base font-light tracking-[0.15em] uppercase active:opacity-50 transition-colors touch-manipulation ${tipoExpandido === tipo.id ? 'text-black in-[.modo-oscuro]:text-white font-medium' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400'}`}
-                >
+                <button onClick={() => { setTipoExpandido(tipoExpandido === tipo.id ? null : tipo.id); vibrar(15); }} className={`text-left text-sm md:text-base font-light tracking-[0.15em] uppercase active:opacity-50 transition-colors touch-manipulation ${tipoExpandido === tipo.id ? 'text-black in-[.modo-oscuro]:text-white font-medium' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400'}`}>
                   {tipo.nombre}
                 </button>
                 <div className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${tipoExpandido === tipo.id ? 'max-h-125 mt-4 opacity-100 gap-3' : 'max-h-0 mt-0 opacity-0 gap-0'}`}>
                   {tipo.categorias.length === 0 && <span className="text-xs text-neutral-400 italic pl-4">Vacío</span>}
-                  
                   {tipo.categorias.map(cat => {
                     const estaSeleccionado = filtroActual === cat.id;
                     return (
-                      <button 
-                        key={cat.id} 
-                        onClick={() => aplicarFiltro(cat.id)}
-                        className={`text-left text-[11px] md:text-xs tracking-wider uppercase py-1 transition-all touch-manipulation ${
-                          estaSeleccionado 
-                            ? 'border-l-2 border-black in-[.modo-oscuro]:border-white pl-3 text-black in-[.modo-oscuro]:text-white font-bold' 
-                            : 'border-l border-neutral-200 in-[.modo-oscuro]:border-neutral-800 pl-4 text-neutral-500 in-[.modo-oscuro]:text-neutral-500 font-medium active:text-neutral-700'
-                        }`}
-                      >
+                      <button key={cat.id} onClick={() => aplicarFiltro(cat.id)} className={`text-left text-[11px] md:text-xs tracking-wider uppercase py-1 transition-all touch-manipulation ${estaSeleccionado ? 'border-l-2 border-black in-[.modo-oscuro]:border-white pl-3 text-black in-[.modo-oscuro]:text-white font-bold' : 'border-l border-neutral-200 in-[.modo-oscuro]:border-neutral-800 pl-4 text-neutral-500 in-[.modo-oscuro]:text-neutral-500 font-medium active:text-neutral-700'}`}>
                         {cat.nombre}
                       </button>
                     )
@@ -285,28 +261,18 @@ export default function App() {
         </div>
       </div>
 
-      {/* Contenedor Flex Flexible para aislar Scroll */}
       <main {...swipeNavegacion} className="flex-1 w-full relative overflow-hidden max-w-7xl mx-auto flex flex-col pb-16">
-        <div 
-          className="flex w-[200%] h-full transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform transform-gpu" 
-          style={{ transform: pestañaActiva === 'ropa' ? 'translateX(0%)' : 'translateX(-50%)' }}
-        >
-          {/* Columna ROPA con su propio scroll aislado */}
+        <div className="flex w-[200%] h-full transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform transform-gpu" style={{ transform: pestañaActiva === 'ropa' ? 'translateX(0%)' : 'translateX(-50%)' }}>
           <div className="w-1/2 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
             <div className="flex gap-2 mb-5 shrink-0">
-              <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">
-                + Nueva Prenda
-              </button>
+              <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">+ Nueva Prenda</button>
               <button onClick={() => { abrirModal('tipos'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Tipos</button>
               <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Prendas</button>
             </div>
-            
-            <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} mostrarToast={mostrarToast} filtroCategoria={filtroActual} key={`g-${actualizaciones}`} />
+            <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
           </div>
-
-          {/* Columna MALETAS con su propio scroll aislado */}
           <div className="w-1/2 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
-            <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30); }} mostrarToast={mostrarToast} key={`c-${actualizaciones}`} />
+            <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30); }} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
           </div>
         </div>
       </main>
@@ -325,7 +291,7 @@ export default function App() {
       </nav>
 
       {modalActivo && (
-        <div className={`fixed inset-0 bg-black/70 z-50 flex flex-col justify-end transition-opacity duration-300 ${modalVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`fixed inset-0 bg-black/70 z-80 flex flex-col justify-end transition-opacity duration-300 ${modalVisible ? 'opacity-100' : 'opacity-0'}`}>
           <div className="flex-1" onClick={cerrarModal}></div>
           <div className={`bg-white in-[.modo-oscuro]:bg-[#0a0a0a] w-full rounded-t-4xl pb-10 pt-2 px-6 transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] transform-gpu will-change-transform shadow-[0_-10px_40px_rgba(0,0,0,0.2)] max-w-7xl mx-auto ${modalVisible ? 'translate-y-0' : 'translate-y-full'}`}>
             
@@ -360,6 +326,23 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* PORTAL GLOBAL DE CONFIRMACIONES (Evita recortes del z-index) */}
+      {dialogoGlobal && (
+        <div className="fixed inset-0 bg-black/60 z-300 flex items-center justify-center p-4">
+          <div className="bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl animate-fade-in-up">
+            <h3 className="text-lg font-bold mb-6 tracking-tight">{dialogoGlobal.mensaje}</h3>
+            {dialogoGlobal.contenidoAdicional}
+            <div className="flex flex-col gap-3">
+              <button onClick={() => { dialogoGlobal.onConfirm(); setDialogoGlobal(null); }} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors touch-manipulation ${dialogoGlobal.esDestructivo ? 'bg-red-500 active:bg-red-600' : 'bg-black in-[.modo-oscuro]:bg-white in-[.modo-oscuro]:text-black'}`}>
+                {dialogoGlobal.textoConfirmar || 'Confirmar'}
+              </button>
+              <button onClick={() => setDialogoGlobal(null)} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-700 transition-colors touch-manipulation">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

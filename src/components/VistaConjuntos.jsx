@@ -3,7 +3,6 @@ import { supabase } from '../supabase'
 import { vibrar } from '../App'
 import { toPng } from 'html-to-image'
 
-// Widget de Clima Asíncrono e Independiente
 function WidgetClima({ destino }) {
   const [clima, setClima] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -52,7 +51,6 @@ function WidgetClima({ destino }) {
 }
 
 function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? (index * 90 + 20) })
   const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
   const [isDragging, setIsDragging] = useState(false)
@@ -116,20 +114,13 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   )
 }
 
-export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
+export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogoGlobal }) {
   const [maletas, setMaletas] = useState([])
   const [conjuntos, setConjuntos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [abriendo, setAbriendo] = useState(null)
   const [maletaActiva, setMaletaActiva] = useState(null)
-  
-  const [dialogoInfo, setDialogoInfo] = useState(null)
-  const [dialogoVisible, setDialogoVisible] = useState(false)
-  const [conjuntoADuplicar, setConjuntoADuplicar] = useState(null)
-  const [maletaADuplicar, setMaletaADuplicar] = useState(null)
-  const [modalOperacionVisible, setModalOperacionVisible] = useState(false)
-  
   const [maxZ, setMaxZ] = useState(10)
 
   useEffect(() => {
@@ -150,86 +141,87 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
     cargarDatos()
   }, [maletaActiva])
 
-  function confirmarAccion(tipo, id, e, mensaje) {
+  function solicitarEliminar(tipo, id, e) {
     if (e) e.stopPropagation()
-    vibrar(30)
-    setDialogoInfo({ tipo, id, mensaje })
-    requestAnimationFrame(() => requestAnimationFrame(() => setDialogoVisible(true)))
-  }
-
-  function cerrarDialogo() {
-    setDialogoVisible(false)
-    setTimeout(() => setDialogoInfo(null), 200)
-  }
-
-  async function ejecutarEliminacion() {
-    const { tipo, id } = dialogoInfo
-    if (tipo === 'maleta') {
-      await supabase.from('maletas').delete().eq('id', id)
-      const nuevas = maletas.filter(m => m.id !== id)
-      setMaletas(nuevas); localStorage.setItem('cache_maletas', JSON.stringify(nuevas))
-    } else {
-      await supabase.from('conjuntos').delete().eq('id', id)
-      const nuevos = conjuntos.filter(c => c.id !== id)
-      setConjuntos(nuevos); localStorage.setItem(`cache_conjuntos_${maletaActiva.id}`, JSON.stringify(nuevos))
-    }
-    vibrar([50, 50])
-    cerrarDialogo()
-    mostrarToast("Eliminado correctamente", "info")
-  }
-
-  function abrirOperacion(tipo, item, e) {
-    if (e) e.stopPropagation()
-    vibrar(20)
-    if (tipo === 'clonarOutfit') setConjuntoADuplicar(item)
-    if (tipo === 'clonarMaleta') setMaletaADuplicar(item)
-    requestAnimationFrame(() => requestAnimationFrame(() => setModalOperacionVisible(true)))
-  }
-
-  function cerrarOperacion() {
-    setModalOperacionVisible(false)
-    setTimeout(() => {
-      setConjuntoADuplicar(null)
-      setMaletaADuplicar(null)
-    }, 300)
-  }
-
-  async function procesarDuplicado(e) {
-    e.preventDefault()
-    if (conjuntoADuplicar) {
-      const maletaDestino = e.target.maletaId.value
-      const nombre = e.target.nombre.value
-      const { data: nuevoConj, error } = await supabase.from('conjuntos').insert([{ nombre, maleta_id: maletaDestino }]).select().single()
-      if (error) return mostrarToast("Error al clonar.", "error")
-      const copiasRelaciones = conjuntoADuplicar.conjunto_prenda.map(cp => ({
-        conjunto_id: nuevoConj.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
-      }))
-      await supabase.from('conjunto_prenda').insert(copiasRelaciones)
-      if (maletaDestino == maletaActiva.id) setMaletaActiva({...maletaActiva}) 
-      mostrarToast("Outfit clonado", "exito")
-    } 
-    else if (maletaADuplicar) {
-      const nombre = e.target.nombre.value
-      const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{ nombre }]).select().single()
-      if (errM) return mostrarToast("Error al clonar maleta.", "error")
-      const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index)').eq('maleta_id', maletaADuplicar.id)
-      if (conjuntosViejos) {
-        for (const cViejo of conjuntosViejos) {
-          const { data: cNuevo } = await supabase.from('conjuntos').insert([{ nombre: cViejo.nombre, maleta_id: nuevaMaleta.id }]).select().single()
-          if (cNuevo && cViejo.conjunto_prenda.length > 0) {
-            const copiasRel = cViejo.conjunto_prenda.map(cp => ({
-              conjunto_id: cNuevo.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
-            }))
-            await supabase.from('conjunto_prenda').insert(copiasRel)
-          }
+    setDialogoGlobal({
+      mensaje: `¿Eliminar ${tipo}?`,
+      esDestructivo: true,
+      textoConfirmar: 'Eliminar',
+      onConfirm: async () => {
+        if (tipo === 'maleta') {
+          await supabase.from('maletas').delete().eq('id', id)
+          const nuevas = maletas.filter(m => m.id !== id)
+          setMaletas(nuevas); localStorage.setItem('cache_maletas', JSON.stringify(nuevas))
+        } else {
+          await supabase.from('conjuntos').delete().eq('id', id)
+          const nuevos = conjuntos.filter(c => c.id !== id)
+          setConjuntos(nuevos); localStorage.setItem(`cache_conjuntos_${maletaActiva.id}`, JSON.stringify(nuevos))
         }
+        vibrar([50, 50])
+        mostrarToast("Eliminado correctamente", "info")
       }
-      const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
-      setMaletas(listaMaletas); localStorage.setItem('cache_maletas', JSON.stringify(listaMaletas))
-      mostrarToast("Maleta clonada", "exito")
-    }
-    vibrar([50, 50])
-    cerrarOperacion()
+    })
+  }
+
+  function solicitarClonar(tipo, item, e) {
+    if (e) e.stopPropagation()
+    
+    // Almacenamos valores temporales para los inputs
+    let idMaletaDestino = maletaActiva?.id || (maletas.length > 0 ? maletas[0].id : '')
+    let nuevoNombre = `${item.nombre} (Copia)`
+
+    setDialogoGlobal({
+      mensaje: `Duplicar ${tipo === 'outfit' ? 'Outfit' : 'Maleta'}`,
+      esDestructivo: false,
+      textoConfirmar: 'Clonar',
+      contenidoAdicional: (
+        <div className="flex flex-col gap-4 text-left mb-4">
+          {tipo === 'outfit' && (
+            <div>
+              <label className="block text-sm font-semibold mb-2">Destino:</label>
+              <select onChange={(e) => idMaletaDestino = e.target.value} defaultValue={idMaletaDestino} className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none">
+                {maletas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-semibold mb-2">Nuevo nombre:</label>
+            <input type="text" onChange={(e) => nuevoNombre = e.target.value} defaultValue={nuevoNombre} className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none" />
+          </div>
+        </div>
+      ),
+      onConfirm: async () => {
+        if (tipo === 'outfit') {
+          const { data: nuevoConj, error } = await supabase.from('conjuntos').insert([{ nombre: nuevoNombre, maleta_id: idMaletaDestino }]).select().single()
+          if (error) return mostrarToast("Error al clonar.", "error")
+          const copiasRelaciones = item.conjunto_prenda.map(cp => ({
+            conjunto_id: nuevoConj.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
+          }))
+          await supabase.from('conjunto_prenda').insert(copiasRelaciones)
+          if (idMaletaDestino == maletaActiva?.id) setMaletaActiva({...maletaActiva}) 
+          mostrarToast("Outfit clonado", "exito")
+        } else {
+          const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{ nombre: nuevoNombre }]).select().single()
+          if (errM) return mostrarToast("Error al clonar maleta.", "error")
+          const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index)').eq('maleta_id', item.id)
+          if (conjuntosViejos) {
+            for (const cViejo of conjuntosViejos) {
+              const { data: cNuevo } = await supabase.from('conjuntos').insert([{ nombre: cViejo.nombre, maleta_id: nuevaMaleta.id }]).select().single()
+              if (cNuevo && cViejo.conjunto_prenda.length > 0) {
+                const copiasRel = cViejo.conjunto_prenda.map(cp => ({
+                  conjunto_id: cNuevo.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
+                }))
+                await supabase.from('conjunto_prenda').insert(copiasRel)
+              }
+            }
+          }
+          const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
+          setMaletas(listaMaletas); localStorage.setItem('cache_maletas', JSON.stringify(listaMaletas))
+          mostrarToast("Maleta clonada", "exito")
+        }
+        vibrar([50, 50])
+      }
+    })
   }
 
   async function exportarOutfit(id, nombre) {
@@ -237,29 +229,18 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
     const elemento = document.getElementById(`lienzo-${id}`)
     if (!elemento) return
     try {
-      const dataUrl = await toPng(elemento, { 
-        cacheBust: true, 
-        pixelRatio: 2,
-        skipFonts: true
-      })
+      const dataUrl = await toPng(elemento, { cacheBust: true, pixelRatio: 2, skipFonts: true })
       if (navigator.share) {
         const res = await fetch(dataUrl)
         const blob = await res.blob()
         const file = new File([blob], `Outfit_${nombre.replace(/\s+/g, '_')}.png`, { type: 'image/png' })
-        await navigator.share({
-          files: [file],
-          title: `Outfit: ${nombre}`
-        })
+        await navigator.share({ files: [file], title: `Outfit: ${nombre}` })
       } else {
         const a = document.createElement('a')
-        a.href = dataUrl
-        a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`
-        a.click()
+        a.href = dataUrl; a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`; a.click()
       }
       vibrar([30, 30])
-    } catch (e) {
-      mostrarToast("Error al exportar", "error")
-    }
+    } catch (e) { mostrarToast("Error al exportar", "error") }
   }
 
   function abrirMaleta(maleta) {
@@ -301,7 +282,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
               <button onClick={() => { setMaletaActiva(null); vibrar(20); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 active:scale-90 transition-transform">←</button>
               <h3 className="font-bold text-lg tracking-tight truncate">{maletaActiva.nombre}</h3>
             </div>
-            {/* Widget Clima Aislado */}
             <WidgetClima destino={maletaActiva.nombre} />
           </div>
         )}
@@ -325,8 +305,8 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative flex flex-col items-center w-full">
               <div className="absolute -top-2 right-0 flex flex-col gap-1 z-20">
-                <button onClick={(e) => confirmarAccion('maleta', m.id, e, '¿Eliminar maleta?')} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">✕</button>
-                <button onClick={(e) => abrirOperacion('clonarMaleta', m, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
+                <button onClick={(e) => solicitarEliminar('maleta', m.id, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">✕</button>
+                <button onClick={(e) => solicitarClonar('maleta', m, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
               </div>
 
               <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation`}>
@@ -380,21 +360,20 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4 relative z-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4">
           {itemsFiltrados.map((conj, i) => (
-            <div key={conj.id} className="relative border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 rounded-3xl bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/50 flex flex-col overflow-hidden">
+            <div key={conj.id} className="relative border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 rounded-3xl bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/50 flex flex-col overflow-hidden isolate">
               
-              <div className="flex justify-between items-center px-5 py-4 border-b border-neutral-200 in-[.modo-oscuro]:border-neutral-800 bg-white in-[.modo-oscuro]:bg-neutral-900">
+              <div className="flex justify-between items-center px-5 py-4 border-b border-neutral-200 in-[.modo-oscuro]:border-neutral-800 bg-white in-[.modo-oscuro]:bg-neutral-900 z-10">
                 <h3 className="font-bold text-sm truncate pr-4">{conj.nombre}</h3>
                 <div className="flex gap-2">
                   <button onClick={() => exportarOutfit(conj.id, conj.nombre)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">↓</button>
-                  <button onClick={(e) => abrirOperacion('clonarOutfit', conj, e)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">⎘</button>
-                  <button onClick={(e) => confirmarAccion('conjunto', conj.id, e, '¿Eliminar outfit?')} className="text-red-400 active:text-red-600 px-2">✕</button>
+                  <button onClick={(e) => solicitarClonar('outfit', conj, e)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">⎘</button>
+                  <button onClick={(e) => solicitarEliminar('outfit', conj.id, e)} className="text-red-400 active:text-red-600 px-2">✕</button>
                 </div>
               </div>
               
-              {/* Contexto aislado para el z-index de las prendas (evita que la ropa se monte encima del modal oscuro) */}
-              <div id={`lienzo-${conj.id}`} className="relative w-full h-100 md:h-125 bg-neutral-50 in-[.modo-oscuro]:bg-neutral-950 overflow-hidden touch-none isolate">
+              <div id={`lienzo-${conj.id}`} className="relative w-full h-100 md:h-125 bg-neutral-50 in-[.modo-oscuro]:bg-neutral-950 overflow-hidden touch-none z-0">
                 <div className="absolute inset-0 opacity-[0.03] in-[.modo-oscuro]:opacity-[0.05]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                 {conj.conjunto_prenda.map((cp, idx) => (
                   <PrendaArrastrable key={cp.prendas.id} cp={cp} index={idx} maxZ={maxZ} setMaxZ={setMaxZ} onGuardarEstado={actualizarEstado} />
@@ -402,46 +381,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Modales rediseñados y centrados correctamente */}
-      {(conjuntoADuplicar || maletaADuplicar) && (
-        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 transition-opacity duration-300 px-4 ${modalOperacionVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <form onSubmit={procesarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-neutral-900 w-full max-w-md rounded-3xl p-6 transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${modalOperacionVisible ? 'scale-100' : 'scale-95'}`}>
-            <h3 className="text-xl font-bold mb-6 tracking-tight text-center">{conjuntoADuplicar ? 'Duplicar Outfit' : 'Duplicar Maleta'}</h3>
-            
-            {conjuntoADuplicar && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">Destino:</label>
-                <select name="maletaId" required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none">
-                  {maletas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                </select>
-              </div>
-            )}
-
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-2">Nuevo nombre:</label>
-              <input type="text" name="nombre" autoComplete="off" defaultValue={`${(conjuntoADuplicar || maletaADuplicar).nombre} (Copia)`} required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none" />
-            </div>
-
-            <div className="flex gap-3">
-              <button type="submit" className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-4 rounded-xl active:scale-[0.98]">Clonar</button>
-              <button type="button" onClick={cerrarOperacion} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 font-semibold py-4 rounded-xl active:scale-[0.98]">Cancelar</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {dialogoInfo && (
-        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 px-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-3xl p-6 w-full max-w-sm text-center transition-transform duration-300 ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
-            <h3 className="text-lg font-bold mb-6 tracking-tight">{dialogoInfo.mensaje}</h3>
-            <div className="flex flex-col gap-3">
-              <button onClick={ejecutarEliminacion} className="w-full text-white font-bold py-3.5 rounded-xl bg-red-500 active:bg-red-600 transition-colors touch-manipulation">Eliminar</button>
-              <button onClick={cerrarDialogo} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-700 transition-colors touch-manipulation">Cancelar</button>
-            </div>
-          </div>
         </div>
       )}
     </div>
