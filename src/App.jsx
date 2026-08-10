@@ -174,17 +174,17 @@ export default function App() {
     setPestañaActiva('conjuntos')
   }
 
-  // Función para manejar el clic en un filtro
   const aplicarFiltro = (idCategoria) => {
     setFiltroActual(idCategoria)
-    setPestañaActiva('ropa') // Si estás en maletas, te lleva a la ropa para ver el filtro
+    setPestañaActiva('ropa')
     setMenuLateralVisible(false)
     vibrar(15)
   }
 
   return (
-    <div className="min-h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
+    <div className="h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
       
+      {/* Toasts */}
       <div className="fixed top-safe mt-4 left-0 w-full z-100 flex flex-col gap-3 items-center pointer-events-none">
         {toasts.map(toast => (
           <div key={toast.id} className="animate-fade-in-down flex items-center gap-3.5 px-5 py-3 bg-white/80 in-[.modo-oscuro]:bg-[#1a1a1a]/80 backdrop-blur-xl border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 text-neutral-900 in-[.modo-oscuro]:text-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] w-max max-w-[90%] pointer-events-auto">
@@ -198,7 +198,7 @@ export default function App() {
         ))}
       </div>
 
-      <header className="bg-white/80 in-[.modo-oscuro]:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 sticky top-0 z-30 transition-colors duration-300">
+      <header className="bg-white/80 in-[.modo-oscuro]:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 shrink-0 z-30 transition-colors duration-300">
         <div className="px-4 md:px-6 h-16 flex items-center justify-between max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-3">
             <button onClick={() => { setMenuLateralVisible(true); vibrar(20); }} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors touch-manipulation">
@@ -213,7 +213,6 @@ export default function App() {
             </div>
             <div className="flex flex-col">
               <h1 className="text-lg md:text-xl font-extrabold tracking-tight leading-none">PERLETTA</h1>
-              <span className="text-[10px] md:text-xs font-semibold text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase tracking-widest mt-0.5">Gestion de mi armario</span>
             </div>
           </div>
 
@@ -233,7 +232,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Menú Lateral Desplegable Funcional */}
+      {/* Menú Lateral Desplegable */}
       <div className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${menuLateralVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setMenuLateralVisible(false)}>
         <div {...swipeMenuLateral} className={`absolute top-0 left-0 h-full w-[80%] max-w-sm bg-white in-[.modo-oscuro]:bg-[#0a0a0a] shadow-2xl transform transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col ${menuLateralVisible ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="px-6 py-5 border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 flex justify-between items-center bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/30">
@@ -244,7 +243,6 @@ export default function App() {
           </div>
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 hide-scrollbar">
             
-            {/* Opción TODO para restablecer */}
             <button 
               onClick={() => aplicarFiltro(null)}
               className={`text-left text-sm md:text-base tracking-[0.15em] uppercase transition-colors touch-manipulation ${filtroActual === null ? 'text-black in-[.modo-oscuro]:text-white font-bold' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400 font-light'}`}
@@ -264,7 +262,6 @@ export default function App() {
                 <div className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${tipoExpandido === tipo.id ? 'max-h-125 mt-4 opacity-100 gap-3' : 'max-h-0 mt-0 opacity-0 gap-0'}`}>
                   {tipo.categorias.length === 0 && <span className="text-xs text-neutral-400 italic pl-4">Vacío</span>}
                   
-                  {/* Botones de subcategorías interactivos */}
                   {tipo.categorias.map(cat => {
                     const estaSeleccionado = filtroActual === cat.id;
                     return (
@@ -288,12 +285,14 @@ export default function App() {
         </div>
       </div>
 
-      <main {...swipeNavegacion} className="flex-1 w-full relative overflow-hidden touch-pan-y pb-16 max-w-7xl mx-auto">
+      {/* Contenedor Flex Flexible para aislar Scroll */}
+      <main {...swipeNavegacion} className="flex-1 w-full relative overflow-hidden max-w-7xl mx-auto flex flex-col pb-16">
         <div 
           className="flex w-[200%] h-full transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform transform-gpu" 
           style={{ transform: pestañaActiva === 'ropa' ? 'translateX(0%)' : 'translateX(-50%)' }}
         >
-          <div className="w-1/2 h-full flex flex-col overflow-y-auto hide-scrollbar p-3 md:p-6">
+          {/* Columna ROPA con su propio scroll aislado */}
+          <div className="w-1/2 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
             <div className="flex gap-2 mb-5 shrink-0">
               <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">
                 + Nueva Prenda
@@ -302,11 +301,11 @@ export default function App() {
               <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Prendas</button>
             </div>
             
-            {/* Se le pasa el filtroActual a la galería */}
             <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} mostrarToast={mostrarToast} filtroCategoria={filtroActual} key={`g-${actualizaciones}`} />
           </div>
 
-          <div className="w-1/2 h-full flex flex-col overflow-y-auto hide-scrollbar p-3 md:p-6">
+          {/* Columna MALETAS con su propio scroll aislado */}
+          <div className="w-1/2 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
             <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30); }} mostrarToast={mostrarToast} key={`c-${actualizaciones}`} />
           </div>
         </div>
