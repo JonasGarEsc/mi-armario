@@ -35,9 +35,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   function solicitarEliminacionPrenda(id, urlImagen, e) {
     e.stopPropagation(); vibrar(50);
     setDialogoConfirmacion({ id, urlImagen })
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setDialogoVisible(true))
-    })
+    requestAnimationFrame(() => requestAnimationFrame(() => setDialogoVisible(true)))
   }
 
   function cerrarDialogo() {
@@ -65,76 +63,76 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
 
   return (
-    <div className="flex flex-col flex-1 animate-fade-in-up relative transform-gpu">
-      <div className="mb-4 md:mb-6 w-full">
+    <div className="flex flex-col flex-1 relative">
+      <div className="mb-4">
         <input 
           type="text" 
           autoComplete="off"
-          placeholder="Buscar prenda..." 
+          placeholder="Buscar..." 
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full border border-rose-200/50 in-[.modo-oscuro]:border-[#433D60] bg-white/80 backdrop-blur in-[.modo-oscuro]:bg-[#2A273F]/80 text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] rounded-xl p-3 md:p-4 text-sm md:text-base focus:ring-4 focus:ring-teal-400/30 in-[.modo-oscuro]:focus:ring-[#A394D6]/30 outline-none shadow-sm transition-all"
+          className="w-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-2.5 text-sm outline-none placeholder-neutral-500 transition-colors border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700"
         />
       </div>
 
       {seleccionadas.length >= 2 && (
-        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-4 md:mb-6 w-full bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro]:from-[#7E67C9] in-[.modo-oscuro]:to-[#9985D8] text-white py-3 md:py-4 rounded-xl font-bold shadow-lg shadow-teal-200/50 cursor-pointer active:scale-95 transition-transform duration-300 text-sm md:text-base touch-manipulation">
-          Guardar conjunto ({seleccionadas.length} prendas)
+        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-4 w-full bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black py-3 rounded-lg font-semibold active:scale-[0.98] transition-transform text-sm">
+          Crear Outfit ({seleccionadas.length})
         </button>
       )}
 
       {cargando ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-4">
-          {[...Array(12)].map((_, i) => <div key={i} className="rounded-xl md:rounded-3xl h-32.5 md:h-55 bg-white/50 in-[.modo-oscuro]:bg-[#2A273F]/50 animate-shimmer shadow-sm"></div>)}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2">
+          {[...Array(12)].map((_, i) => <div key={i} className="aspect-square bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 animate-pulse"></div>)}
         </div>
       ) : prendasFiltradas.length === 0 ? (
-        <p className="text-center text-slate-400 in-[.modo-oscuro]:text-[#7A7593] py-10 border-2 border-dashed border-rose-200/50 in-[.modo-oscuro]:border-[#433D60]/50 rounded-2xl text-sm">Vacío.</p>
+        <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">No hay prendas.</div>
       ) : (
         <>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 md:gap-4 overflow-y-auto p-1 pb-4 hide-scrollbar">
+          {/* CUADRÍCULA ESTRICTA DE 3 COLUMNAS */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2 overflow-y-auto pb-4 hide-scrollbar">
             {prendasVisibles.map((prenda) => (
               <div 
                 key={prenda.id} 
                 onClick={() => alternarSeleccion(prenda.id)}
-                className={`group relative rounded-xl md:rounded-3xl overflow-hidden cursor-pointer transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] bg-white in-[.modo-oscuro]:bg-[#2A273F] shadow-sm md:hover:shadow-xl active:scale-[0.97] md:hover:scale-[1.03] touch-manipulation will-change-transform ${
-                  seleccionadas.includes(prenda.id) ? 'ring-2 md:ring-4 ring-teal-400 in-[.modo-oscuro]:ring-[#A394D6] scale-[1.02] shadow-md' : 'border border-rose-100 in-[.modo-oscuro]:border-[#433D60]'
+                className={`relative aspect-square cursor-pointer active:opacity-70 transition-opacity bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900 ${
+                  seleccionadas.includes(prenda.id) ? 'ring-2 ring-inset ring-black in-[.modo-oscuro]:ring-white' : ''
                 }`}
               >
-                <div className="aspect-square w-full bg-rose-50/30 in-[.modo-oscuro]:bg-[#1F1D2B]/50 relative flex items-center justify-center p-1 md:p-2">
-                  <img src={prenda.imagen_url} loading="lazy" className="max-w-full max-h-full object-contain transition-transform duration-600 lg:group-hover:scale-110" alt={prenda.nombre} />
-                  {seleccionadas.includes(prenda.id) && <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-teal-400 in-[.modo-oscuro]:bg-[#A394D6] text-white w-4 h-4 md:w-6 md:h-6 rounded-full flex items-center justify-center font-bold text-[9px] md:text-xs shadow-md z-10 transition-transform duration-300 scale-in">✓</div>}
-                </div>
+                <img src={prenda.imagen_url} loading="lazy" className="w-full h-full object-contain p-2" alt={prenda.nombre} />
+                
+                {seleccionadas.includes(prenda.id) && (
+                  <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-black in-[.modo-oscuro]:bg-white rounded-full flex items-center justify-center border-2 border-white in-[.modo-oscuro]:border-black">
+                    <span className="text-white in-[.modo-oscuro]:text-black text-[10px] font-bold">✓</span>
+                  </div>
+                )}
 
-                <div className="absolute top-1 right-1 md:top-2 md:right-2 flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300 z-20">
-                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/95 in-[.modo-oscuro]:bg-[#2A273F]/95 text-red-500 md:hover:bg-red-500 md:hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-xs cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro]:border-[#433D60] touch-manipulation">✕</button>
-                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/95 in-[.modo-oscuro]:bg-[#2A273F]/95 text-teal-500 in-[.modo-oscuro]:text-[#A394D6] md:hover:bg-teal-500 in-[.modo-oscuro]:md:hover:bg-[#A394D6] md:hover:text-white w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold shadow-md text-[9px] md:text-sm cursor-pointer transition-all active:scale-90 border border-rose-100 in-[.modo-oscuro]:border-[#433D60] touch-manipulation">✎</button>
-                </div>
-
-                <div className="p-1.5 md:p-3 bg-white/90 in-[.modo-oscuro]:bg-[#2A273F]/90 backdrop-blur z-10 relative border-t border-rose-50 in-[.modo-oscuro]:border-[#322F44]">
-                  <p className="font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] text-[9px] md:text-sm truncate leading-tight">{prenda.nombre}</p>
-                  <p className="text-[8px] md:text-xs text-slate-400 in-[.modo-oscuro]:text-[#7A7593] mt-0.5 md:mt-1 capitalize truncate">{prenda.categorias?.nombre}</p>
+                <div className="absolute bottom-1 left-1 flex gap-1 z-10">
+                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-red-500 text-[10px] active:scale-90">✕</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-black in-[.modo-oscuro]:text-white text-[10px] active:scale-90">✎</button>
                 </div>
               </div>
             ))}
           </div>
 
           {limiteVisibles < prendasFiltradas.length && (
-            <div className="w-full flex justify-center mt-4 md:mt-6 mb-4">
-              <button onClick={() => setLimiteVisibles(prev => prev + 24)} className="bg-white/80 in-[.modo-oscuro]:bg-[#2A273F]/80 text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] font-bold py-2 md:py-3 px-6 md:px-8 rounded-full shadow-sm active:scale-95 transition-transform border border-rose-100 in-[.modo-oscuro]:border-[#433D60] text-sm md:text-base touch-manipulation">
-                Cargar más ↓
+            <div className="w-full py-4">
+              <button onClick={() => setLimiteVisibles(prev => prev + 24)} className="w-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 py-3 rounded-lg font-medium active:scale-[0.98] transition-transform text-sm">
+                Cargar más
               </button>
             </div>
           )}
         </>
       )}
 
+      {/* Modal Confirmación Minimalista */}
       {dialogoConfirmacion && (
-        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full text-center transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${dialogoVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
-            <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-5">¿Eliminar prenda del armario?</h3>
-            <div className="flex gap-3 justify-center">
-              <button onClick={ejecutarEliminacion} className="bg-red-500 md:hover:bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Eliminar</button>
-              <button onClick={cerrarDialogo} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] md:hover:bg-slate-200 in-[.modo-oscuro]:md:hover:bg-[#34304D] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
+        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 p-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-2xl p-6 w-full max-w-sm text-center transition-transform duration-300 ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
+            <h3 className="text-lg font-semibold mb-6">¿Eliminar prenda?</h3>
+            <div className="flex flex-col gap-2">
+              <button onClick={ejecutarEliminacion} className="w-full text-red-500 font-bold py-3 rounded-xl bg-red-50 in-[.modo-oscuro]:bg-red-950/30 active:opacity-70">Eliminar</button>
+              <button onClick={cerrarDialogo} className="w-full font-semibold py-3 rounded-xl active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-800">Cancelar</button>
             </div>
           </div>
         </div>

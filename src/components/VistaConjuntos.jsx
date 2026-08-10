@@ -16,7 +16,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   useEffect(() => { zRef.current = zIndex }, [zIndex])
 
   const handlePointerDown = (e) => {
-    vibrar(20)
+    vibrar(15)
     const rect = e.currentTarget.getBoundingClientRect()
     setOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
     const nuevoZ = maxZ + 1
@@ -46,7 +46,6 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
 
   const handlePointerUp = (e) => {
     if (!isDragging) return
-    vibrar(15)
     setIsDragging(false)
     e.currentTarget.releasePointerCapture(e.pointerId)
     const timerKey = `timer_cp_${cp.prenda_id}`
@@ -62,9 +61,9 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none [-webkit-tap-highlight-color:transparent] will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-grab active:scale-105'}`}
+      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'}`}
     >
-      <img src={cp.prendas.imagen_url} loading="lazy" draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-md select-none" alt="Ropa" />
+      <img src={cp.prendas.imagen_url} loading="lazy" draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-sm select-none" alt="Ropa" />
     </div>
   )
 }
@@ -77,14 +76,11 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   const [abriendo, setAbriendo] = useState(null)
   const [maletaActiva, setMaletaActiva] = useState(null)
   
-  const [clima, setClima] = useState(null)
-  
   const [dialogoInfo, setDialogoInfo] = useState(null)
   const [dialogoVisible, setDialogoVisible] = useState(false)
   const [conjuntoADuplicar, setConjuntoADuplicar] = useState(null)
-  const [duplicarVisible, setDuplicarVisible] = useState(false)
   const [maletaADuplicar, setMaletaADuplicar] = useState(null)
-  const [duplicarMaletaVisible, setDuplicarMaletaVisible] = useState(false)
+  const [modalOperacionVisible, setModalOperacionVisible] = useState(false)
   
   const [maxZ, setMaxZ] = useState(100)
 
@@ -100,44 +96,21 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         if (cache) { setConjuntos(JSON.parse(cache)); setCargando(false); }
         const { data } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda ( conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas ( id, imagen_url, categorias ( nombre ) ) )').eq('maleta_id', maletaActiva.id).order('nombre')
         if (data) { setConjuntos(data); localStorage.setItem(`cache_conjuntos_${maletaActiva.id}`, JSON.stringify(data)); }
-        obtenerClimaDestino(maletaActiva.nombre)
       }
       setCargando(false)
     }
     cargarDatos()
   }, [maletaActiva])
 
-  async function obtenerClimaDestino(nombreMaleta) {
-    setClima(null)
-    const ciudadPura = nombreMaleta.replace(/[0-9]/g, '').trim()
-    if (!ciudadPura || ciudadPura.length < 3) return
-    try {
-      const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(ciudadPura)}&count=1&language=es&format=json`)
-      const geoData = await geoRes.json()
-      if (geoData.results?.length > 0) {
-        const { latitude, longitude, name } = geoData.results[0]
-        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=1`)
-        const weatherData = await weatherRes.json()
-        setClima({ nombre: name, max: weatherData.daily.temperature_2m_max[0], min: weatherData.daily.temperature_2m_min[0] })
-      }
-    } catch (e) { console.error('Error API clima') }
-  }
-
-  function solicitarEliminacionMaleta(id, e) {
-    e.stopPropagation(); vibrar(50);
-    setDialogoInfo({ tipo: 'maleta', id, mensaje: '¿Eliminar maleta y todos sus outfits?' })
-    requestAnimationFrame(() => requestAnimationFrame(() => setDialogoVisible(true)))
-  }
-
-  function solicitarEliminacionConjunto(id) {
-    vibrar(50);
-    setDialogoInfo({ tipo: 'conjunto', id, mensaje: '¿Eliminar outfit de la maleta?' })
+  function confirmarAccion(tipo, id, mensaje) {
+    vibrar(30)
+    setDialogoInfo({ tipo, id, mensaje })
     requestAnimationFrame(() => requestAnimationFrame(() => setDialogoVisible(true)))
   }
 
   function cerrarDialogo() {
     setDialogoVisible(false)
-    setTimeout(() => setDialogoInfo(null), 300)
+    setTimeout(() => setDialogoInfo(null), 200)
   }
 
   async function ejecutarEliminacion() {
@@ -155,71 +128,56 @@ export default function VistaConjuntos({ onCrearMaleta }) {
     cerrarDialogo()
   }
 
-  function abrirMenuCopia(conj) {
-    vibrar(30); setConjuntoADuplicar(conj)
-    requestAnimationFrame(() => requestAnimationFrame(() => setDuplicarVisible(true)))
+  function abrirOperacion(tipo, item, e) {
+    if(e) e.stopPropagation()
+    vibrar(20)
+    if (tipo === 'clonarOutfit') setConjuntoADuplicar(item)
+    if (tipo === 'clonarMaleta') setMaletaADuplicar(item)
+    requestAnimationFrame(() => requestAnimationFrame(() => setModalOperacionVisible(true)))
   }
 
-  function cerrarMenuCopia() {
-    setDuplicarVisible(false)
-    setTimeout(() => setConjuntoADuplicar(null), 300)
+  function cerrarOperacion() {
+    setModalOperacionVisible(false)
+    setTimeout(() => {
+      setConjuntoADuplicar(null)
+      setMaletaADuplicar(null)
+    }, 300)
   }
 
-  async function ejecutarDuplicado(e) {
+  async function procesarDuplicado(e) {
     e.preventDefault()
-    const maletaDestino = e.target.maletaId.value
-    const nombre = e.target.nombreCopia.value
-
-    const { data: nuevoConj, error } = await supabase.from('conjuntos').insert([{ nombre, maleta_id: maletaDestino }]).select().single()
-    if (error) return alert("Error al clonar conjunto.")
-
-    const copiasRelaciones = conjuntoADuplicar.conjunto_prenda.map(cp => ({
-      conjunto_id: nuevoConj.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
-    }))
-    await supabase.from('conjunto_prenda').insert(copiasRelaciones)
-    
-    vibrar([50, 50])
-    cerrarMenuCopia()
-    if (maletaDestino == maletaActiva.id) setMaletaActiva({...maletaActiva}) 
-  }
-
-  function abrirMenuCopiaMaleta(maleta, e) {
-    e.stopPropagation(); vibrar(30)
-    setMaletaADuplicar(maleta)
-    requestAnimationFrame(() => requestAnimationFrame(() => setDuplicarMaletaVisible(true)))
-  }
-
-  function cerrarMenuCopiaMaleta() {
-    setDuplicarMaletaVisible(false)
-    setTimeout(() => setMaletaADuplicar(null), 300)
-  }
-
-  async function ejecutarDuplicadoMaleta(e) {
-    e.preventDefault()
-    const nombreNuevo = e.target.nombreCopiaMaleta.value
-
-    const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{ nombre: nombreNuevo }]).select().single()
-    if (errM) return alert("Error al clonar la maleta.")
-
-    const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index)').eq('maleta_id', maletaADuplicar.id)
-    
-    if (conjuntosViejos && conjuntosViejos.length > 0) {
-      for (const cViejo of conjuntosViejos) {
-        const { data: cNuevo } = await supabase.from('conjuntos').insert([{ nombre: cViejo.nombre, maleta_id: nuevaMaleta.id }]).select().single()
-        if (cNuevo && cViejo.conjunto_prenda.length > 0) {
-          const copiasRel = cViejo.conjunto_prenda.map(cp => ({
-            conjunto_id: cNuevo.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
-          }))
-          await supabase.from('conjunto_prenda').insert(copiasRel)
+    if (conjuntoADuplicar) {
+      const maletaDestino = e.target.maletaId.value
+      const nombre = e.target.nombre.value
+      const { data: nuevoConj, error } = await supabase.from('conjuntos').insert([{ nombre, maleta_id: maletaDestino }]).select().single()
+      if (error) return alert("Error al clonar.")
+      const copiasRelaciones = conjuntoADuplicar.conjunto_prenda.map(cp => ({
+        conjunto_id: nuevoConj.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
+      }))
+      await supabase.from('conjunto_prenda').insert(copiasRelaciones)
+      if (maletaDestino == maletaActiva.id) setMaletaActiva({...maletaActiva}) 
+    } 
+    else if (maletaADuplicar) {
+      const nombre = e.target.nombre.value
+      const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{ nombre }]).select().single()
+      if (errM) return alert("Error al clonar maleta.")
+      const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index)').eq('maleta_id', maletaADuplicar.id)
+      if (conjuntosViejos) {
+        for (const cViejo of conjuntosViejos) {
+          const { data: cNuevo } = await supabase.from('conjuntos').insert([{ nombre: cViejo.nombre, maleta_id: nuevaMaleta.id }]).select().single()
+          if (cNuevo && cViejo.conjunto_prenda.length > 0) {
+            const copiasRel = cViejo.conjunto_prenda.map(cp => ({
+              conjunto_id: cNuevo.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
+            }))
+            await supabase.from('conjunto_prenda').insert(copiasRel)
+          }
         }
       }
+      const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id)').order('nombre')
+      setMaletas(listaMaletas); localStorage.setItem('cache_maletas', JSON.stringify(listaMaletas))
     }
-
     vibrar([50, 50])
-    cerrarMenuCopiaMaleta()
-    const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id)').order('nombre')
-    setMaletas(listaMaletas)
-    localStorage.setItem('cache_maletas', JSON.stringify(listaMaletas))
+    cerrarOperacion()
   }
 
   async function exportarOutfit(id, nombre) {
@@ -227,22 +185,17 @@ export default function VistaConjuntos({ onCrearMaleta }) {
     const elemento = document.getElementById(`lienzo-${id}`)
     if (!elemento) return
     try {
-      const canvas = await html2canvas(elemento, { useCORS: true, scale: 2 })
-      const url = canvas.toDataURL('image/jpeg', 0.9)
+      const canvas = await html2canvas(elemento, { useCORS: true, scale: 2, backgroundColor: null })
       const a = document.createElement('a')
-      a.href = url
+      a.href = canvas.toDataURL('image/jpeg', 0.9)
       a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.jpg`
       a.click()
-      vibrar([30, 30])
-    } catch (e) {
-      console.error(e)
-      alert("Error al generar la imagen.")
-    }
+    } catch (e) { alert("Error al generar imagen.") }
   }
 
   function abrirMaleta(maleta) {
-    vibrar(30); setAbriendo(maleta.id)
-    setTimeout(() => { setMaletaActiva(maleta); setAbriendo(null); }, 650)
+    vibrar(20); setAbriendo(maleta.id)
+    setTimeout(() => { setMaletaActiva(maleta); setAbriendo(null); }, 400)
   }
 
   async function actualizarEstado(conjuntoId, prendaId, x, y, z) {
@@ -252,106 +205,68 @@ export default function VistaConjuntos({ onCrearMaleta }) {
   const itemsFiltrados = !maletaActiva ? maletas.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase())) : conjuntos.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
 
   return (
-    <div className="flex flex-col h-full w-full animate-fade-in-up relative transform-gpu">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-3 md:gap-4 pb-4 md:pb-6 w-full">
-        {maletaActiva ? (
-          <button onClick={() => { setMaletaActiva(null); vibrar(30); }} className="font-bold text-slate-700 in-[.modo-oscuro]:text-[#E0D8F0] bg-white/60 in-[.modo-oscuro]:bg-[#2A273F]/60 px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl cursor-pointer shadow-sm active:scale-95 transition-transform border border-rose-200/50 in-[.modo-oscuro]:border-[#433D60] text-sm md:text-base touch-manipulation">← Cerrar</button>
-        ) : (
-          <h3 className="font-bold text-xl md:text-2xl text-transparent bg-clip-text bg-linear-to-r from-teal-600 to-rose-400 in-[.modo-oscuro]:from-[#A394D6] in-[.modo-oscuro]:to-[#C2A3FF] hidden sm:block">Mis maletas</h3>
+    <div className="flex flex-col h-full w-full relative">
+      <div className="flex flex-col gap-3 mb-4 w-full">
+        {maletaActiva && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setMaletaActiva(null); vibrar(20); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 active:scale-90 transition-transform">←</button>
+            <h3 className="font-bold text-lg tracking-tight truncate">{maletaActiva.nombre}</h3>
+          </div>
         )}
 
-        <div className="flex w-full sm:w-auto gap-2 md:gap-4">
-          <input type="text" autoComplete="off" placeholder={!maletaActiva ? "Buscar maleta..." : "Buscar conjunto..."} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 border border-rose-200/50 in-[.modo-oscuro]:border-[#433D60] bg-white/80 in-[.modo-oscuro]:bg-[#2A273F]/80 text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] rounded-xl p-2.5 md:p-3 px-4 text-xs md:text-sm focus:ring-4 focus:ring-teal-400/30 in-[.modo-oscuro]:focus:ring-[#A394D6]/30 outline-none shadow-sm transition-all" />
+        <div className="flex w-full gap-2">
+          <input type="text" autoComplete="off" placeholder={!maletaActiva ? "Buscar maleta..." : "Buscar conjunto..."} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-2.5 text-sm outline-none placeholder-neutral-500 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 transition-colors" />
           {!maletaActiva && (
-            <button onClick={onCrearMaleta} className="bg-linear-to-r from-teal-400 to-emerald-400 in-[.modo-oscuro]:from-[#7E67C9] in-[.modo-oscuro]:to-[#9985D8] text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold shadow-lg cursor-pointer md:hover:scale-105 active:scale-95 transition-transform duration-300 text-xs md:text-base whitespace-nowrap touch-manipulation">+ Preparar</button>
+            <button onClick={onCrearMaleta} className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black px-5 py-2.5 rounded-full font-semibold active:scale-[0.98] transition-transform text-sm">+ Maleta</button>
           )}
         </div>
       </div>
 
-      {maletaActiva && (
-        <div className="flex flex-col items-center mb-6 animate-pop-in">
-          <h2 className="text-xl md:text-3xl font-extrabold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] tracking-tight">{maletaActiva.nombre}</h2>
-          {clima && (
-            <span className="text-xs md:text-sm font-bold bg-white/80 in-[.modo-oscuro]:bg-[#2A273F] px-3 py-1 mt-2 rounded-full shadow-sm text-slate-600 in-[.modo-oscuro]:text-[#A394D6] border border-rose-100 in-[.modo-oscuro]:border-[#433D60]">
-               📍 {clima.nombre} · {clima.max}°C máx / {clima.min}°C min
-            </span>
-          )}
-        </div>
-      )}
-
       {cargando ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-4 px-1">
-           {[...Array(6)].map((_, i) => <div key={i} className="rounded-xl h-32 md:h-64 bg-white/50 in-[.modo-oscuro]:bg-[#2A273F]/50 animate-shimmer"></div>)}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 px-1">
+           {[...Array(6)].map((_, i) => <div key={i} className="aspect-3/4 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-lg animate-pulse"></div>)}
         </div>
       ) : itemsFiltrados.length === 0 ? (
-        <p className="text-center text-slate-400 in-[.modo-oscuro]:text-[#7A7593] py-10 border-2 border-dashed border-rose-200/50 in-[.modo-oscuro]:border-[#433D60]/50 rounded-2xl text-sm md:text-base">Vacío.</p>
+        <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">Vacío.</div>
       ) : !maletaActiva ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-y-12 md:gap-y-16 gap-x-2 md:gap-x-6 pt-4 md:pt-12 px-1">
+        /* CUADRÍCULA ESTRICTA DE 3 COLUMNAS PARA MALETAS */
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-2 gap-y-6 pt-2 pb-4 px-1">
           {itemsFiltrados.map((m) => (
-            <div key={m.id} className="relative group flex flex-col items-center justify-end w-full animate-pop-in">
-              <div className="absolute -top-4 -right-2 md:-top-6 md:-right-4 flex gap-1 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
-                <button onClick={(e) => abrirMenuCopiaMaleta(m, e)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-teal-500 in-[.modo-oscuro]:text-[#A394D6] w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation text-[10px] md:text-base" title="Copiar Maleta">⎘</button>
-                <button onClick={(e) => solicitarEliminacionMaleta(m.id, e)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-6 h-6 md:w-9 md:h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-lg border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation text-[10px] md:text-base" title="Eliminar Maleta">✕</button>
+            <div key={m.id} className="relative flex flex-col items-center w-full">
+              <div className="absolute -top-2 right-0 flex flex-col gap-1 z-20">
+                <button onClick={(e) => confirmarAccion('maleta', m.id, '¿Eliminar maleta?')} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">✕</button>
+                <button onClick={(e) => abrirOperacion('clonarMaleta', m, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
               </div>
 
-              <div onClick={() => abrirMaleta(m)} className="relative w-full max-w-23.75 md:max-w-41.25 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation">
-                 <div className="absolute -top-3 md:-top-7 left-1/2 -translate-x-1/2 w-10 md:w-20 h-3 md:h-7 flex justify-between z-0">
-                    <div className="w-0.75 md:w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:via-[#494463] in-[.modo-oscuro]:to-[#2E2A44] border-x border-slate-400 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
-                    <div className="w-0.75 md:w-2.5 h-full bg-linear-to-r from-slate-300 via-slate-100 to-slate-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:via-[#494463] in-[.modo-oscuro]:to-[#2E2A44] border-x border-slate-400 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
-                    <div className="absolute top-0 left-0 w-full h-1 md:h-3 bg-linear-to-b from-slate-200 to-slate-400 in-[.modo-oscuro]:from-[#494463] in-[.modo-oscuro]:to-[#2E2A44] rounded-t-sm shadow-sm border border-slate-400/50 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
-                 </div>
-                 <div className="absolute -bottom-2 md:-bottom-4 left-1.5 md:left-3 w-3 md:w-5 h-3 md:h-6 bg-linear-to-b from-slate-300 to-slate-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:to-[#1F1D2B] rounded-b-sm md:rounded-b-md z-0 flex flex-col items-center justify-end md:pb-0.5 shadow-md border-x border-slate-400/50 in-[.modo-oscuro]:border-[#13111C]">
-                   <div className="w-3.5 md:w-6 h-1 md:h-3 bg-[#111] rounded-full border border-slate-300 in-[.modo-oscuro]:border-[#494463] flex items-center justify-center md:-mb-1 shadow-lg"></div>
-                 </div>
-                 <div className="absolute -bottom-2 md:-bottom-4 right-1.5 md:right-3 w-3 md:w-5 h-3 md:h-6 bg-linear-to-b from-slate-300 to-slate-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:to-[#1F1D2B] rounded-b-sm md:rounded-b-md z-0 flex flex-col items-center justify-end md:pb-0.5 shadow-md border-x border-slate-400/50 in-[.modo-oscuro]:border-[#13111C]">
-                   <div className="w-3.5 md:w-6 h-1 md:h-3 bg-[#111] rounded-full border border-slate-300 in-[.modo-oscuro]:border-[#494463] flex items-center justify-center md:-mb-1 shadow-lg"></div>
-                 </div>
-
-                 <div className="absolute top-0 left-0 w-full h-full bg-[#1e293b] in-[.modo-oscuro]:bg-[#13111C] rounded-lg md:rounded-[1.8rem] shadow-[inset_0_0_20px_rgba(0,0,0,1)] border border-slate-600 in-[.modo-oscuro]:border-[#494463] overflow-hidden z-10 flex flex-col justify-center">
-                    <div className="absolute inset-1 md:inset-3 border border-slate-700/50 in-[.modo-oscuro]:border-[#494463]/30 rounded-md md:rounded-xl z-10 overflow-hidden pointer-events-none">
-                       <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 md:h-3 bg-slate-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 rotate-45 flex items-center justify-center"></div>
-                       <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 md:h-3 bg-slate-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
-                    </div>
-                    {m.conjuntos && m.conjuntos.length > 0 && (
-                       <div className={`absolute bottom-2 md:bottom-5 w-[75%] left-[12.5%] flex flex-col justify-end z-20 transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-90'}`}>
-                           <div className="w-[75%] h-2.5 md:h-4 bg-linear-to-b from-rose-500 to-rose-700 in-[.modo-oscuro]:from-[#A394D6] in-[.modo-oscuro]:to-[#7E67C9] rounded-sm border-t border-rose-400 in-[.modo-oscuro]:border-[#C2A3FF] shadow-[0_2px_4px_rgba(0,0,0,0.6)] mx-auto rotate-3 -mb-0.5 md:-mb-1"></div>
-                           <div className="w-[90%] h-2.5 md:h-4 bg-linear-to-b from-slate-200 to-slate-400 in-[.modo-oscuro]:from-[#494463] in-[.modo-oscuro]:to-[#2E2A44] rounded-sm border-t border-white/80 in-[.modo-oscuro]:border-[#7A7593] shadow-[0_2px_4px_rgba(0,0,0,0.6)] mx-auto -rotate-2 -mb-0.5 md:-mb-1"></div>
-                           <div className="w-full h-3.5 md:h-6 bg-linear-to-b from-teal-600 to-teal-800 in-[.modo-oscuro]:from-[#7E67C9] in-[.modo-oscuro]:to-[#433D60] rounded-sm border-t border-teal-400 in-[.modo-oscuro]:border-[#A394D6] shadow-[0_4px_8px_rgba(0,0,0,0.8)] mx-auto"></div>
-                       </div>
-                    )}
-                 </div>
-
-                 <div 
-                   className="absolute top-0 left-0 w-full h-full rounded-lg md:rounded-[1.8rem] origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)] transform-3d"
-                   style={{ transform: abriendo === m.id ? 'perspective(1500px) rotateY(-105deg)' : 'perspective(1500px) rotateY(0deg)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
-                 >
-                    <div className="absolute inset-0 bg-linear-to-br from-[#f8fafc] via-[#cbd5e1] to-[#94a3b8] in-[.modo-oscuro]:from-[#494463] in-[.modo-oscuro]:via-[#3B3852] in-[.modo-oscuro]:to-[#2A273F] rounded-lg md:rounded-[1.8rem] border border-white/60 in-[.modo-oscuro]:border-[#7A7593]/40 overflow-hidden">
-                      <div className="absolute inset-0 flex justify-evenly px-0.5 md:px-2 py-1 md:py-4">
-                          {[...Array(7)].map((_, i) => <div key={i} className="w-[1.5px] md:w-1.75 h-full bg-linear-to-r from-black/5 via-transparent to-white/60 in-[.modo-oscuro]:from-black/40 in-[.modo-oscuro]:via-transparent in-[.modo-oscuro]:to-white/10 rounded-full shadow-[1px_0_2px_rgba(0,0,0,0.1)]"></div>)}
-                      </div>
-                      <div className="absolute top-1.5 md:top-6 left-1/2 -translate-x-1/2 w-4 md:w-10 h-0.75 md:h-2.5 bg-linear-to-b from-slate-200 to-slate-400 in-[.modo-oscuro]:from-[#7A7593] in-[.modo-oscuro]:to-[#2E2A44] rounded-sm shadow-sm border border-slate-500/40 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
-                    </div>
-                 </div>
+              <div onClick={() => abrirMaleta(m)} className={`w-full aspect-2/3 max-w-30 bg-neutral-200 in-[.modo-oscuro]:bg-neutral-800 rounded-xl relative cursor-pointer overflow-hidden shadow-sm active:scale-[0.98] transition-all duration-300 ${abriendo === m.id ? 'opacity-0 scale-90' : 'opacity-100'}`}>
+                {/* Detalles gráficos maleta minimalista */}
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-neutral-300 in-[.modo-oscuro]:bg-neutral-600 rounded-full"></div>
+                <div className="absolute bottom-2 w-full flex justify-between px-3"><div className="w-2 h-2 bg-neutral-400 in-[.modo-oscuro]:bg-neutral-950 rounded-full"></div><div className="w-2 h-2 bg-neutral-400 in-[.modo-oscuro]:bg-neutral-950 rounded-full"></div></div>
+                <div className="absolute inset-0 flex flex-col justify-center px-2 opacity-30"><div className="w-full h-px bg-black my-1"></div><div className="w-full h-px bg-black my-1"></div><div className="w-full h-px bg-black my-1"></div></div>
               </div>
-
-              <p className="mt-1 md:mt-4 font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] text-center text-[10px] md:text-lg px-0.5 w-full truncate tracking-wide leading-tight">{m.nombre}</p>
+              <p className="mt-2 font-semibold text-[11px] md:text-sm text-center w-full truncate px-1">{m.nombre}</p>
+              <p className="text-[9px] text-neutral-500">{m.conjuntos ? m.conjuntos.length : 0} looks</p>
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-2 w-full">
+        /* OUTFITS: 1 COLUMNA */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4">
           {itemsFiltrados.map((conj, i) => (
-            <div key={conj.id} className="relative border border-white/50 in-[.modo-oscuro]:border-[#322F44]/50 p-6 rounded-4xl bg-white/50 in-[.modo-oscuro]:bg-[#1F1D2B]/50 backdrop-blur-md shadow-lg group animate-fade-in-up w-full flex flex-col">
+            <div key={conj.id} className="relative border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 rounded-3xl bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/50 flex flex-col overflow-hidden">
               
-              <div className="absolute top-5 right-5 flex gap-2 z-50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
-                <button onClick={() => exportarOutfit(conj.id, conj.nombre)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-emerald-500 in-[.modo-oscuro]:text-emerald-400 w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation text-lg" title="Descargar Imagen">↓</button>
-                <button onClick={() => abrirMenuCopia(conj)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-teal-500 in-[.modo-oscuro]:text-[#A394D6] w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation" title="Copiar Outfit">⎘</button>
-                <button onClick={() => solicitarEliminacionConjunto(conj.id)} className="bg-white in-[.modo-oscuro]:bg-[#2A273F] text-red-500 w-9 h-9 rounded-full font-bold flex items-center justify-center cursor-pointer shadow-md border border-rose-100 in-[.modo-oscuro]:border-[#433D60] active:scale-90 transition-transform touch-manipulation" title="Eliminar Outfit">✕</button>
+              <div className="flex justify-between items-center px-5 py-4 border-b border-neutral-200 in-[.modo-oscuro]:border-neutral-800 bg-white in-[.modo-oscuro]:bg-neutral-900">
+                <h3 className="font-bold text-sm truncate pr-4">{conj.nombre}</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => exportarOutfit(conj.id, conj.nombre)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">↓</button>
+                  <button onClick={() => abrirOperacion('clonarOutfit', conj)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">⎘</button>
+                  <button onClick={() => confirmarAccion('conjunto', conj.id, '¿Eliminar outfit?')} className="text-red-400 active:text-red-600 px-2">✕</button>
+                </div>
               </div>
-
-              <h3 className="font-extrabold text-xl mb-4 text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] pl-1 pr-32 truncate">{conj.nombre}</h3>
               
-              <div id={`lienzo-${conj.id}`} className="relative w-full h-112.5 md:h-150 bg-rose-50/30 in-[.modo-oscuro]:bg-[#13111C]/40 rounded-3xl border-2 border-dashed border-rose-200 in-[.modo-oscuro]:border-[#433D60] overflow-hidden shadow-inner touch-none">
+              <div id={`lienzo-${conj.id}`} className="relative w-full h-100 md:h-125 bg-neutral-50 in-[.modo-oscuro]:bg-neutral-950 overflow-hidden touch-none">
+                {/* Cuadrícula sutil de fondo para alinear */}
+                <div className="absolute inset-0 opacity-[0.03] in-[.modo-oscuro]:opacity-[0.05]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                 {conj.conjunto_prenda.map((cp, idx) => (
                   <PrendaArrastrable key={cp.prendas.id} cp={cp} index={idx} maxZ={maxZ} setMaxZ={setMaxZ} onGuardarEstado={actualizarEstado} />
                 ))}
@@ -361,53 +276,43 @@ export default function VistaConjuntos({ onCrearMaleta }) {
         </div>
       )}
 
-      {/* Menú Clonar Outfit */}
-      {conjuntoADuplicar && (
-        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${duplicarVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <form onSubmit={ejecutarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${duplicarVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
-            <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-4">Duplicar Outfit</h3>
-            <div className="mb-3">
-              <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] mb-1">Nueva Maleta:</label>
-              <select name="maletaId" required className="w-full p-3 rounded-xl bg-rose-50 in-[.modo-oscuro]:bg-[#2A273F] border border-rose-200 in-[.modo-oscuro]:border-[#433D60] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] outline-none transition-colors">
-                {maletas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-              </select>
+      {/* Modal Clonar Minimalista */}
+      {(conjuntoADuplicar || maletaADuplicar) && (
+        <div className={`fixed inset-0 bg-black/60 flex items-end justify-center z-100 transition-opacity duration-300 ${modalOperacionVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="flex-1 w-full" onClick={cerrarOperacion}></div>
+          <form onSubmit={procesarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-neutral-900 w-full max-w-md rounded-t-3xl p-6 pb-12 transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${modalOperacionVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+            <h3 className="text-xl font-bold mb-4">{conjuntoADuplicar ? 'Duplicar Outfit' : 'Duplicar Maleta'}</h3>
+            
+            {conjuntoADuplicar && (
+              <div className="mb-4">
+                <label className="block text-sm font-semibold mb-2">Destino:</label>
+                <select name="maletaId" required className="w-full p-3 rounded-lg bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none">
+                  {maletas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                </select>
+              </div>
+            )}
+
+            <div className="mb-6">
+              <label className="block text-sm font-semibold mb-2">Nuevo nombre:</label>
+              <input type="text" name="nombre" autoComplete="off" defaultValue={`${(conjuntoADuplicar || maletaADuplicar).nombre} (Copia)`} required className="w-full p-3 rounded-lg bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none" />
             </div>
-            <div className="mb-5">
-              <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] mb-1">Nombre de la copia:</label>
-              <input type="text" name="nombreCopia" autoComplete="off" defaultValue={`${conjuntoADuplicar.nombre} (Copia)`} required className="w-full p-3 rounded-xl bg-white in-[.modo-oscuro]:bg-[#13111C] border border-rose-200 in-[.modo-oscuro]:border-[#433D60] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] outline-none transition-colors" />
-            </div>
-            <div className="flex gap-3 justify-center">
-              <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-[#7E67C9] text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Clonar</button>
-              <button type="button" onClick={cerrarMenuCopia} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
+
+            <div className="flex gap-2">
+              <button type="submit" className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98]">Clonar</button>
+              <button type="button" onClick={cerrarOperacion} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 font-semibold py-3 rounded-xl active:scale-[0.98]">Cancelar</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Menú Clonar Maleta */}
-      {maletaADuplicar && (
-        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${duplicarMaletaVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <form onSubmit={ejecutarDuplicadoMaleta} className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${duplicarMaletaVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
-            <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-4">Duplicar Maleta Entera</h3>
-            <div className="mb-5">
-              <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro]:text-[#D1C4E9] mb-1">Nombre de la nueva maleta:</label>
-              <input type="text" name="nombreCopiaMaleta" autoComplete="off" defaultValue={`${maletaADuplicar.nombre} (Copia)`} required className="w-full p-3 rounded-xl bg-white in-[.modo-oscuro]:bg-[#13111C] border border-rose-200 in-[.modo-oscuro]:border-[#433D60] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] outline-none transition-colors" />
-            </div>
-            <div className="flex gap-3 justify-center">
-              <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-[#7E67C9] text-white font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Clonar</button>
-              <button type="button" onClick={cerrarMenuCopiaMaleta} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
-            </div>
-          </form>
-        </div>
-      )}
-
+      {/* Modal Confirmación Eliminar */}
       {dialogoInfo && (
-        <div className={`fixed inset-0 bg-slate-900/40 flex items-center justify-center z-100 p-4 backdrop-blur-sm transition-opacity duration-300 ease-in-out will-change-opacity ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-[#1F1D2B] border border-rose-100 in-[.modo-oscuro]:border-[#433D60] rounded-2xl shadow-2xl p-5 max-w-sm w-full text-center transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform transform-gpu ${dialogoVisible ? 'scale-100 translate-y-0' : 'scale-90 translate-y-4'}`}>
-            <h3 className="text-lg font-bold text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] mb-5">{dialogoInfo.mensaje}</h3>
-            <div className="flex gap-3 justify-center">
-              <button onClick={ejecutarEliminacion} className="bg-red-500 md:hover:bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm touch-manipulation">Eliminar</button>
-              <button onClick={cerrarDialogo} className="bg-slate-100 in-[.modo-oscuro]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro]:text-[#E0D8F0] font-bold py-2.5 px-4 rounded-xl flex-1 cursor-pointer active:scale-95 transition-transform text-sm touch-manipulation">Cancelar</button>
+        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 p-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-2xl p-6 w-full max-w-sm text-center transition-transform duration-300 ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
+            <h3 className="text-lg font-semibold mb-6">{dialogoInfo.mensaje}</h3>
+            <div className="flex flex-col gap-2">
+              <button onClick={ejecutarEliminacion} className="w-full text-red-500 font-bold py-3 rounded-xl bg-red-50 in-[.modo-oscuro]:bg-red-950/30 active:opacity-70">Eliminar</button>
+              <button onClick={cerrarDialogo} className="w-full font-semibold py-3 rounded-xl active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-800">Cancelar</button>
             </div>
           </div>
         </div>
