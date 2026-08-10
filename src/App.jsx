@@ -133,7 +133,6 @@ export default function App() {
   return (
     <div className={`min-h-screen bg-white in-[.modo-oscuro]:bg-black text-neutral-900 in-[.modo-oscuro]:text-white flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans`}>
       
-      {/* Cabecera Estilo App (Minimalista) */}
       <header className="bg-white/90 in-[.modo-oscuro]:bg-black/90 backdrop-blur-md border-b border-neutral-200 in-[.modo-oscuro]:border-neutral-800 p-4 flex justify-between items-center w-full sticky top-0 z-20">
         <h1 className="text-xl font-bold tracking-tight">Armario</h1>
         <button onClick={() => { setTemaOscuro(!temaOscuro); vibrar(30); }} className="w-8 h-8 flex items-center justify-center rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 active:scale-90 transition-transform">
@@ -141,13 +140,11 @@ export default function App() {
         </button>
       </header>
 
-      {/* Contenedor Principal Deslizable */}
       <main {...swipeNavegacion} className="flex-1 w-full relative overflow-hidden touch-pan-y pb-16">
         <div 
           className="flex w-[200%] h-full transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform transform-gpu" 
           style={{ transform: pestañaActiva === 'ropa' ? 'translateX(0%)' : 'translateX(-50%)' }}
         >
-          {/* Pestaña: Ropa */}
           <div className="w-1/2 h-full flex flex-col overflow-y-auto hide-scrollbar p-2 md:p-4">
             <div className="flex gap-2 mb-4">
               <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="flex-1 bg-neutral-900 in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-2.5 rounded-lg active:scale-[0.98] transition-transform text-sm">
@@ -159,15 +156,14 @@ export default function App() {
             <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} key={`g-${actualizaciones}`} />
           </div>
 
-          {/* Pestaña: Maletas */}
           <div className="w-1/2 h-full flex flex-col overflow-y-auto hide-scrollbar p-2 md:p-4">
             <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30); }} key={`c-${actualizaciones}`} />
           </div>
         </div>
       </main>
 
-      {/* Navegación Inferior Fija (Estilo Instagram/X) */}
-      <nav className="fixed bottom-0 w-full bg-white/90 in-[.modo-oscuro]:bg-black/90 backdrop-blur-md border-t border-neutral-200 in-[.modo-oscuro]:border-neutral-800 pb-safe z-20">
+      {/* Navegación estrictamente negra */}
+      <nav className="fixed bottom-0 w-full bg-black text-white pb-safe z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
         <div className="flex justify-around items-center h-14">
           <button onClick={() => { setPestañaActiva('ropa'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1 transition-opacity ${pestañaActiva === 'ropa' ? 'opacity-100' : 'opacity-40'}`}>
             <span className="text-xl">👕</span>
@@ -180,7 +176,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Ventana Modal Universal */}
       {modalActivo && (
         <div className={`fixed inset-0 bg-black/60 z-50 flex flex-col justify-end transition-opacity duration-300 ${modalVisible ? 'opacity-100' : 'opacity-0'}`}>
           <div className="flex-1" onClick={cerrarModal}></div>
