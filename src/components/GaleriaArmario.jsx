@@ -27,7 +27,6 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
 
   useEffect(() => { setLimiteVisibles(24) }, [busqueda, filtroCategoria])
 
-  // Lógica actualizada: Combina la búsqueda por texto con el filtro del menú lateral
   const prendasFiltradas = prendas.filter(prenda => {
     const term = busqueda.toLowerCase()
     const coincideBusqueda = (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
@@ -139,12 +138,12 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
       )}
 
       {dialogoConfirmacion && (
-        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 p-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-[#0a0a0a] rounded-3xl p-6 w-full max-w-sm text-center transition-transform duration-300 transform-gpu ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
+        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 px-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-3xl p-6 w-full max-w-sm text-center transition-transform duration-300 transform-gpu ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
             <h3 className="text-lg font-bold mb-6 tracking-tight">¿Eliminar prenda?</h3>
             <div className="flex flex-col gap-3">
               <button onClick={ejecutarEliminacion} className="w-full text-white font-bold py-3.5 rounded-xl bg-red-500 active:bg-red-600 transition-colors touch-manipulation">Eliminar</button>
-              <button onClick={cerrarDialogo} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-800 transition-colors touch-manipulation">Cancelar</button>
+              <button onClick={cerrarDialogo} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-700 transition-colors touch-manipulation">Cancelar</button>
             </div>
           </div>
         </div>

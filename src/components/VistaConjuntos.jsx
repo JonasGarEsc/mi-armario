@@ -3,10 +3,58 @@ import { supabase } from '../supabase'
 import { vibrar } from '../App'
 import { toPng } from 'html-to-image'
 
+// Widget de Clima Asíncrono e Independiente
+function WidgetClima({ destino }) {
+  const [clima, setClima] = useState(null)
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    let montado = true
+    async function obtenerClima() {
+      setCargando(true)
+      const ciudadPura = destino.replace(/[0-9]/g, '').trim()
+      if (!ciudadPura || ciudadPura.length < 3) {
+        if(montado) setCargando(false)
+        return
+      }
+      try {
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(ciudadPura)}&count=1&language=es&format=json`)
+        const geoData = await geoRes.json()
+        if (geoData.results?.length > 0) {
+          const { latitude, longitude, name } = geoData.results[0]
+          const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=1`)
+          const weatherData = await weatherRes.json()
+          if (montado) setClima({ nombre: name, max: weatherData.daily.temperature_2m_max[0], min: weatherData.daily.temperature_2m_min[0] })
+        }
+      } catch (e) { console.error('Error API clima') }
+      if(montado) setCargando(false)
+    }
+    obtenerClima()
+    return () => { montado = false }
+  }, [destino])
+
+  if (cargando) return <div className="h-8 w-40 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 animate-pulse rounded-md mt-1"></div>
+  if (!clima) return null
+
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-md border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 w-max">
+        <span className="text-xs">🌍</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-600 in-[.modo-oscuro]:text-neutral-400">{clima.nombre}</span>
+      </div>
+      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-md border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 w-max">
+        <span className="text-[11px] font-bold text-neutral-800 in-[.modo-oscuro]:text-neutral-200">{clima.max}°</span>
+        <span className="text-neutral-300 in-[.modo-oscuro]:text-neutral-600">/</span>
+        <span className="text-[11px] font-medium text-neutral-500 in-[.modo-oscuro]:text-neutral-500">{clima.min}°</span>
+      </div>
+    </div>
+  )
+}
+
 function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? (index * 90 + 20) })
-  const [zIndex, setZIndex] = useState(cp.z_index ?? 10)
+  const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
   const [isDragging, setIsDragging] = useState(false)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
 
@@ -76,22 +124,19 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
   const [abriendo, setAbriendo] = useState(null)
   const [maletaActiva, setMaletaActiva] = useState(null)
   
-  const [clima, setClima] = useState(null)
-  
   const [dialogoInfo, setDialogoInfo] = useState(null)
   const [dialogoVisible, setDialogoVisible] = useState(false)
   const [conjuntoADuplicar, setConjuntoADuplicar] = useState(null)
   const [maletaADuplicar, setMaletaADuplicar] = useState(null)
   const [modalOperacionVisible, setModalOperacionVisible] = useState(false)
   
-  const [maxZ, setMaxZ] = useState(100)
+  const [maxZ, setMaxZ] = useState(10)
 
   useEffect(() => {
     async function cargarDatos() {
       if (!maletaActiva) {
         const cache = localStorage.getItem('cache_maletas')
         if (cache) { setMaletas(JSON.parse(cache)); setCargando(false); }
-        // Fetch anidado para recuperar imágenes para el interior de la maleta
         const { data } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
         if (data) { setMaletas(data); localStorage.setItem('cache_maletas', JSON.stringify(data)); }
       } else {
@@ -99,28 +144,11 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
         if (cache) { setConjuntos(JSON.parse(cache)); setCargando(false); }
         const { data } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda ( conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas ( id, imagen_url, categorias ( nombre ) ) )').eq('maleta_id', maletaActiva.id).order('nombre')
         if (data) { setConjuntos(data); localStorage.setItem(`cache_conjuntos_${maletaActiva.id}`, JSON.stringify(data)); }
-        obtenerClimaDestino(maletaActiva.nombre)
       }
       setCargando(false)
     }
     cargarDatos()
   }, [maletaActiva])
-
-  async function obtenerClimaDestino(nombreMaleta) {
-    setClima(null)
-    const ciudadPura = nombreMaleta.replace(/[0-9]/g, '').trim()
-    if (!ciudadPura || ciudadPura.length < 3) return
-    try {
-      const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(ciudadPura)}&count=1&language=es&format=json`)
-      const geoData = await geoRes.json()
-      if (geoData.results?.length > 0) {
-        const { latitude, longitude, name } = geoData.results[0]
-        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=1`)
-        const weatherData = await weatherRes.json()
-        setClima({ nombre: name, max: weatherData.daily.temperature_2m_max[0], min: weatherData.daily.temperature_2m_min[0] })
-      }
-    } catch (e) { console.error('Error API clima') }
-  }
 
   function confirmarAccion(tipo, id, e, mensaje) {
     if (e) e.stopPropagation()
@@ -230,7 +258,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
       }
       vibrar([30, 30])
     } catch (e) {
-      console.error(e)
       mostrarToast("Error al exportar", "error")
     }
   }
@@ -238,7 +265,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
   function abrirMaleta(maleta) {
     vibrar(20)
     setAbriendo(maleta.id)
-    // Se ha aumentado el timeout a 800ms para asegurar que la tapa se abre del todo antes de cambiar la vista
     setTimeout(() => { 
       setMaletaActiva(maleta)
       setAbriendo(null)
@@ -270,9 +296,13 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
     <div className="flex flex-col h-full w-full relative">
       <div className="flex flex-col gap-3 mb-4 w-full">
         {maletaActiva && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => { setMaletaActiva(null); vibrar(20); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 active:scale-90 transition-transform">←</button>
-            <h3 className="font-bold text-lg tracking-tight truncate">{maletaActiva.nombre}</h3>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setMaletaActiva(null); vibrar(20); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 active:scale-90 transition-transform">←</button>
+              <h3 className="font-bold text-lg tracking-tight truncate">{maletaActiva.nombre}</h3>
+            </div>
+            {/* Widget Clima Aislado */}
+            <WidgetClima destino={maletaActiva.nombre} />
           </div>
         )}
 
@@ -282,12 +312,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
             <button onClick={onCrearMaleta} className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black px-5 py-3 rounded-full font-semibold active:scale-[0.98] transition-transform text-sm">+ Maleta</button>
           )}
         </div>
-        
-        {maletaActiva && clima && (
-          <span className="self-start text-xs font-semibold bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 px-3 py-1.5 rounded-md text-neutral-600 in-[.modo-oscuro]:text-neutral-400">
-             📍 {clima.nombre} · {clima.max}°C máx / {clima.min}°C min
-          </span>
-        )}
       </div>
 
       {cargando ? (
@@ -305,7 +329,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
                 <button onClick={(e) => abrirOperacion('clonarMaleta', m, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
               </div>
 
-              {/* El contenedor padre ya no desaparece, manteniendo el espacio para la animación 3D */}
               <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation`}>
                  <div className="absolute -top-3 md:-top-5 left-1/2 -translate-x-1/2 w-8 md:w-16 h-3 md:h-5 flex justify-between z-0">
                     <div className="w-0.75 h-full bg-linear-to-r from-neutral-300 via-neutral-100 to-neutral-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:via-[#494463] in-[.modo-oscuro]:to-[#2E2A44] border-x border-neutral-400 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
@@ -319,14 +342,12 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
                    <div className="w-3.5 h-1 bg-black rounded-full shadow-lg border border-neutral-400 in-[.modo-oscuro]:border-neutral-600"></div>
                  </div>
 
-                 {/* Interior (Oscuro) y Prendas Apiladas */}
                  <div className="absolute top-0 left-0 w-full h-full bg-[#1e293b] in-[.modo-oscuro]:bg-[#13111C] rounded-xl md:rounded-3xl border border-neutral-600 in-[.modo-oscuro]:border-[#494463] overflow-hidden z-10 flex flex-col justify-center">
                     <div className="absolute inset-1 border border-neutral-700/50 in-[.modo-oscuro]:border-[#494463]/30 rounded-lg z-10 overflow-hidden pointer-events-none">
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 rotate-45"></div>
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
                     </div>
                     
-                    {/* Renderizado apilado de hasta 4 prendas reales dentro de la maleta */}
                     <div className={`absolute inset-0 z-20 transition-all duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-75'}`}>
                       {extraerImagenesMaleta(m).map((url, idx) => {
                          const posiciones = [
@@ -340,7 +361,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
                     </div>
                  </div>
 
-                 {/* Tapa Exterior Abriéndose en 3D */}
                  <div 
                    className="absolute top-0 left-0 w-full h-full rounded-xl md:rounded-3xl origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)] transform-3d"
                    style={{ transform: abriendo === m.id ? 'perspective(1500px) rotateY(-105deg)' : 'perspective(1500px) rotateY(0deg)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
@@ -360,7 +380,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4 relative z-0">
           {itemsFiltrados.map((conj, i) => (
             <div key={conj.id} className="relative border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 rounded-3xl bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/50 flex flex-col overflow-hidden">
               
@@ -368,12 +388,13 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
                 <h3 className="font-bold text-sm truncate pr-4">{conj.nombre}</h3>
                 <div className="flex gap-2">
                   <button onClick={() => exportarOutfit(conj.id, conj.nombre)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">↓</button>
-                  <button onClick={() => abrirOperacion('clonarOutfit', conj)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">⎘</button>
+                  <button onClick={(e) => abrirOperacion('clonarOutfit', conj, e)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">⎘</button>
                   <button onClick={(e) => confirmarAccion('conjunto', conj.id, e, '¿Eliminar outfit?')} className="text-red-400 active:text-red-600 px-2">✕</button>
                 </div>
               </div>
               
-              <div id={`lienzo-${conj.id}`} className="relative w-full h-100 md:h-125 bg-neutral-50 in-[.modo-oscuro]:bg-neutral-950 overflow-hidden touch-none">
+              {/* Contexto aislado para el z-index de las prendas (evita que la ropa se monte encima del modal oscuro) */}
+              <div id={`lienzo-${conj.id}`} className="relative w-full h-100 md:h-125 bg-neutral-50 in-[.modo-oscuro]:bg-neutral-950 overflow-hidden touch-none isolate">
                 <div className="absolute inset-0 opacity-[0.03] in-[.modo-oscuro]:opacity-[0.05]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                 {conj.conjunto_prenda.map((cp, idx) => (
                   <PrendaArrastrable key={cp.prendas.id} cp={cp} index={idx} maxZ={maxZ} setMaxZ={setMaxZ} onGuardarEstado={actualizarEstado} />
@@ -384,16 +405,16 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
         </div>
       )}
 
+      {/* Modales rediseñados y centrados correctamente */}
       {(conjuntoADuplicar || maletaADuplicar) && (
-        <div className={`fixed inset-0 bg-black/60 flex items-end justify-center z-100 transition-opacity duration-300 ${modalOperacionVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="flex-1 w-full" onClick={cerrarOperacion}></div>
-          <form onSubmit={procesarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-neutral-900 w-full max-w-md rounded-t-3xl p-6 pb-12 transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${modalOperacionVisible ? 'translate-y-0' : 'translate-y-full'}`}>
-            <h3 className="text-xl font-bold mb-4">{conjuntoADuplicar ? 'Duplicar Outfit' : 'Duplicar Maleta'}</h3>
+        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 transition-opacity duration-300 px-4 ${modalOperacionVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <form onSubmit={procesarDuplicado} className={`bg-white in-[.modo-oscuro]:bg-neutral-900 w-full max-w-md rounded-3xl p-6 transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${modalOperacionVisible ? 'scale-100' : 'scale-95'}`}>
+            <h3 className="text-xl font-bold mb-6 tracking-tight text-center">{conjuntoADuplicar ? 'Duplicar Outfit' : 'Duplicar Maleta'}</h3>
             
             {conjuntoADuplicar && (
               <div className="mb-4">
                 <label className="block text-sm font-semibold mb-2">Destino:</label>
-                <select name="maletaId" required className="w-full p-3 rounded-lg bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none">
+                <select name="maletaId" required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none">
                   {maletas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                 </select>
               </div>
@@ -401,24 +422,24 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
 
             <div className="mb-6">
               <label className="block text-sm font-semibold mb-2">Nuevo nombre:</label>
-              <input type="text" name="nombre" autoComplete="off" defaultValue={`${(conjuntoADuplicar || maletaADuplicar).nombre} (Copia)`} required className="w-full p-3 rounded-lg bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none" />
+              <input type="text" name="nombre" autoComplete="off" defaultValue={`${(conjuntoADuplicar || maletaADuplicar).nombre} (Copia)`} required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none" />
             </div>
 
-            <div className="flex gap-2">
-              <button type="submit" className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98]">Clonar</button>
-              <button type="button" onClick={cerrarOperacion} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 font-semibold py-3 rounded-xl active:scale-[0.98]">Cancelar</button>
+            <div className="flex gap-3">
+              <button type="submit" className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-4 rounded-xl active:scale-[0.98]">Clonar</button>
+              <button type="button" onClick={cerrarOperacion} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 font-semibold py-4 rounded-xl active:scale-[0.98]">Cancelar</button>
             </div>
           </form>
         </div>
       )}
 
       {dialogoInfo && (
-        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 p-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-2xl p-6 w-full max-w-sm text-center transition-transform duration-300 ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
-            <h3 className="text-lg font-semibold mb-6">{dialogoInfo.mensaje}</h3>
-            <div className="flex flex-col gap-2">
-              <button onClick={ejecutarEliminacion} className="w-full text-red-500 font-bold py-3 rounded-xl bg-red-50 in-[.modo-oscuro]:bg-red-950/30 active:opacity-70">Eliminar</button>
-              <button onClick={cerrarDialogo} className="w-full font-semibold py-3 rounded-xl active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-800">Cancelar</button>
+        <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 px-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
+          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-3xl p-6 w-full max-w-sm text-center transition-transform duration-300 ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
+            <h3 className="text-lg font-bold mb-6 tracking-tight">{dialogoInfo.mensaje}</h3>
+            <div className="flex flex-col gap-3">
+              <button onClick={ejecutarEliminacion} className="w-full text-white font-bold py-3.5 rounded-xl bg-red-500 active:bg-red-600 transition-colors touch-manipulation">Eliminar</button>
+              <button onClick={cerrarDialogo} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-700 transition-colors touch-manipulation">Cancelar</button>
             </div>
           </div>
         </div>
