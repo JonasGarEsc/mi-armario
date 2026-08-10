@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useSwipeable } from 'react-swipeable'
-import FormularioPrenda from './components/FormularioPrenda'
-import FormularioEdicion from './components/FormularioEdicion'
-import FormularioMaleta from './components/FormularioMaleta'
 import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import Gestores from './components/Gestores'
