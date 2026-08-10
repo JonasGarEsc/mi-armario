@@ -2,136 +2,91 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
 export default function Gestores({ seccion, onCambio }) {
-  const [datos, setDatos] = useState([])
-  const [tiposDisponibles, setTiposDisponibles] = useState([])
-  const [busqueda, setBusqueda] = useState('')
-  
-  // Estados para el nuevo formulario integrado
-  const [modoCreacion, setModoCreacion] = useState(false)
-  const [nuevoNombre, setNuevoNombre] = useState('')
-  const [nuevoTipoId, setNuevoTipoId] = useState('')
-
-  const titulos = {
-    tipos: 'Gestor de Tipos',
-    categorias: 'Gestor de Prendas Específicas',
-    etiquetas: 'Gestor de Etiquetas'
-  }
-
-  async function cargarDatos() {
-    let query = supabase.from(seccion).select('*').order('nombre')
-    if (seccion === 'categorias') query = supabase.from('categorias').select('*, tipos(nombre)').order('nombre')
-    
-    const { data } = await query
-    if (data) setDatos(data)
-  }
+  const [items, setItems] = useState([])
+  const [tipos, setTipos] = useState([])
+  const [nombre, setNombre] = useState('')
+  const [tipoRelacionado, setTipoRelacionado] = useState('')
 
   useEffect(() => {
     cargarDatos()
-    setModoCreacion(false) // Reiniciar formulario al cambiar de pestaña
-    if (seccion === 'categorias') {
-      supabase.from('tipos').select('*').then(({data}) => setTiposDisponibles(data || []))
-    }
   }, [seccion])
 
-  async function procesarCreacion(e) {
-    e.preventDefault()
-    let payload = { nombre: nuevoNombre.trim() }
-    
-    if (seccion === 'categorias') {
-      if (!nuevoTipoId) return alert('Debes seleccionar un Tipo de Prenda.')
-      payload.tipo_id = nuevoTipoId
-    }
-
-    const { error } = await supabase.from(seccion).insert([payload])
-    if (error) {
-      alert('Error SQL: ' + error.message)
+  async function cargarDatos() {
+    if (seccion === 'tipos') {
+      const { data } = await supabase.from('tipos').select('*').order('nombre')
+      if (data) setItems(data)
     } else {
-      setNuevoNombre('')
-      setNuevoTipoId('')
-      setModoCreacion(false)
-      cargarDatos()
-      if (onCambio) onCambio()
+      const { data: dataCat } = await supabase.from('categorias').select('*, tipos(nombre)').order('nombre')
+      if (dataCat) setItems(dataCat)
+      const { data: dataTipos } = await supabase.from('tipos').select('*').order('nombre')
+      if (dataTipos) setTipos(dataTipos)
     }
   }
 
-  async function manejarBorrado(id) {
-    if (!confirm('¿Eliminar definitivamente? Esto puede borrar datos asociados en cascada.')) return
+  async function crearItem(e) {
+    e.preventDefault()
+    const nom = nombre.trim()
+    if (!nom) return
+
+    if (seccion === 'tipos') {
+      await supabase.from('tipos').insert([{ nombre: nom }])
+    } else {
+      if (!tipoRelacionado) return alert("Selecciona un tipo base.")
+      await supabase.from('categorias').insert([{ nombre: nom, tipo_id: tipoRelacionado }])
+    }
+    
+    setNombre('')
+    setTipoRelacionado('')
+    cargarDatos()
+    if (onCambio) onCambio()
+  }
+
+  async function eliminarItem(id) {
+    const confirmacion = window.confirm(`¿Seguro que quieres eliminar este ${seccion === 'tipos' ? 'Tipo' : 'Prenda específica'}?`)
+    if (!confirmacion) return
+
     const { error } = await supabase.from(seccion).delete().eq('id', id)
-    if (error) alert('Error SQL: ' + error.message)
+    if (error) alert("No se puede eliminar porque está en uso por alguna ropa de tu armario.")
     else {
       cargarDatos()
       if (onCambio) onCambio()
     }
   }
 
-  const datosFiltrados = datos.filter(d => d.nombre.toLowerCase().includes(busqueda.toLowerCase()))
-
   return (
-    <div className="flex flex-col gap-6">
-      <h2 className="text-2xl font-bold border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 pb-2 text-teal-600 in-[.modo-oscuro]:text-indigo-300">{titulos[seccion]}</h2>
+    <div className="flex flex-col gap-5 text-left pb-4">
+      <h2 className="text-2xl font-bold tracking-tight mb-2">Gestionar {seccion === 'tipos' ? 'Tipos' : 'Prendas Específicas'}</h2>
       
-      <div className="flex gap-4">
+      <form onSubmit={crearItem} className="flex gap-2">
         <input 
           type="text" 
-          placeholder="Buscar por nombre..." 
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 p-3 border border-rose-200 in-[.modo-oscuro]:border-slate-600 bg-white in-[.modo-oscuro]:bg-slate-700 text-slate-800 in-[.modo-oscuro]:text-slate-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-400 in-[.modo-oscuro]:focus:ring-indigo-400"
+          value={nombre} 
+          onChange={(e) => setNombre(e.target.value)} 
+          placeholder={`Nuevo ${seccion === 'tipos' ? 'tipo...' : 'nombre...'}`} 
+          required 
+          className="flex-1 p-3 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm"
         />
-        <button 
-          onClick={() => setModoCreacion(!modoCreacion)} 
-          className="bg-teal-400 in-[.modo-oscuro]:bg-indigo-500 text-slate-900 in-[.modo-oscuro]:text-white px-5 py-2 rounded-xl font-bold hover:bg-teal-500 in-[.modo-oscuro]:hover:bg-indigo-400 cursor-pointer shadow"
-        >
-          {modoCreacion ? 'Cancelar' : '+ Crear Nuevo'}
-        </button>
-      </div>
+        {seccion === 'categorias' && (
+          <select value={tipoRelacionado} onChange={(e) => setTipoRelacionado(e.target.value)} required className="w-1/3 p-3 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent outline-none text-sm">
+            <option value="">Tipo base...</option>
+            {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        )}
+        <button type="submit" className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-bold px-5 rounded-xl active:scale-95 transition-transform text-sm">Añadir</button>
+      </form>
 
-      {modoCreacion && (
-        <form onSubmit={procesarCreacion} className="bg-rose-50/50 in-[.modo-oscuro]:bg-slate-700/50 p-4 rounded-xl border border-rose-100 in-[.modo-oscuro]:border-slate-600 flex flex-col md:flex-row gap-4 items-end">
-          <div className="flex-1 w-full">
-            <label className="block text-xs font-bold mb-1 text-slate-700 in-[.modo-oscuro]:text-slate-200">Nombre</label>
-            <input type="text" required value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)} className="w-full p-2 border border-rose-200 in-[.modo-oscuro]:border-slate-600 rounded bg-white in-[.modo-oscuro]:bg-slate-700 text-slate-800 in-[.modo-oscuro]:text-slate-100 text-sm" />
-          </div>
-          {seccion === 'categorias' && (
-            <div className="flex-1 w-full">
-              <label className="block text-xs font-bold mb-1 text-slate-700 in-[.modo-oscuro]:text-slate-200">Pertenece al Tipo</label>
-              <select required value={nuevoTipoId} onChange={e => setNuevoTipoId(e.target.value)} className="w-full p-2 border border-rose-200 in-[.modo-oscuro]:border-slate-600 rounded bg-white in-[.modo-oscuro]:bg-slate-700 text-slate-800 in-[.modo-oscuro]:text-slate-100 text-sm cursor-pointer">
-                <option value="">Seleccionar tipo...</option>
-                {tiposDisponibles.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
+      <ul className="flex flex-col gap-2 mt-4 max-h-[40vh] overflow-y-auto hide-scrollbar">
+        {items.length === 0 && <p className="text-sm text-neutral-500 text-center py-4">No hay datos.</p>}
+        {items.map(item => (
+          <li key={item.id} className="flex justify-between items-center p-4 bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/50 border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 rounded-xl">
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm">{item.nombre}</span>
+              {seccion === 'categorias' && <span className="text-xs text-neutral-500">{item.tipos?.nombre}</span>}
             </div>
-          )}
-          <button type="submit" className="bg-teal-400 in-[.modo-oscuro]:bg-indigo-500 text-slate-900 in-[.modo-oscuro]:text-white px-6 py-2 rounded font-bold hover:bg-teal-500 in-[.modo-oscuro]:hover:bg-indigo-400 cursor-pointer w-full md:w-auto h-fit text-sm shadow">
-            Guardar
-          </button>
-        </form>
-      )}
-
-      <div className="overflow-y-auto max-h-100 border border-rose-100 in-[.modo-oscuro]:border-slate-700 rounded-xl">
-        <table className="w-full text-left bg-white in-[.modo-oscuro]:bg-slate-800">
-          <thead className="bg-rose-50 in-[.modo-oscuro]:bg-slate-700 sticky top-0">
-            <tr>
-              <th className="p-3 border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 text-sm text-slate-700 in-[.modo-oscuro]:text-slate-200">Nombre</th>
-              {seccion === 'categorias' && <th className="p-3 border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 text-sm text-slate-700 in-[.modo-oscuro]:text-slate-200">Pertenece al Tipo</th>}
-              <th className="p-3 border-b border-rose-100 in-[.modo-oscuro]:border-slate-700 text-right text-sm text-slate-700 in-[.modo-oscuro]:text-slate-200">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {datosFiltrados.map(item => (
-              <tr key={item.id} className="border-b border-rose-50 in-[.modo-oscuro]:border-slate-700 hover:bg-rose-50/50 in-[.modo-oscuro]:hover:bg-slate-700/50">
-                <td className="p-3 font-medium text-sm text-slate-800 in-[.modo-oscuro]:text-slate-100">{item.nombre}</td>
-                {seccion === 'categorias' && <td className="p-3 text-slate-500 in-[.modo-oscuro]:text-slate-400 text-sm">{item.tipos?.nombre}</td>}
-                <td className="p-3 text-right">
-                  <button onClick={() => manejarBorrado(item.id)} className="text-red-500 font-bold text-xs cursor-pointer hover:underline border border-red-200 in-[.modo-oscuro]:border-red-900 px-3 py-1 rounded-lg bg-red-50 in-[.modo-oscuro]:bg-red-950/40">Borrar</button>
-                </td>
-              </tr>
-            ))}
-            {datosFiltrados.length === 0 && (
-              <tr><td colSpan="3" className="p-4 text-center text-slate-400 in-[.modo-oscuro]:text-slate-500">No hay registros.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            <button onClick={() => eliminarItem(item.id)} className="w-8 h-8 rounded-full bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 font-bold flex items-center justify-center shadow-sm border border-neutral-200 in-[.modo-oscuro]:border-neutral-700 active:scale-90 transition-transform text-sm">✕</button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

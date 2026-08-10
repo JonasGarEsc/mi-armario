@@ -37,36 +37,27 @@ export default function FormularioPrenda({ onExito }) {
     }
 
     try {
-      setEstadoProceso('Comprimiendo imagen (WebP)...')
+      setEstadoProceso('Comprimiendo imagen...')
       
-      const opcionesCompresion = {
-        maxSizeMB: 0.3,
-        maxWidthOrHeight: 1080,
-        useWebWorker: true,
-        fileType: 'image/webp'
-      }
+      const opcionesCompresion = { maxSizeMB: 0.3, maxWidthOrHeight: 1080, useWebWorker: true, fileType: 'image/webp' }
       let archivoProcesado = await imageCompression(archivoOriginal, opcionesCompresion)
 
       if (quitarFondo) {
-        setEstadoProceso('IA: Recortando fondo...')
+        setEstadoProceso('Recortando fondo (IA)...')
         const blobSinFondo = await removeBackground(archivoProcesado)
         archivoProcesado = new File([blobSinFondo], `recorte-${Date.now()}.png`, { type: 'image/png' })
       }
 
       const nombreArchivo = `prenda-${Date.now()}.${quitarFondo ? 'png' : 'webp'}`
 
-      setEstadoProceso('Subiendo a la nube...')
+      setEstadoProceso('Subiendo...')
       const { error: errImg } = await supabase.storage.from('prendas').upload(nombreArchivo, archivoProcesado)
       if (errImg) throw new Error('Error al subir imagen.')
       
       const { data: { publicUrl } } = supabase.storage.from('prendas').getPublicUrl(nombreArchivo)
 
-      setEstadoProceso('Guardando registro...')
-      const { error: errPrenda } = await supabase.from('prendas').insert([{
-        nombre,
-        imagen_url: publicUrl,
-        categoria_id: categoriaId
-      }])
+      setEstadoProceso('Guardando...')
+      const { error: errPrenda } = await supabase.from('prendas').insert([{ nombre, imagen_url: publicUrl, categoria_id: categoriaId }])
 
       if (errPrenda) throw new Error('Error en base de datos.')
 
@@ -84,46 +75,43 @@ export default function FormularioPrenda({ onExito }) {
   }
 
   return (
-    <form onSubmit={manejarEnvio} className="flex flex-col gap-4 text-left mt-2">
+    <form onSubmit={manejarEnvio} className="flex flex-col gap-5 text-left pb-4">
+      <h2 className="text-2xl font-bold tracking-tight mb-2">Añadir Prenda</h2>
+      
       <div>
-        <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-[#D1C4E9]">1. Fotografía</label>
-        <input type="file" name="imagen" accept="image/*" required className="border border-rose-200 in-[.modo-oscuro_&]:border-[#433D60] w-full p-2 rounded-xl bg-white in-[.modo-oscuro_&]:bg-[#2A273F] cursor-pointer shadow-sm text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] mt-1" />
+        <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Fotografía</label>
+        <input type="file" name="imagen" accept="image/*" required className="w-full p-3 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-black file:text-white in-[.modo-oscuro]:file:bg-white in-[.modo-oscuro]:file:text-black hover:file:bg-neutral-800" />
       </div>
 
-      <div className="flex items-center gap-3 bg-rose-50/50 in-[.modo-oscuro_&]:bg-[#1F1D2B]/50 p-3 rounded-xl border border-rose-100 in-[.modo-oscuro_&]:border-[#322F44]">
-        <input type="checkbox" id="toggleFondo" checked={quitarFondo} onChange={(e) => setQuitarFondo(e.target.checked)} className="w-5 h-5 cursor-pointer accent-teal-500 in-[.modo-oscuro_&]:accent-[#7E67C9]" />
-        <label htmlFor="toggleFondo" className="text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-[#D1C4E9] cursor-pointer select-none">✨ Recortar fondo con Inteligencia Artificial</label>
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/50 border border-neutral-200 in-[.modo-oscuro]:border-neutral-800">
+        <input type="checkbox" id="toggleFondo" checked={quitarFondo} onChange={(e) => setQuitarFondo(e.target.checked)} className="w-5 h-5 accent-black in-[.modo-oscuro]:accent-white cursor-pointer" />
+        <label htmlFor="toggleFondo" className="text-sm font-semibold text-neutral-700 in-[.modo-oscuro]:text-neutral-300 cursor-pointer select-none">✨ Recorte mágico (IA)</label>
       </div>
 
       <div>
-        <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-[#D1C4E9]">2. Nombre Descriptivo (Ej. Pantalón negro cuero)</label>
-        <input type="text" name="nombrePrenda" autoComplete="off" required className="border border-rose-200 in-[.modo-oscuro_&]:border-[#433D60] w-full p-3 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 in-[.modo-oscuro_&]:focus:ring-[#A394D6] bg-white in-[.modo-oscuro_&]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] shadow-sm mt-1" />
+        <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Nombre descriptivo</label>
+        <input type="text" name="nombrePrenda" autoComplete="off" required placeholder="Ej. Cazadora cuero negra" className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm" />
       </div>
       
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-[#D1C4E9]">3. Tipo</label>
-          <select value={tipoSeleccionado} onChange={(e) => setTipoSeleccionado(e.target.value)} required className="border border-rose-200 in-[.modo-oscuro_&]:border-[#433D60] w-full p-3 rounded-xl bg-white in-[.modo-oscuro_&]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] cursor-pointer shadow-sm outline-none focus:ring-2 focus:ring-[#A394D6] mt-1">
+          <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Tipo</label>
+          <select value={tipoSeleccionado} onChange={(e) => setTipoSeleccionado(e.target.value)} required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm">
             <option value="">Seleccionar...</option>
             {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-bold text-slate-700 in-[.modo-oscuro_&]:text-[#D1C4E9]">4. Prenda Específica</label>
-          <select name="categoria" required disabled={!tipoSeleccionado} className="border border-rose-200 in-[.modo-oscuro_&]:border-[#433D60] w-full p-3 rounded-xl bg-white in-[.modo-oscuro_&]:bg-[#2A273F] text-slate-800 in-[.modo-oscuro_&]:text-[#E0D8F0] cursor-pointer shadow-sm outline-none focus:ring-2 focus:ring-[#A394D6] disabled:opacity-50 mt-1">
+          <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Prenda Específica</label>
+          <select name="categoria" required disabled={!tipoSeleccionado} className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors disabled:opacity-50 text-sm">
             <option value="">Seleccionar...</option>
             {categoriasFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
       </div>
 
-      <button type="submit" disabled={cargando} className="flex items-center justify-center gap-3 bg-teal-400 in-[.modo-oscuro_&]:bg-[#7E67C9] text-slate-900 in-[.modo-oscuro_&]:text-white font-bold py-3 w-full mt-2 rounded-xl cursor-pointer hover:bg-teal-500 in-[.modo-oscuro_&]:hover:bg-[#9985D8] shadow-lg active:scale-95 transition-transform disabled:opacity-80 disabled:cursor-not-allowed">
-        {cargando && (
-          <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        )}
+      <button type="submit" disabled={cargando} className="mt-4 flex items-center justify-center gap-3 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-bold py-4 w-full rounded-xl active:scale-[0.98] transition-transform disabled:opacity-70">
+        {cargando && <div className="w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin"></div>}
         {cargando ? estadoProceso : 'Guardar Prenda'}
       </button>
     </form>

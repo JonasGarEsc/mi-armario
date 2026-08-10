@@ -24,6 +24,11 @@ export default function App() {
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
 
   const [toasts, setToasts] = useState([])
+  
+  // Estado y datos para el menú lateral
+  const [menuLateralVisible, setMenuLateralVisible] = useState(false)
+  const [datosMenu, setDatosMenu] = useState([])
+  const [tipoExpandido, setTipoExpandido] = useState(null)
 
   const [temaOscuro, setTemaOscuro] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -40,6 +45,24 @@ export default function App() {
     else root.classList.remove('modo-oscuro')
     localStorage.setItem('tema_armario', temaOscuro ? 'dark' : 'light')
   }, [temaOscuro])
+
+  // Cargar datos del menú lateral dinámicamente
+  useEffect(() => {
+    async function cargarDatosMenu() {
+      const { data: tipos } = await supabase.from('tipos').select('*').order('nombre')
+      const { data: categorias } = await supabase.from('categorias').select('*').order('nombre')
+      if (tipos && categorias) {
+         const menuEstructurado = tipos.map(t => ({
+           ...t,
+           categorias: categorias.filter(c => c.tipo_id === t.id)
+         }))
+         setDatosMenu(menuEstructurado)
+      }
+    }
+    if (menuLateralVisible && datosMenu.length === 0) {
+      cargarDatosMenu()
+    }
+  }, [menuLateralVisible, actualizaciones])
 
   useEffect(() => {
     const temporizadorLimpieza = setTimeout(async () => {
@@ -100,6 +123,13 @@ export default function App() {
     trackTouch: true
   })
 
+  const swipeMenuLateral = useSwipeable({
+    onSwipedLeft: () => setMenuLateralVisible(false),
+    preventScrollOnSwipe: true,
+    delta: 30,
+    trackTouch: true
+  })
+
   function iniciarEdicion(prenda) {
     setPrendaAEditar(prenda)
     abrirModal('editar')
@@ -145,7 +175,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
       
-      {/* Nuevo Sistema Toast Premium (Glassmorphism) */}
       <div className="fixed top-safe mt-4 left-0 w-full z-100 flex flex-col gap-3 items-center pointer-events-none">
         {toasts.map(toast => (
           <div key={toast.id} className="animate-fade-in-down flex items-center gap-3.5 px-5 py-3 bg-white/80 in-[.modo-oscuro]:bg-[#1a1a1a]/80 backdrop-blur-xl border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 text-neutral-900 in-[.modo-oscuro]:text-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] w-max max-w-[90%] pointer-events-auto">
@@ -162,20 +191,19 @@ export default function App() {
       <header className="bg-white/80 in-[.modo-oscuro]:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 sticky top-0 z-30 transition-colors duration-300">
         <div className="px-4 md:px-6 h-16 flex items-center justify-between max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 flex items-center justify-center transition-colors duration-300">
+            <button onClick={() => { setMenuLateralVisible(true); vibrar(20); }} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors">
+              <svg className="w-6 h-6 text-black in-[.modo-oscuro]:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="w-10 h-10 items-center justify-center transition-colors duration-300 hidden sm:flex">
               <svg viewBox="0 0 512 512" fill="none" className="w-8 h-8 text-black in-[.modo-oscuro]:text-white">
-                <path 
-                  d="M 256 120 C 275 120 288 135 288 150 C 288 165 275 170 256 185 L 256 220 M 256 220 L 360 260 C 375 265 384 280 384 296 L 384 376 C 384 390 372 400 360 400 L 152 400 C 140 400 128 390 128 376 L 128 296 C 128 280 137 265 152 260 L 256 220 M 190 290 L 322 290 M 190 340 L 322 340" 
-                  stroke="currentColor" 
-                  strokeWidth="32" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
+                <path d="M 256 120 C 275 120 288 135 288 150 C 288 165 275 170 256 185 L 256 220 M 256 220 L 360 260 C 375 265 384 280 384 296 L 384 376 C 384 390 372 400 360 400 L 152 400 C 140 400 128 390 128 376 L 128 296 C 128 280 137 265 152 260 L 256 220 M 190 290 L 322 290 M 190 340 L 322 340" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-lg md:text-xl font-extrabold tracking-tight leading-none">PERLETTA</h1>
-              <span className="text-[10px] md:text-xs font-semibold text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase tracking-widest mt-0.5">Gestion de mi armario</span>
+              <h1 className="text-lg md:text-xl font-extrabold tracking-tight leading-none">ARMARIO</h1>
+              <span className="text-[10px] md:text-xs font-semibold text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase tracking-widest mt-0.5">Gestor Inteligente</span>
             </div>
           </div>
 
@@ -194,6 +222,39 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* Menú Lateral Desplegable */}
+      <div className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${menuLateralVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setMenuLateralVisible(false)}>
+        <div {...swipeMenuLateral} className={`absolute top-0 left-0 h-full w-[80%] max-w-sm bg-white in-[.modo-oscuro]:bg-[#0a0a0a] shadow-2xl transform transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col ${menuLateralVisible ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
+          <div className="px-6 py-5 border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 flex justify-between items-center bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/30">
+            <h2 className="text-xs font-extrabold tracking-widest text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase">Colección</h2>
+            <button onClick={() => setMenuLateralVisible(false)} className="text-neutral-400 active:scale-90 transition-transform">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 hide-scrollbar">
+            {datosMenu.length === 0 && <p className="text-sm text-neutral-500">Cargando...</p>}
+            {datosMenu.map(tipo => (
+              <div key={tipo.id} className="flex flex-col">
+                <button 
+                  onClick={() => { setTipoExpandido(tipoExpandido === tipo.id ? null : tipo.id); vibrar(15); }}
+                  className={`text-left text-sm md:text-base font-light tracking-[0.15em] uppercase active:opacity-50 transition-colors ${tipoExpandido === tipo.id ? 'text-black in-[.modo-oscuro]:text-white font-medium' : 'text-neutral-600 in-[.modo-oscuro]:text-neutral-400'}`}
+                >
+                  {tipo.nombre}
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${tipoExpandido === tipo.id ? 'max-h-125 mt-4 opacity-100 gap-4' : 'max-h-0 mt-0 opacity-0 gap-0'}`}>
+                  {tipo.categorias.length === 0 && <span className="text-xs text-neutral-400 italic pl-4">Vacío</span>}
+                  {tipo.categorias.map(cat => (
+                    <span key={cat.id} className="text-[11px] md:text-xs font-medium text-neutral-500 in-[.modo-oscuro]:text-neutral-500 pl-4 tracking-wider uppercase border-l border-neutral-200 in-[.modo-oscuro]:border-neutral-800">
+                      {cat.nombre}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <main {...swipeNavegacion} className="flex-1 w-full relative overflow-hidden touch-pan-y pb-16 max-w-7xl mx-auto">
         <div 
@@ -217,7 +278,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* Navegación estrictamente negra */}
       <nav className="fixed bottom-0 w-full bg-black text-white pb-safe z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.15)]">
         <div className="flex justify-around items-center h-16 max-w-7xl mx-auto">
           <button onClick={() => { setPestañaActiva('ropa'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 ${pestañaActiva === 'ropa' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
@@ -234,7 +294,7 @@ export default function App() {
       {modalActivo && (
         <div className={`fixed inset-0 bg-black/70 z-50 flex flex-col justify-end transition-opacity duration-300 ${modalVisible ? 'opacity-100' : 'opacity-0'}`}>
           <div className="flex-1" onClick={cerrarModal}></div>
-          <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 w-full rounded-t-4xl pb-10 pt-2 px-6 transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] transform-gpu will-change-transform shadow-[0_-10px_40px_rgba(0,0,0,0.2)] max-w-7xl mx-auto ${modalVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+          <div className={`bg-white in-[.modo-oscuro]:bg-[#0a0a0a] w-full rounded-t-4xl pb-10 pt-2 px-6 transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] transform-gpu will-change-transform shadow-[0_-10px_40px_rgba(0,0,0,0.2)] max-w-7xl mx-auto ${modalVisible ? 'translate-y-0' : 'translate-y-full'}`}>
             
             <div {...swipeModal} className="w-full pt-3 pb-5 flex justify-center touch-none">
               <div className="w-12 h-1.5 bg-neutral-300 in-[.modo-oscuro]:bg-neutral-700 rounded-full"></div>
@@ -250,13 +310,13 @@ export default function App() {
                   <h2 className="text-2xl font-bold tracking-tight mb-2">Guardar Conjunto</h2>
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Destino / Maleta:</label>
-                    <select name="maletaId" required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-600 outline-none transition-colors">
+                    <select name="maletaId" required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm">
                       {maletasDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Nombre del Outfit:</label>
-                    <input type="text" name="nombreConjunto" autoComplete="off" required placeholder="Ej. Casual día 1" className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-600 outline-none transition-colors" />
+                    <input type="text" name="nombreConjunto" autoComplete="off" required placeholder="Ej. Casual día 1" className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm" />
                   </div>
                   <button type="submit" className="mt-4 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-bold py-4 rounded-xl active:scale-[0.98] transition-transform text-lg">Guardar</button>
                 </form>
