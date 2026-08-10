@@ -91,7 +91,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
       if (!maletaActiva) {
         const cache = localStorage.getItem('cache_maletas')
         if (cache) { setMaletas(JSON.parse(cache)); setCargando(false); }
-        // Fetch anidado para recuperar imágenes para la maleta
+        // Fetch anidado para recuperar imágenes para el interior de la maleta
         const { data } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
         if (data) { setMaletas(data); localStorage.setItem('cache_maletas', JSON.stringify(data)); }
       } else {
@@ -236,22 +236,28 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
   }
 
   function abrirMaleta(maleta) {
-    vibrar(20); setAbriendo(maleta.id)
-    setTimeout(() => { setMaletaActiva(maleta); setAbriendo(null); }, 650)
+    vibrar(20)
+    setAbriendo(maleta.id)
+    // Se ha aumentado el timeout a 800ms para asegurar que la tapa se abre del todo antes de cambiar la vista
+    setTimeout(() => { 
+      setMaletaActiva(maleta)
+      setAbriendo(null)
+    }, 800)
   }
 
   async function actualizarEstado(conjuntoId, prendaId, x, y, z) {
     await supabase.from('conjunto_prenda').update({ pos_x: x, pos_y: y, z_index: z }).match({ conjunto_id: conjuntoId, prenda_id: prendaId })
   }
 
-  // Utilidad para renderizar hasta 4 imágenes reales dentro de la maleta
   const extraerImagenesMaleta = (maleta) => {
     if (!maleta.conjuntos) return []
     const urls = []
     maleta.conjuntos.forEach(c => {
       if (c.conjunto_prenda) {
         c.conjunto_prenda.forEach(cp => {
-          if (cp.prendas?.imagen_url && urls.length < 4) urls.push(cp.prendas.imagen_url)
+          if (cp.prendas?.imagen_url && !urls.includes(cp.prendas.imagen_url) && urls.length < 4) {
+            urls.push(cp.prendas.imagen_url)
+          }
         })
       }
     })
@@ -299,38 +305,51 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
                 <button onClick={(e) => abrirOperacion('clonarMaleta', m, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
               </div>
 
-              {/* Físicas de maleta 3D y renderizado de prendas en interior */}
-              <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation ${abriendo === m.id ? 'opacity-0 scale-90' : 'opacity-100'}`}>
+              {/* El contenedor padre ya no desaparece, manteniendo el espacio para la animación 3D */}
+              <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation`}>
                  <div className="absolute -top-3 md:-top-5 left-1/2 -translate-x-1/2 w-8 md:w-16 h-3 md:h-5 flex justify-between z-0">
-                    <div className="w-0.75 h-full bg-neutral-300 in-[.modo-oscuro]:bg-neutral-700 border-x border-neutral-400 in-[.modo-oscuro]:border-neutral-900"></div>
-                    <div className="w-0.75 h-full bg-neutral-300 in-[.modo-oscuro]:bg-neutral-700 border-x border-neutral-400 in-[.modo-oscuro]:border-neutral-900"></div>
-                    <div className="absolute top-0 left-0 w-full h-1 bg-neutral-400 in-[.modo-oscuro]:bg-neutral-800 rounded-t-sm"></div>
+                    <div className="w-0.75 h-full bg-linear-to-r from-neutral-300 via-neutral-100 to-neutral-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:via-[#494463] in-[.modo-oscuro]:to-[#2E2A44] border-x border-neutral-400 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
+                    <div className="w-0.75 h-full bg-linear-to-r from-neutral-300 via-neutral-100 to-neutral-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:via-[#494463] in-[.modo-oscuro]:to-[#2E2A44] border-x border-neutral-400 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
+                    <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-b from-neutral-200 to-neutral-400 in-[.modo-oscuro]:from-[#494463] in-[.modo-oscuro]:to-[#2E2A44] rounded-t-sm"></div>
                  </div>
-                 <div className="absolute -bottom-2 md:-bottom-3 left-1.5 md:left-3 w-3 md:w-4 h-3 bg-neutral-400 in-[.modo-oscuro]:bg-neutral-800 rounded-b-sm z-0 flex flex-col items-center justify-end shadow-md">
-                   <div className="w-3.5 h-1 bg-black rounded-full shadow-lg"></div>
+                 <div className="absolute -bottom-2 md:-bottom-3 left-1.5 md:left-3 w-3 md:w-4 h-3 bg-linear-to-b from-neutral-300 to-neutral-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:to-[#1F1D2B] rounded-b-sm z-0 flex flex-col items-center justify-end shadow-md border-x border-neutral-400/50 in-[.modo-oscuro]:border-[#13111C]">
+                   <div className="w-3.5 h-1 bg-black rounded-full shadow-lg border border-neutral-400 in-[.modo-oscuro]:border-neutral-600"></div>
                  </div>
-                 <div className="absolute -bottom-2 md:-bottom-3 right-1.5 md:right-3 w-3 md:w-4 h-3 bg-neutral-400 in-[.modo-oscuro]:bg-neutral-800 rounded-b-sm z-0 flex flex-col items-center justify-end shadow-md">
-                   <div className="w-3.5 h-1 bg-black rounded-full shadow-lg"></div>
+                 <div className="absolute -bottom-2 md:-bottom-3 right-1.5 md:right-3 w-3 md:w-4 h-3 bg-linear-to-b from-neutral-300 to-neutral-400 in-[.modo-oscuro]:from-[#3B3852] in-[.modo-oscuro]:to-[#1F1D2B] rounded-b-sm z-0 flex flex-col items-center justify-end shadow-md border-x border-neutral-400/50 in-[.modo-oscuro]:border-[#13111C]">
+                   <div className="w-3.5 h-1 bg-black rounded-full shadow-lg border border-neutral-400 in-[.modo-oscuro]:border-neutral-600"></div>
                  </div>
 
-                 {/* Interior de la maleta */}
-                 <div className="absolute top-0 left-0 w-full h-full bg-neutral-800 in-[.modo-oscuro]:bg-neutral-950 rounded-xl md:rounded-3xl border border-neutral-600 in-[.modo-oscuro]:border-neutral-800 overflow-hidden z-10 flex flex-col justify-center">
-                    {/* Renderizado de hasta 4 prendas reales dentro de la maleta */}
-                    <div className={`absolute inset-2 z-20 flex flex-wrap items-center justify-center gap-1 transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-95'}`}>
-                      {extraerImagenesMaleta(m).map((url, idx) => (
-                        <img key={idx} src={url} className="w-[42%] h-[42%] object-contain drop-shadow-md rotate-[-5deg]" alt="Prenda interior" />
-                      ))}
+                 {/* Interior (Oscuro) y Prendas Apiladas */}
+                 <div className="absolute top-0 left-0 w-full h-full bg-[#1e293b] in-[.modo-oscuro]:bg-[#13111C] rounded-xl md:rounded-3xl border border-neutral-600 in-[.modo-oscuro]:border-[#494463] overflow-hidden z-10 flex flex-col justify-center">
+                    <div className="absolute inset-1 border border-neutral-700/50 in-[.modo-oscuro]:border-[#494463]/30 rounded-lg z-10 overflow-hidden pointer-events-none">
+                       <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 rotate-45"></div>
+                       <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
+                    </div>
+                    
+                    {/* Renderizado apilado de hasta 4 prendas reales dentro de la maleta */}
+                    <div className={`absolute inset-0 z-20 transition-all duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-75'}`}>
+                      {extraerImagenesMaleta(m).map((url, idx) => {
+                         const posiciones = [
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] -rotate-6 z-10",
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] rotate-12 z-20",
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75%] h-[75%] -rotate-12 z-30",
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] rotate-6 z-40"
+                         ]
+                         return <img key={idx} src={url} className={`absolute ${posiciones[idx]} object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.5)]`} alt="Prenda interior" />
+                      })}
                     </div>
                  </div>
 
+                 {/* Tapa Exterior Abriéndose en 3D */}
                  <div 
                    className="absolute top-0 left-0 w-full h-full rounded-xl md:rounded-3xl origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)] transform-3d"
                    style={{ transform: abriendo === m.id ? 'perspective(1500px) rotateY(-105deg)' : 'perspective(1500px) rotateY(0deg)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                  >
-                    <div className="absolute inset-0 bg-neutral-200 in-[.modo-oscuro]:bg-neutral-800 rounded-xl md:rounded-3xl border border-white/60 in-[.modo-oscuro]:border-neutral-700 overflow-hidden">
+                    <div className="absolute inset-0 bg-linear-to-br from-[#f8fafc] via-[#cbd5e1] to-[#94a3b8] in-[.modo-oscuro]:from-[#494463] in-[.modo-oscuro]:via-[#3B3852] in-[.modo-oscuro]:to-[#2A273F] rounded-xl md:rounded-3xl border border-white/60 in-[.modo-oscuro]:border-[#7A7593]/40 overflow-hidden">
                       <div className="absolute inset-0 flex justify-evenly px-0.5 md:px-2 py-1 md:py-4">
-                          {[...Array(5)].map((_, i) => <div key={i} className="w-0.5 md:w-1 h-full bg-white/50 in-[.modo-oscuro]:bg-black/20 shadow-sm"></div>)}
+                          {[...Array(5)].map((_, i) => <div key={i} className="w-0.5 md:w-1 h-full bg-white/50 in-[.modo-oscuro]:bg-black/20 shadow-[1px_0_2px_rgba(0,0,0,0.1)]"></div>)}
                       </div>
+                      <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-4 md:w-8 h-0.75 bg-linear-to-b from-neutral-200 to-neutral-400 in-[.modo-oscuro]:from-[#7A7593] in-[.modo-oscuro]:to-[#2E2A44] rounded-sm shadow-sm border border-neutral-500/40 in-[.modo-oscuro]:border-[#1F1D2B]"></div>
                     </div>
                  </div>
               </div>
@@ -350,7 +369,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
                 <div className="flex gap-2">
                   <button onClick={() => exportarOutfit(conj.id, conj.nombre)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">↓</button>
                   <button onClick={() => abrirOperacion('clonarOutfit', conj)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">⎘</button>
-                  <button onClick={() => confirmarAccion('conjunto', conj.id, null, '¿Eliminar outfit?')} className="text-red-400 active:text-red-600 px-2">✕</button>
+                  <button onClick={(e) => confirmarAccion('conjunto', conj.id, e, '¿Eliminar outfit?')} className="text-red-400 active:text-red-600 px-2">✕</button>
                 </div>
               </div>
               

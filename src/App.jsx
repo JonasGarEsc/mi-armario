@@ -64,7 +64,7 @@ export default function App() {
     vibrar(20)
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id))
-    }, 3000)
+    }, 3500)
   }
 
   const recargarVistas = () => setActualizaciones(prev => prev + 1)
@@ -109,7 +109,7 @@ export default function App() {
   async function iniciarCreacionConjunto(idsSeleccionados) {
     const { data } = await supabase.from('maletas').select('*').order('nombre')
     if (!data || data.length === 0) {
-      mostrarToast("Debes crear al menos una maleta primero", "error")
+      mostrarToast("Debes crear una maleta primero", "error")
       return
     }
     setMaletasDisponibles(data)
@@ -127,16 +127,16 @@ export default function App() {
     const { data: conjuntosExistentes } = await supabase.from('conjuntos').select('id, conjunto_prenda(prenda_id)').eq('maleta_id', maleta_id)
     const esDuplicado = conjuntosExistentes.some(conj => conj.conjunto_prenda.map(cp => cp.prenda_id).sort().join(',') === idsOrdenados)
 
-    if (esDuplicado) return mostrarToast('Combinación exacta ya existente en maleta.', 'error')
+    if (esDuplicado) return mostrarToast('Esa combinación ya existe', 'error')
 
     const { data: conj, error } = await supabase.from('conjuntos').insert([{ nombre, maleta_id }]).select().single()
-    if (error) return mostrarToast("Error al guardar conjunto.", "error")
+    if (error) return mostrarToast("Error al guardar", "error")
 
     const relaciones = prendasParaConjunto.map(id => ({ conjunto_id: conj.id, prenda_id: id }))
     await supabase.from('conjunto_prenda').insert(relaciones)
     
     vibrar([50, 50])
-    mostrarToast("Outfit guardado con éxito", "exito")
+    mostrarToast("Outfit guardado", "exito")
     cerrarModal()
     recargarVistas()
     setPestañaActiva('conjuntos')
@@ -145,14 +145,16 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
       
-      {/* Sistema Toast Profesional */}
-      <div className="fixed top-5 left-1/2 -translate-x-1/2 z-100 flex flex-col gap-2 items-center pointer-events-none w-[90%] max-w-sm">
+      {/* Nuevo Sistema Toast Premium (Glassmorphism) */}
+      <div className="fixed top-safe mt-4 left-0 w-full z-100 flex flex-col gap-3 items-center pointer-events-none">
         {toasts.map(toast => (
-          <div key={toast.id} className="animate-fade-in-up flex items-center gap-3 px-4 py-3 bg-neutral-900 in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black rounded-xl shadow-xl w-full">
-            {toast.tipo === 'exito' && <span className="text-emerald-400 in-[.modo-oscuro]:text-emerald-600">✓</span>}
-            {toast.tipo === 'error' && <span className="text-red-400 in-[.modo-oscuro]:text-red-600">✕</span>}
-            {toast.tipo === 'info' && <span className="text-blue-400 in-[.modo-oscuro]:text-blue-600">ℹ</span>}
-            <p className="text-sm font-semibold">{toast.mensaje}</p>
+          <div key={toast.id} className="animate-fade-in-down flex items-center gap-3.5 px-5 py-3 bg-white/80 in-[.modo-oscuro]:bg-[#1a1a1a]/80 backdrop-blur-xl border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 text-neutral-900 in-[.modo-oscuro]:text-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] w-max max-w-[90%] pointer-events-auto">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${toast.tipo === 'exito' ? 'bg-emerald-100 in-[.modo-oscuro]:bg-emerald-900/30 text-emerald-600 in-[.modo-oscuro]:text-emerald-400' : toast.tipo === 'error' ? 'bg-red-100 in-[.modo-oscuro]:bg-red-900/30 text-red-600 in-[.modo-oscuro]:text-red-400' : 'bg-blue-100 in-[.modo-oscuro]:bg-blue-900/30 text-blue-600 in-[.modo-oscuro]:text-blue-400'}`}>
+              {toast.tipo === 'exito' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+              {toast.tipo === 'error' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
+              {toast.tipo === 'info' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            </div>
+            <p className="text-[13px] md:text-sm font-bold tracking-tight pr-2">{toast.mensaje}</p>
           </div>
         ))}
       </div>
@@ -209,6 +211,7 @@ export default function App() {
         </div>
       </main>
 
+      {/* Navegación estrictamente negra */}
       <nav className="fixed bottom-0 w-full bg-black text-white pb-safe z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.15)]">
         <div className="flex justify-around items-center h-16 max-w-7xl mx-auto">
           <button onClick={() => { setPestañaActiva('ropa'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 ${pestañaActiva === 'ropa' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
