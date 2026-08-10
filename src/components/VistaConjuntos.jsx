@@ -68,7 +68,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
   )
 }
 
-export default function VistaConjuntos({ onCrearMaleta }) {
+export default function VistaConjuntos({ onCrearMaleta, mostrarToast }) {
   const [maletas, setMaletas] = useState([])
   const [conjuntos, setConjuntos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -91,7 +91,8 @@ export default function VistaConjuntos({ onCrearMaleta }) {
       if (!maletaActiva) {
         const cache = localStorage.getItem('cache_maletas')
         if (cache) { setMaletas(JSON.parse(cache)); setCargando(false); }
-        const { data } = await supabase.from('maletas').select('*, conjuntos(id)').order('nombre')
+        // Fetch anidado para recuperar imágenes para la maleta
+        const { data } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
         if (data) { setMaletas(data); localStorage.setItem('cache_maletas', JSON.stringify(data)); }
       } else {
         const cache = localStorage.getItem(`cache_conjuntos_${maletaActiva.id}`)
@@ -146,6 +147,7 @@ export default function VistaConjuntos({ onCrearMaleta }) {
     }
     vibrar([50, 50])
     cerrarDialogo()
+    mostrarToast("Eliminado correctamente", "info")
   }
 
   function abrirOperacion(tipo, item, e) {
@@ -170,17 +172,18 @@ export default function VistaConjuntos({ onCrearMaleta }) {
       const maletaDestino = e.target.maletaId.value
       const nombre = e.target.nombre.value
       const { data: nuevoConj, error } = await supabase.from('conjuntos').insert([{ nombre, maleta_id: maletaDestino }]).select().single()
-      if (error) return alert("Error al clonar.")
+      if (error) return mostrarToast("Error al clonar.", "error")
       const copiasRelaciones = conjuntoADuplicar.conjunto_prenda.map(cp => ({
         conjunto_id: nuevoConj.id, prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
       }))
       await supabase.from('conjunto_prenda').insert(copiasRelaciones)
       if (maletaDestino == maletaActiva.id) setMaletaActiva({...maletaActiva}) 
+      mostrarToast("Outfit clonado", "exito")
     } 
     else if (maletaADuplicar) {
       const nombre = e.target.nombre.value
       const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{ nombre }]).select().single()
-      if (errM) return alert("Error al clonar maleta.")
+      if (errM) return mostrarToast("Error al clonar maleta.", "error")
       const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index)').eq('maleta_id', maletaADuplicar.id)
       if (conjuntosViejos) {
         for (const cViejo of conjuntosViejos) {
@@ -193,27 +196,24 @@ export default function VistaConjuntos({ onCrearMaleta }) {
           }
         }
       }
-      const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id)').order('nombre')
+      const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
       setMaletas(listaMaletas); localStorage.setItem('cache_maletas', JSON.stringify(listaMaletas))
+      mostrarToast("Maleta clonada", "exito")
     }
     vibrar([50, 50])
     cerrarOperacion()
   }
 
-  // Lógica de descarga nativa optimizada para móviles
   async function exportarOutfit(id, nombre) {
     vibrar(30)
     const elemento = document.getElementById(`lienzo-${id}`)
     if (!elemento) return
     try {
-      // Usamos la nueva librería moderna
       const dataUrl = await toPng(elemento, { 
         cacheBust: true, 
         pixelRatio: 2,
-        skipFonts: true // Evita cuelgues con fuentes externas en móviles
+        skipFonts: true
       })
-      
-      // Lógica nativa de móviles
       if (navigator.share) {
         const res = await fetch(dataUrl)
         const blob = await res.blob()
@@ -223,7 +223,6 @@ export default function VistaConjuntos({ onCrearMaleta }) {
           title: `Outfit: ${nombre}`
         })
       } else {
-        // Fallback para PC
         const a = document.createElement('a')
         a.href = dataUrl
         a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`
@@ -231,8 +230,8 @@ export default function VistaConjuntos({ onCrearMaleta }) {
       }
       vibrar([30, 30])
     } catch (e) {
-      console.error('Fallo en la exportación:', e)
-      alert("Error al generar o compartir la imagen.")
+      console.error(e)
+      mostrarToast("Error al exportar", "error")
     }
   }
 
@@ -243,6 +242,20 @@ export default function VistaConjuntos({ onCrearMaleta }) {
 
   async function actualizarEstado(conjuntoId, prendaId, x, y, z) {
     await supabase.from('conjunto_prenda').update({ pos_x: x, pos_y: y, z_index: z }).match({ conjunto_id: conjuntoId, prenda_id: prendaId })
+  }
+
+  // Utilidad para renderizar hasta 4 imágenes reales dentro de la maleta
+  const extraerImagenesMaleta = (maleta) => {
+    if (!maleta.conjuntos) return []
+    const urls = []
+    maleta.conjuntos.forEach(c => {
+      if (c.conjunto_prenda) {
+        c.conjunto_prenda.forEach(cp => {
+          if (cp.prendas?.imagen_url && urls.length < 4) urls.push(cp.prendas.imagen_url)
+        })
+      }
+    })
+    return urls
   }
 
   const itemsFiltrados = !maletaActiva ? maletas.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase())) : conjuntos.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
@@ -257,14 +270,13 @@ export default function VistaConjuntos({ onCrearMaleta }) {
           </div>
         )}
 
-        <div className="flex w-full gap-2">
-          <input type="text" autoComplete="off" placeholder={!maletaActiva ? "Buscar maleta..." : "Buscar conjunto..."} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-2.5 text-sm outline-none placeholder-neutral-500 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 transition-colors" />
+        <div className="flex w-full gap-2 shrink-0">
+          <input type="text" autoComplete="off" placeholder={!maletaActiva ? "Buscar maleta..." : "Buscar conjunto..."} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-3 text-sm outline-none placeholder-neutral-500 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 transition-colors" />
           {!maletaActiva && (
-            <button onClick={onCrearMaleta} className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black px-5 py-2.5 rounded-full font-semibold active:scale-[0.98] transition-transform text-sm">+ Maleta</button>
+            <button onClick={onCrearMaleta} className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black px-5 py-3 rounded-full font-semibold active:scale-[0.98] transition-transform text-sm">+ Maleta</button>
           )}
         </div>
         
-        {/* Renderizado del clima en cabecera */}
         {maletaActiva && clima && (
           <span className="self-start text-xs font-semibold bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 px-3 py-1.5 rounded-md text-neutral-600 in-[.modo-oscuro]:text-neutral-400">
              📍 {clima.nombre} · {clima.max}°C máx / {clima.min}°C min
@@ -287,8 +299,8 @@ export default function VistaConjuntos({ onCrearMaleta }) {
                 <button onClick={(e) => abrirOperacion('clonarMaleta', m, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
               </div>
 
-              {/* Maleta 3D Original Restaurada y Ajustada a Tailwind nativo */}
-              <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 aspect-2/3 cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation ${abriendo === m.id ? 'opacity-0 scale-90' : 'opacity-100'}`}>
+              {/* Físicas de maleta 3D y renderizado de prendas en interior */}
+              <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation ${abriendo === m.id ? 'opacity-0 scale-90' : 'opacity-100'}`}>
                  <div className="absolute -top-3 md:-top-5 left-1/2 -translate-x-1/2 w-8 md:w-16 h-3 md:h-5 flex justify-between z-0">
                     <div className="w-0.75 h-full bg-neutral-300 in-[.modo-oscuro]:bg-neutral-700 border-x border-neutral-400 in-[.modo-oscuro]:border-neutral-900"></div>
                     <div className="w-0.75 h-full bg-neutral-300 in-[.modo-oscuro]:bg-neutral-700 border-x border-neutral-400 in-[.modo-oscuro]:border-neutral-900"></div>
@@ -301,14 +313,14 @@ export default function VistaConjuntos({ onCrearMaleta }) {
                    <div className="w-3.5 h-1 bg-black rounded-full shadow-lg"></div>
                  </div>
 
+                 {/* Interior de la maleta */}
                  <div className="absolute top-0 left-0 w-full h-full bg-neutral-800 in-[.modo-oscuro]:bg-neutral-950 rounded-xl md:rounded-3xl border border-neutral-600 in-[.modo-oscuro]:border-neutral-800 overflow-hidden z-10 flex flex-col justify-center">
-                    {m.conjuntos && m.conjuntos.length > 0 && (
-                       <div className={`absolute bottom-2 md:bottom-4 w-[75%] left-[12.5%] flex flex-col justify-end z-20 transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-90'}`}>
-                           <div className="w-[75%] h-2 md:h-3 bg-neutral-300 in-[.modo-oscuro]:bg-neutral-700 rounded-sm shadow-md mx-auto rotate-3 -mb-0.5"></div>
-                           <div className="w-[90%] h-2 md:h-3 bg-neutral-400 in-[.modo-oscuro]:bg-neutral-600 rounded-sm shadow-md mx-auto -rotate-2 -mb-0.5"></div>
-                           <div className="w-full h-3 md:h-4 bg-neutral-200 in-[.modo-oscuro]:bg-neutral-500 rounded-sm shadow-lg mx-auto"></div>
-                       </div>
-                    )}
+                    {/* Renderizado de hasta 4 prendas reales dentro de la maleta */}
+                    <div className={`absolute inset-2 z-20 flex flex-wrap items-center justify-center gap-1 transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-95'}`}>
+                      {extraerImagenesMaleta(m).map((url, idx) => (
+                        <img key={idx} src={url} className="w-[42%] h-[42%] object-contain drop-shadow-md rotate-[-5deg]" alt="Prenda interior" />
+                      ))}
+                    </div>
                  </div>
 
                  <div 

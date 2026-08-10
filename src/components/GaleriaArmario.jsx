@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast }) {
   const [prendas, setPrendas] = useState([])
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -11,6 +11,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   
   const [dialogoConfirmacion, setDialogoConfirmacion] = useState(null)
   const [dialogoVisible, setDialogoVisible] = useState(false)
+  const observadorReferencia = useRef(null)
 
   useEffect(() => {
     async function obtenerPrendas() {
@@ -25,6 +26,22 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
   }, [])
 
   useEffect(() => { setLimiteVisibles(24) }, [busqueda])
+
+  const prendasFiltradas = prendas.filter(prenda => {
+    const term = busqueda.toLowerCase()
+    return (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
+  })
+
+  // Scroll Infinito: Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && limiteVisibles < prendasFiltradas.length) {
+        setLimiteVisibles(prev => prev + 24)
+      }
+    }, { threshold: 0.1 })
+    if (observadorReferencia.current) observer.observe(observadorReferencia.current)
+    return () => observer.disconnect()
+  }, [limiteVisibles, prendasFiltradas.length])
 
   function alternarSeleccion(id) {
     vibrar(30)
@@ -54,16 +71,13 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
     setSeleccionadas(seleccionadas.filter(sel => sel !== id))
     vibrar([50, 50])
     cerrarDialogo()
+    mostrarToast("Prenda eliminada", "info")
   }
 
-  const prendasFiltradas = prendas.filter(prenda => {
-    const term = busqueda.toLowerCase()
-    return (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
-  })
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
 
   return (
-    <div className="flex flex-col flex-1 relative">
+    <div className="flex flex-col flex-1 relative shrink-0">
       <div className="mb-4">
         <input 
           type="text" 
@@ -71,7 +85,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
           placeholder="Buscar..." 
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-2.5 text-sm outline-none placeholder-neutral-500 transition-colors border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700"
+          className="w-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-3 text-sm outline-none placeholder-neutral-500 transition-colors border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700"
         />
       </div>
 
@@ -88,9 +102,8 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
       ) : prendasFiltradas.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">No hay prendas.</div>
       ) : (
-        <>
-          {/* CUADRÍCULA ESTRICTA DE 3 COLUMNAS */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2 overflow-y-auto pb-4 hide-scrollbar">
+        <div className="flex flex-col flex-1">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2">
             {prendasVisibles.map((prenda) => (
               <div 
                 key={prenda.id} 
@@ -114,18 +127,15 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda }) {
               </div>
             ))}
           </div>
-
+          {/* Disparador de Scroll Infinito */}
           {limiteVisibles < prendasFiltradas.length && (
-            <div className="w-full py-4">
-              <button onClick={() => setLimiteVisibles(prev => prev + 24)} className="w-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 py-3 rounded-lg font-medium active:scale-[0.98] transition-transform text-sm">
-                Cargar más
-              </button>
+            <div ref={observadorReferencia} className="w-full h-10 my-4 flex justify-center items-center">
+              <div className="w-5 h-5 border-2 border-neutral-300 border-t-black in-[.modo-oscuro]:border-neutral-700 in-[.modo-oscuro]:border-t-white rounded-full animate-spin"></div>
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* Modal Confirmación Minimalista */}
       {dialogoConfirmacion && (
         <div className={`fixed inset-0 bg-black/60 flex items-center justify-center z-100 p-4 transition-opacity duration-200 ${dialogoVisible ? 'opacity-100' : 'opacity-0'}`}>
           <div className={`bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-2xl p-6 w-full max-w-sm text-center transition-transform duration-300 ${dialogoVisible ? 'scale-100' : 'scale-95'}`}>
