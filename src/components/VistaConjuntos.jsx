@@ -51,20 +51,27 @@ function WidgetClima({ destino }) {
 }
 
 function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
-  const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? (index * 90 + 20) })
   const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
   const [isDragging, setIsDragging] = useState(false)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  
+  // Referencias para evitar re-renderizados de React durante el movimiento
+  const domRef = useRef(null)
+  const coordRef = useRef({ x: cp.pos_x ?? 40, y: cp.pos_y ?? (index * 90 + 20) })
+  const offsetRef = useRef({ x: 0, y: 0 })
+  const rafRef = useRef(null)
 
-  const posRef = useRef(pos)
-  const zRef = useRef(zIndex)
-  useEffect(() => { posRef.current = pos }, [pos])
-  useEffect(() => { zRef.current = zIndex }, [zIndex])
+  // Establecer posición inicial
+  useEffect(() => {
+    if (domRef.current) {
+      domRef.current.style.transform = `translate3d(${coordRef.current.x}px, ${coordRef.current.y}px, 0)`
+    }
+  }, [])
 
   const handlePointerDown = (e) => {
     vibrar(15)
     const rect = e.currentTarget.getBoundingClientRect()
-    setOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    offsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    
     const nuevoZ = maxZ + 1
     setZIndex(nuevoZ)
     setMaxZ(nuevoZ)
@@ -74,9 +81,10 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
 
   const handlePointerMove = (e) => {
     if (!isDragging) return
+    
     const contenedor = e.currentTarget.parentElement.getBoundingClientRect()
-    let newX = e.clientX - contenedor.left - offset.x
-    let newY = e.clientY - contenedor.top - offset.y
+    let newX = e.clientX - contenedor.left - offsetRef.current.x
+    let newY = e.clientY - contenedor.top - offsetRef.current.y
 
     const itemSize = window.innerWidth >= 768 ? 128 : 112
     const maxAncho = contenedor.width - itemSize
@@ -87,27 +95,39 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
     if (newX > maxAncho) newX = maxAncho
     if (newY > maxAlto) newY = maxAlto
 
-    setPos({ x: newX, y: newY })
+    coordRef.current = { x: newX, y: newY }
+
+    // Manipulación directa del DOM usando requestAnimationFrame (Aceleración GPU)
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      if (domRef.current) {
+        domRef.current.style.transform = `translate3d(${newX}px, ${newY}px, 0)`
+      }
+    })
   }
 
   const handlePointerUp = (e) => {
     if (!isDragging) return
     setIsDragging(false)
     e.currentTarget.releasePointerCapture(e.pointerId)
+    
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    
     const timerKey = `timer_cp_${cp.prenda_id}`
     if (window[timerKey]) clearTimeout(window[timerKey])
     window[timerKey] = setTimeout(() => {
-      onGuardarEstado(cp.conjunto_id, cp.prenda_id, posRef.current.x, posRef.current.y, zRef.current)
-    }, 800)
+      onGuardarEstado(cp.conjunto_id, cp.prenda_id, coordRef.current.x, coordRef.current.y, zIndex)
+    }, 500)
   }
 
   return (
     <div
+      ref={domRef}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'}`}
+      style={{ touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
+      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-[scale,z-index] duration-300 ease-out cursor-grab'}`}
     >
       <img src={cp.prendas.imagen_url} loading="lazy" draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-sm select-none" alt="Ropa" />
     </div>

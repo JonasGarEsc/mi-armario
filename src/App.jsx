@@ -65,21 +65,6 @@ export default function App() {
     }
   }, [menuLateralVisible, actualizaciones])
 
-  useEffect(() => {
-    const temporizadorLimpieza = setTimeout(async () => {
-      try {
-        const { data: prendas } = await supabase.from('prendas').select('imagen_url')
-        if (!prendas) return
-        const urlsActivas = prendas.map(p => p.imagen_url.split('/').pop())
-        const { data: archivos } = await supabase.storage.from('prendas').list()
-        if (!archivos) return
-        const archivosBorrables = archivos.filter(a => a.name !== '.emptyFolderPlaceholder' && !urlsActivas.includes(a.name)).map(a => a.name)
-        if (archivosBorrables.length > 0) await supabase.storage.from('prendas').remove(archivosBorrables)
-      } catch (error) { console.error("Fallo silencioso en limpieza.") }
-    }, 5000)
-    return () => clearTimeout(temporizadorLimpieza)
-  }, [])
-
   const mostrarToast = (mensaje, tipo = 'info') => {
     const id = Date.now()
     setToasts(prev => [...prev, { id, mensaje, tipo }])

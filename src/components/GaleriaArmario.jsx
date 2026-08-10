@@ -105,7 +105,13 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
                   seleccionadas.includes(prenda.id) ? 'ring-2 ring-inset ring-black in-[.modo-oscuro]:ring-white' : ''
                 }`}
               >
-                <img src={prenda.imagen_url} loading="lazy" className="w-full h-full object-contain p-2" alt={prenda.nombre} />
+                <img 
+                  src={`${prenda.imagen_url}?width=250&quality=75`} 
+                  loading="lazy" 
+                  decoding="async"
+                  className="w-full h-full object-contain p-2" 
+                  alt={prenda.nombre} 
+                />
                 
                 {seleccionadas.includes(prenda.id) && (
                   <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-black in-[.modo-oscuro]:bg-white rounded-full flex items-center justify-center border-2 border-white in-[.modo-oscuro]:border-black">

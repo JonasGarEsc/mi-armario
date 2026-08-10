@@ -1,20 +1,38 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      // INICIO DE LA NUEVA CONFIGURACIÓN DE CACHÉ
+      workbox: {
+        runtimeCaching: [
+          {
+            // Intercepta las imágenes de Supabase
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'supabase-imagenes-armario',
+              expiration: {
+                maxEntries: 300, // Guarda hasta 300 prendas
+                maxAgeSeconds: 30 * 24 * 60 * 60 // 30 días de caducidad
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
+      },
+      // FIN DE LA NUEVA CONFIGURACIÓN
       manifest: {
         name: 'Armario Virtual',
         short_name: 'Perletta',
         description: 'Gestor de armario y maletas',
-        theme_color: '#0f172a',
+        theme_color: '#000000',
         background_color: '#ffffff',
         display: 'standalone',
         icons: [
@@ -25,14 +43,7 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
-      },
-      // Ampliación del límite de caché para el motor de IA
-      workbox: {
-        maximumFileSizeToCacheInBytes: 30000000
       }
     })
-  ],
-  build: {
-    chunkSizeWarningLimit: 30000,
-  }
+  ]
 })
