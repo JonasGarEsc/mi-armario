@@ -162,9 +162,15 @@ export default function App() {
       <header className="bg-white/80 in-[.modo-oscuro]:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 sticky top-0 z-30 transition-colors duration-300">
         <div className="px-4 md:px-6 h-16 flex items-center justify-between max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-black in-[.modo-oscuro]:bg-white rounded-xl flex items-center justify-center shadow-sm transition-colors duration-300">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-white in-[.modo-oscuro]:text-black">
-                <path d="M12 4v2M12 6c-2.5 0-4.5 2-4.5 4.5S9 15 12 15s4.5-2 4.5-4.5S14.5 6 12 6zM5 18l7-6 7 6" />
+            <div className="w-10 h-10 flex items-center justify-center transition-colors duration-300">
+              <svg viewBox="0 0 512 512" fill="none" className="w-8 h-8 text-black in-[.modo-oscuro]:text-white">
+                <path 
+                  d="M 256 120 C 275 120 288 135 288 150 C 288 165 275 170 256 185 L 256 220 M 256 220 L 360 260 C 375 265 384 280 384 296 L 384 376 C 384 390 372 400 360 400 L 152 400 C 140 400 128 390 128 376 L 128 296 C 128 280 137 265 152 260 L 256 220 M 190 290 L 322 290 M 190 340 L 322 340" 
+                  stroke="currentColor" 
+                  strokeWidth="32" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
               </svg>
             </div>
             <div className="flex flex-col">
