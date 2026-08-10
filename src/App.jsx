@@ -1,15 +1,12 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
-// Forzando actualizacion en Vercel
+import { useState, useEffect } from 'react'
 import { useSwipeable } from 'react-swipeable'
+import FormularioPrenda from './components/FormularioPrenda'
+import FormularioEdicion from './components/FormularioEdicion'
+import FormularioMaleta from './components/FormularioMaleta'
 import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import Gestores from './components/Gestores'
 import { supabase } from './supabase'
-import { useRegisterSW } from 'virtual:pwa-register/react'
-
-const FormularioPrenda = lazy(() => import('./components/FormularioPrenda'))
-const FormularioEdicion = lazy(() => import('./components/FormularioEdicion'))
-const FormularioMaleta = lazy(() => import('./components/FormularioMaleta'))
 
 export const vibrar = (ms = 50) => {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms)
@@ -27,22 +24,6 @@ export default function App() {
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
 
   const [toasts, setToasts] = useState([])
-
-  // Detección de actualizaciones PWA en Vercel
-  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW()
-  
-  // Detección de caída de conexión
-  const [isOffline, setIsOffline] = useState(!navigator.onLine)
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false)
-    const handleOffline = () => setIsOffline(true)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
   
   const [menuLateralVisible, setMenuLateralVisible] = useState(false)
   const [datosMenu, setDatosMenu] = useState([])
@@ -84,6 +65,21 @@ export default function App() {
     }
   }, [menuLateralVisible, actualizaciones])
 
+  useEffect(() => {
+    const temporizadorLimpieza = setTimeout(async () => {
+      try {
+        const { data: prendas } = await supabase.from('prendas').select('imagen_url')
+        if (!prendas) return
+        const urlsActivas = prendas.map(p => p.imagen_url.split('/').pop())
+        const { data: archivos } = await supabase.storage.from('prendas').list()
+        if (!archivos) return
+        const archivosBorrables = archivos.filter(a => a.name !== '.emptyFolderPlaceholder' && !urlsActivas.includes(a.name)).map(a => a.name)
+        if (archivosBorrables.length > 0) await supabase.storage.from('prendas').remove(archivosBorrables)
+      } catch (error) { console.error("Fallo silencioso en limpieza.") }
+    }, 5000)
+    return () => clearTimeout(temporizadorLimpieza)
+  }, [])
+
   const mostrarToast = (mensaje, tipo = 'info') => {
     const id = Date.now()
     setToasts(prev => [...prev, { id, mensaje, tipo }])
@@ -96,7 +92,6 @@ export default function App() {
   const recargarVistas = () => setActualizaciones(prev => prev + 1)
   
   const abrirModal = (tipo) => {
-    if (isOffline) return mostrarToast("Sin conexión: Modo solo lectura", "error")
     setModalActivo(tipo)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setModalVisible(true))
@@ -113,7 +108,6 @@ export default function App() {
   }
 
   const solicitarConfirmacionGlobal = (config) => {
-    if (isOffline) return mostrarToast("Sin conexión: Acción bloqueada", "error")
     vibrar(30)
     setDialogoGlobal(config)
   }
@@ -191,22 +185,6 @@ export default function App() {
 
   return (
     <div className="h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
-
-      {/* BANNER OFFLINE (Rojo) */}
-      {isOffline && (
-        <div className="bg-red-500 text-white text-[10px] md:text-xs font-bold text-center py-1.5 z-[500] relative w-full flex items-center justify-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-          SIN CONEXIÓN. MODO LECTURA.
-        </div>
-      )}
-
-      {/* BANNER ACTUALIZACIÓN PWA (Azul) */}
-      {needRefresh && (
-        <div className="bg-blue-600 text-white text-[10px] md:text-xs font-bold text-center py-2 z-[500] relative w-full flex items-center justify-center gap-2 cursor-pointer touch-manipulation" onClick={() => updateServiceWorker(true)}>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          NUEVA VERSIÓN DISPONIBLE. PULSA PARA ACTUALIZAR.
-        </div>
-      )}
       
       <div className="fixed top-safe mt-4 left-0 w-full z-200 flex flex-col gap-3 items-center pointer-events-none">
         {toasts.map(toast => (
@@ -321,11 +299,9 @@ export default function App() {
             </div>
             
             <div className="max-h-[85vh] overflow-y-auto hide-scrollbar px-1">
-              <Suspense fallback={<div className="flex justify-center p-10"><div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin"></div></div>}>
-                {modalActivo === 'formulario' && <FormularioPrenda onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda añadida", "exito") }} />}
-                {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
-                {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Maleta creada", "exito") }} onCancelar={cerrarModal} />}
-              </Suspense>
+              {modalActivo === 'formulario' && <FormularioPrenda onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda añadida", "exito") }} />}
+              {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
+              {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Maleta creada", "exito") }} onCancelar={cerrarModal} />}
               
               {modalActivo === 'crear_conjunto' && (
                 <form onSubmit={guardarConjunto} className="flex flex-col gap-5">

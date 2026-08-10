@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
-import { toJpeg } from 'html-to-image'
+import { toPng } from 'html-to-image'
 
 function WidgetClima({ destino }) {
   const [clima, setClima] = useState(null)
@@ -51,27 +51,20 @@ function WidgetClima({ destino }) {
 }
 
 function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
+  const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? (index * 90 + 20) })
   const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
   const [isDragging, setIsDragging] = useState(false)
-  
-  // Referencias para evitar re-renderizados de React durante el movimiento
-  const domRef = useRef(null)
-  const coordRef = useRef({ x: cp.pos_x ?? 40, y: cp.pos_y ?? (index * 90 + 20) })
-  const offsetRef = useRef({ x: 0, y: 0 })
-  const rafRef = useRef(null)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
 
-  // Establecer posición inicial
-  useEffect(() => {
-    if (domRef.current) {
-      domRef.current.style.transform = `translate3d(${coordRef.current.x}px, ${coordRef.current.y}px, 0)`
-    }
-  }, [])
+  const posRef = useRef(pos)
+  const zRef = useRef(zIndex)
+  useEffect(() => { posRef.current = pos }, [pos])
+  useEffect(() => { zRef.current = zIndex }, [zIndex])
 
   const handlePointerDown = (e) => {
     vibrar(15)
     const rect = e.currentTarget.getBoundingClientRect()
-    offsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-    
+    setOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
     const nuevoZ = maxZ + 1
     setZIndex(nuevoZ)
     setMaxZ(nuevoZ)
@@ -81,10 +74,9 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
 
   const handlePointerMove = (e) => {
     if (!isDragging) return
-    
     const contenedor = e.currentTarget.parentElement.getBoundingClientRect()
-    let newX = e.clientX - contenedor.left - offsetRef.current.x
-    let newY = e.clientY - contenedor.top - offsetRef.current.y
+    let newX = e.clientX - contenedor.left - offset.x
+    let newY = e.clientY - contenedor.top - offset.y
 
     const itemSize = window.innerWidth >= 768 ? 128 : 112
     const maxAncho = contenedor.width - itemSize
@@ -95,39 +87,27 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
     if (newX > maxAncho) newX = maxAncho
     if (newY > maxAlto) newY = maxAlto
 
-    coordRef.current = { x: newX, y: newY }
-
-    // Manipulación directa del DOM usando requestAnimationFrame (Aceleración GPU)
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      if (domRef.current) {
-        domRef.current.style.transform = `translate3d(${newX}px, ${newY}px, 0)`
-      }
-    })
+    setPos({ x: newX, y: newY })
   }
 
   const handlePointerUp = (e) => {
     if (!isDragging) return
     setIsDragging(false)
     e.currentTarget.releasePointerCapture(e.pointerId)
-    
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    
     const timerKey = `timer_cp_${cp.prenda_id}`
     if (window[timerKey]) clearTimeout(window[timerKey])
     window[timerKey] = setTimeout(() => {
-      onGuardarEstado(cp.conjunto_id, cp.prenda_id, coordRef.current.x, coordRef.current.y, zIndex)
-    }, 500)
+      onGuardarEstado(cp.conjunto_id, cp.prenda_id, posRef.current.x, posRef.current.y, zRef.current)
+    }, 800)
   }
 
   return (
     <div
-      ref={domRef}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      style={{ touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-[scale,z-index] duration-300 ease-out cursor-grab'}`}
+      style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
+      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'}`}
     >
       <img src={cp.prendas.imagen_url} loading="lazy" draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-sm select-none" alt="Ropa" />
     </div>
@@ -249,15 +229,15 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     const elemento = document.getElementById(`lienzo-${id}`)
     if (!elemento) return
     try {
-      const dataUrl = await toJpeg(elemento, { cacheBust: true, pixelRatio: 2, quality: 0.85, skipFonts: true })
+      const dataUrl = await toPng(elemento, { cacheBust: true, pixelRatio: 2, skipFonts: true })
       if (navigator.share) {
         const res = await fetch(dataUrl)
         const blob = await res.blob()
-        const file = new File([blob], `Outfit_${nombre.replace(/\s+/g, '_')}.jpg`, { type: 'image/jpeg' })
+        const file = new File([blob], `Outfit_${nombre.replace(/\s+/g, '_')}.png`, { type: 'image/png' })
         await navigator.share({ files: [file], title: `Outfit: ${nombre}` })
       } else {
         const a = document.createElement('a')
-        a.href = dataUrl; a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.jpg`; a.click()
+        a.href = dataUrl; a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`; a.click()
       }
       vibrar([30, 30])
     } catch (e) { mostrarToast("Error al exportar", "error") }
@@ -321,7 +301,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
       ) : itemsFiltrados.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">Vacío.</div>
       ) : !maletaActiva ? (
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-2 gap-y-6 pt-2 pb-4 px-1">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-2 gap-y-6 pt-2 pb-4 px-1">
           {itemsFiltrados.map((m) => (
             <div key={m.id} className="relative flex flex-col items-center w-full">
               <div className="absolute -top-2 right-0 flex flex-col gap-1 z-20">
@@ -348,15 +328,15 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                        <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#1F1D2B] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
                     </div>
                     
-                    <div className={`absolute inset-0 z-20 transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] delay-[150ms] ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-75'}`}>
+                    <div className={`absolute inset-0 z-20 transition-all duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-75'}`}>
                       {extraerImagenesMaleta(m).map((url, idx) => {
-                        const posiciones = [
-                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] -rotate-6 z-10",
-                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] rotate-12 z-20",
-                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75%] h-[75%] -rotate-12 z-30",
-                          "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] rotate-6 z-40"
-                        ]
-                        return <img key={idx} src={`${url}?width=150&quality=70`} className={`absolute ${posiciones[idx]} object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.5)]`} alt="Prenda interior" />
+                         const posiciones = [
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] -rotate-6 z-10",
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] rotate-12 z-20",
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75%] h-[75%] -rotate-12 z-30",
+                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] rotate-6 z-40"
+                         ]
+                         return <img key={idx} src={url} className={`absolute ${posiciones[idx]} object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.5)]`} alt="Prenda interior" />
                       })}
                     </div>
                  </div>

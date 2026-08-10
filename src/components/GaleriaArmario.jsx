@@ -89,14 +89,14 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
       )}
 
       {cargando ? (
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0.5 md:gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2">
           {[...Array(12)].map((_, i) => <div key={i} className="aspect-square bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 animate-pulse"></div>)}
         </div>
       ) : prendasFiltradas.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">No hay prendas.</div>
       ) : (
         <div className="flex flex-col flex-1">
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0.5 md:gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2">
             {prendasVisibles.map((prenda) => (
               <div 
                 key={prenda.id} 
@@ -105,13 +105,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
                   seleccionadas.includes(prenda.id) ? 'ring-2 ring-inset ring-black in-[.modo-oscuro]:ring-white' : ''
                 }`}
               >
-                <img 
-                  src={`${prenda.imagen_url}?width=250&quality=75`} 
-                  loading="lazy" 
-                  decoding="async"
-                  className="w-full h-full object-contain p-2" 
-                  alt={prenda.nombre} 
-                />
+                <img src={prenda.imagen_url} loading="lazy" className="w-full h-full object-contain p-2" alt={prenda.nombre} />
                 
                 {seleccionadas.includes(prenda.id) && (
                   <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-black in-[.modo-oscuro]:bg-white rounded-full flex items-center justify-center border-2 border-white in-[.modo-oscuro]:border-black">
