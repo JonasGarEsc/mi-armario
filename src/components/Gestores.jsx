@@ -115,22 +115,24 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
     <div className="flex flex-col gap-5 text-left pb-4">
       <h2 className="text-2xl font-bold tracking-tight mb-2">Gestionar {seccion === 'tipos' ? 'Tipos' : 'Prendas Específicas'}</h2>
       
-      <form onSubmit={crearItem} className="flex gap-2">
-        <input 
-          type="text" 
-          value={nombre} 
-          onChange={(e) => setNombre(e.target.value)} 
-          placeholder={`Nuevo ${seccion === 'tipos' ? 'tipo...' : 'nombre...'}`} 
-          required 
-          className="flex-1 p-3 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm touch-manipulation"
-        />
+      <form onSubmit={crearItem} className="flex flex-col gap-3">
+        <div className="flex gap-2">
+          <input 
+            type="text" 
+            value={nombre} 
+            onChange={(e) => setNombre(e.target.value)} 
+            placeholder={`Nuevo ${seccion === 'tipos' ? 'tipo...' : 'nombre...'}`} 
+            required 
+            className="flex-1 p-3 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm touch-manipulation"
+          />
+          <button type="submit" className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-bold px-5 rounded-xl active:scale-95 transition-transform text-sm touch-manipulation">Añadir</button>
+        </div>
         {seccion === 'categorias' && (
-          <select value={tipoRelacionado} onChange={(e) => setTipoRelacionado(e.target.value)} required className="w-1/3 p-3 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent outline-none text-sm touch-manipulation">
+          <select value={tipoRelacionado} onChange={(e) => setTipoRelacionado(e.target.value)} required className="w-full p-3 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent outline-none text-sm touch-manipulation">
             <option value="">Tipo base...</option>
             {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
           </select>
         )}
-        <button type="submit" className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-bold px-5 rounded-xl active:scale-95 transition-transform text-sm touch-manipulation">Añadir</button>
       </form>
 
       <ul className="flex flex-col gap-2 mt-4 max-h-[40vh] overflow-y-auto hide-scrollbar">
