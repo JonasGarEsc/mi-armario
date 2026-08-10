@@ -7,18 +7,17 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      // INICIO DE LA NUEVA CONFIGURACIÓN DE CACHÉ
       workbox: {
+        maximumFileSizeToCacheInBytes: 40000000, // <-- Límite aumentado a 40 MB para permitir el modelo de IA
         runtimeCaching: [
           {
-            // Intercepta las imágenes de Supabase
             urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'supabase-imagenes-armario',
               expiration: {
-                maxEntries: 300, // Guarda hasta 300 prendas
-                maxAgeSeconds: 30 * 24 * 60 * 60 // 30 días de caducidad
+                maxEntries: 300,
+                maxAgeSeconds: 30 * 24 * 60 * 60
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -27,9 +26,8 @@ export default defineConfig({
           }
         ]
       },
-      // FIN DE LA NUEVA CONFIGURACIÓN
       manifest: {
-        name: 'Armario Virtual',
+        name: 'Perletta',
         short_name: 'Perletta',
         description: 'Gestor de armario y maletas',
         theme_color: '#000000',
