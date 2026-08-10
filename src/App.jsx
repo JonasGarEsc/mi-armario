@@ -30,7 +30,6 @@ export default function App() {
   const [tipoExpandido, setTipoExpandido] = useState(null)
   const [filtroActual, setFiltroActual] = useState(null)
 
-  // ESTADO GLOBAL DE DIÁLOGOS DE CONFIRMACIÓN
   const [dialogoGlobal, setDialogoGlobal] = useState(null)
 
   const [temaOscuro, setTemaOscuro] = useState(() => {
@@ -321,20 +320,28 @@ export default function App() {
                 </form>
               )}
               
-              {(modalActivo === 'tipos' || modalActivo === 'categorias') && <Gestores seccion={modalActivo} onCambio={recargarVistas} />}
+              {/* Le inyectamos las variables a Gestores */}
+              {(modalActivo === 'tipos' || modalActivo === 'categorias') && <Gestores seccion={modalActivo} onCambio={recargarVistas} setDialogoGlobal={solicitarConfirmacionGlobal} mostrarToast={mostrarToast} />}
             </div>
           </div>
         </div>
       )}
 
-      {/* PORTAL GLOBAL DE CONFIRMACIONES (Evita recortes del z-index) */}
+      {/* PORTAL GLOBAL DE CONFIRMACIONES (Doble comprobación en cascada) */}
       {dialogoGlobal && (
         <div className="fixed inset-0 bg-black/60 z-300 flex items-center justify-center p-4">
           <div className="bg-white in-[.modo-oscuro]:bg-neutral-900 rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl animate-fade-in-up">
             <h3 className="text-lg font-bold mb-6 tracking-tight">{dialogoGlobal.mensaje}</h3>
             {dialogoGlobal.contenidoAdicional}
             <div className="flex flex-col gap-3">
-              <button onClick={() => { dialogoGlobal.onConfirm(); setDialogoGlobal(null); }} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors touch-manipulation ${dialogoGlobal.esDestructivo ? 'bg-red-500 active:bg-red-600' : 'bg-black in-[.modo-oscuro]:bg-white in-[.modo-oscuro]:text-black'}`}>
+              <button 
+                onClick={() => { 
+                  const fn = dialogoGlobal.onConfirm; 
+                  setDialogoGlobal(null); 
+                  if(fn) fn(); 
+                }} 
+                className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors touch-manipulation ${dialogoGlobal.esDestructivo ? 'bg-red-500 active:bg-red-600' : 'bg-black in-[.modo-oscuro]:bg-white in-[.modo-oscuro]:text-black'}`}
+              >
                 {dialogoGlobal.textoConfirmar || 'Confirmar'}
               </button>
               <button onClick={() => setDialogoGlobal(null)} className="w-full font-bold py-3.5 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 active:bg-neutral-200 in-[.modo-oscuro]:active:bg-neutral-700 transition-colors touch-manipulation">Cancelar</button>
