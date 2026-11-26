@@ -29,3 +29,14 @@ test('una foto que ya llena el marco solo usa la holgura', () => {
   assert.ok(cerca(encaje.izquierda, -1.5))
   assert.ok(cerca(encaje.arriba, -1.5))
 })
+
+test('con ancla arriba la prenda cuelga del borde superior de la zona', () => {
+  const caja = { x: 0.1, y: 0.2, w: 0.8, h: 0.5, relacion: 1 }
+  const zona = { x: 0.2, y: 0.3, w: 0.5, h: 0.6, ancla: 'arriba' }
+  const encaje = encajarCaja(caja, 1, zona, 1)
+  const cima = encaje.arriba + caja.y * encaje.alto
+  assert.ok(cerca(cima, 30), `la cima queda en ${cima}`)
+  const izq = encaje.izquierda + caja.x * encaje.ancho
+  const der = izq + caja.w * encaje.ancho
+  assert.ok(cerca((izq + der) / 2, 45), 'sigue centrada en horizontal')
+})

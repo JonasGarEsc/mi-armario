@@ -140,9 +140,10 @@ export async function cajaVisible(src, clave) {
  * `aspecto` es ancho/alto del contenedor y `objetivo` es la zona del
  * contenedor a vestir (fracciones de 0 a 1, relativa al hueco).
  * `holgura` permite sobrepasar un poco el objetivo en la dimensión sobrante
- * (1 = encaje exacto, sin salirse). Devuelve porcentajes del contenedor.
+ * (1 = encaje exacto, sin salirse). Con `objetivo.ancla === 'arriba'` la
+ * prenda cuelga del borde superior de la zona en lugar de centrarse. Devuelve porcentajes del contenedor.
  */
-export function encajarCaja(caja, aspecto = 1, objetivo = null, holgura = 1.08) {
+export function encajarCaja(caja, aspecto = 1, objetivo = null, holgura = 1.03) {
   if (!caja || !(caja.w > 0) || !(caja.h > 0) || !(aspecto > 0)) return null
 
   const relacion = caja.relacion > 0 ? caja.relacion : 1
@@ -165,7 +166,9 @@ export function encajarCaja(caja, aspecto = 1, objetivo = null, holgura = 1.08) 
   const altoImagen = anchoImagen / relacion
 
   const izquierda = centroX - (caja.w * anchoImagen) / 2 - caja.x * anchoImagen
-  const arriba = centroY - (caja.h * altoImagen) / 2 - caja.y * altoImagen
+  const arriba = zona.ancla === 'arriba'
+    ? zona.y * altoContenedor - caja.y * altoImagen
+    : centroY - (caja.h * altoImagen) / 2 - caja.y * altoImagen
 
   return {
     ancho: anchoImagen * 100,

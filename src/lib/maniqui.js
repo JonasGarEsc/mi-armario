@@ -1,17 +1,21 @@
 // Maniquí: ranuras donde imantar cada prenda.
 // Las coordenadas son porcentajes de un escenario cuadrado.
 
+// `objetivo` es la zona real del cuerpo que viste la prenda (medida sobre el
+// dibujo del maniquí: hombros y=21, cintura y=38, cadera y=49, tobillos y=88).
+// Con `ancla: 'arriba'` la prenda cuelga desde el borde superior de esa zona
+// (hombros, cintura) en vez de centrarse, como haría la ropa de verdad.
 export const RANURAS = {
   cabeza: { x: 40, y: 2, w: 20, h: 15, capa: 6, etiqueta: 'Cabeza', objetivo: { x: 42, y: 3, w: 16, h: 14 } },
-  torso: { x: 29, y: 19, w: 42, h: 31, capa: 3, etiqueta: 'Torso', objetivo: { x: 38, y: 19, w: 24, h: 31 } },
-  abrigo: { x: 24, y: 19, w: 52, h: 35, capa: 4, etiqueta: 'Abrigo', objetivo: { x: 36, y: 19, w: 28, h: 35 } },
-  vestido: { x: 27, y: 20, w: 46, h: 56, capa: 2, etiqueta: 'Vestido', objetivo: { x: 36, y: 20, w: 28, h: 56 } },
-  piernas: { x: 33, y: 40, w: 34, h: 50, capa: 1, etiqueta: 'Piernas', objetivo: { x: 38, y: 40, w: 24, h: 50 } },
+  torso: { x: 29, y: 19, w: 42, h: 31, capa: 3, etiqueta: 'Torso', objetivo: { x: 38, y: 21, w: 24, h: 23, ancla: 'arriba' } },
+  abrigo: { x: 24, y: 19, w: 52, h: 35, capa: 4, etiqueta: 'Abrigo', objetivo: { x: 36, y: 21, w: 28, h: 29, ancla: 'arriba' } },
+  vestido: { x: 27, y: 20, w: 46, h: 56, capa: 2, etiqueta: 'Vestido', objetivo: { x: 37, y: 21, w: 26, h: 55, ancla: 'arriba' } },
+  piernas: { x: 30, y: 36, w: 40, h: 54, capa: 1, etiqueta: 'Piernas', objetivo: { x: 38.5, y: 37.5, w: 23, h: 51, ancla: 'arriba' } },
   pies: { x: 34, y: 85, w: 32, h: 13, capa: 5, etiqueta: 'Pies', objetivo: { x: 42, y: 86, w: 16, h: 10 } },
   accesorio: { x: 76, y: 40, w: 18, h: 18, capa: 7, etiqueta: 'Accesorio' },
 }
 
-/** Zona del cuerpo que debe tapar una prenda, relativa a su hueco. */
+/** Zona del cuerpo que debe vestir una prenda, relativa a su hueco. */
 export function objetivoDeRanura(clave) {
   const r = RANURAS[clave]
   if (!r?.objetivo) return null
@@ -20,6 +24,7 @@ export function objetivoDeRanura(clave) {
     y: (r.objetivo.y - r.y) / r.h,
     w: r.objetivo.w / r.w,
     h: r.objetivo.h / r.h,
+    ancla: r.objetivo.ancla || 'centro',
   }
 }
 
