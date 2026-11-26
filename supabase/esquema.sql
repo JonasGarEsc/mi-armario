@@ -125,6 +125,11 @@ insert into storage.buckets (id, name, public)
 values ('prendas', 'prendas', false)
 on conflict (id) do update set public = false;
 
+grant select, insert, update, delete on
+  public.tipos, public.categorias, public.prendas, public.maletas,
+  public.semanas, public.conjuntos, public.conjunto_prenda, public.usos
+  to authenticated;
+
 drop policy if exists "prendas: leer las mías" on storage.objects;
 create policy "prendas: leer las mías"
   on storage.objects for select to authenticated
@@ -148,3 +153,5 @@ create policy "prendas: borrar en mi carpeta"
 
 -- 4. Comprobación --------------------------------------------------------
 -- select tablename, policyname from pg_policies where schemaname = 'public' order by tablename;
+
+notify pgrst, 'reload schema';

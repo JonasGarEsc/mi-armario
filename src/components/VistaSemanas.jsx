@@ -13,7 +13,7 @@ import LienzoOutfit from './LienzoOutfit'
 const CONSULTA_CONJUNTOS = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
 const CONSULTA_SIN_RANURA = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
 
-export default function VistaSemanas({ recarga = 0, onCrearSemana, onAnadirOutfit, mostrarToast, setDialogoGlobal }) {
+export default function VistaSemanas({ activa = false, recarga = 0, onCrearSemana, onAnadirOutfit, mostrarToast, setDialogoGlobal }) {
   const [semanas, setSemanas] = useState(() => leerCache('semanas') || [])
   const [cargando, setCargando] = useState(() => !leerCache('semanas'))
   const [errorBase, setErrorBase] = useState('')
@@ -25,6 +25,9 @@ export default function VistaSemanas({ recarga = 0, onCrearSemana, onAnadirOutfi
   const [refresco, setRefresco] = useState(0)
 
   useEffect(() => {
+    // La pestaña se monta al arrancar, pero no se consulta hasta que se abre:
+    // así, si acabas de ejecutar el SQL, la primera lectura ya lo encuentra.
+    if (!activa) return undefined
     let vivo = true
 
     async function cargar() {
@@ -34,20 +37,39 @@ export default function VistaSemanas({ recarga = 0, onCrearSemana, onAnadirOutfi
           setSemanas(cache)
           setCargando(false)
         }
-        const { data, error } = await supabase
+
+        const { data: filas, error } = await supabase
           .from('semanas')
-          .select('*, conjuntos(id, fecha)')
+          .select('*')
           .order('fecha_inicio', { ascending: false })
 
         if (!vivo) return
         if (error) {
-          setErrorBase('Falta la tabla de semanas. Ejecuta supabase/actualizacion-v3.sql en Supabase.')
+          setErrorBase(`No se pudo leer la tabla «semanas»: ${error.message}`)
           setCargando(false)
           return
         }
-        setErrorBase('')
-        setSemanas(data || [])
-        guardarCache('semanas', data || [])
+
+        // Sin depender de la relación de PostgREST: dos consultas y se juntan aquí.
+        const { data: citas, error: errCitas } = await supabase
+          .from('conjuntos')
+          .select('id, fecha, semana_id')
+          .not('semana_id', 'is', null)
+
+        if (!vivo) return
+
+        const porSemana = new Map()
+        for (const c of citas || []) {
+          if (!porSemana.has(c.semana_id)) porSemana.set(c.semana_id, [])
+          porSemana.get(c.semana_id).push({ id: c.id, fecha: c.fecha })
+        }
+
+        const lista = (filas || []).map(s => ({ ...s, conjuntos: porSemana.get(s.id) || [] }))
+        setSemanas(lista)
+        guardarCache('semanas', lista)
+        setErrorBase(errCitas
+          ? `Las semanas se leen, pero falta algo en conjuntos: ${errCitas.message}`
+          : '')
         setCargando(false)
         return
       }
@@ -86,7 +108,7 @@ export default function VistaSemanas({ recarga = 0, onCrearSemana, onAnadirOutfi
 
     cargar()
     return () => { vivo = false }
-  }, [semanaActiva, recarga, refresco])
+  }, [semanaActiva, recarga, refresco, activa])
 
   useEffect(() => {
     if (!semanaActiva) return
@@ -328,7 +350,15 @@ export default function VistaSemanas({ recarga = 0, onCrearSemana, onAnadirOutfi
       )}
 
       {errorBase && !semanaActiva && (
-        <div role="alert" className="aviso-error mb-4">{errorBase}</div>
+        <div role="alert" className="aviso-error mb-4 flex flex-col items-start gap-2">
+          <p className="wrap-break-word">{errorBase}</p>
+          <button
+            onClick={() => setRefresco(n => n + 1)}
+            className="min-h-9 font-semibold underline underline-offset-4"
+          >
+            Reintentar
+          </button>
+        </div>
       )}
 
       <div className="relative mb-4 md:max-w-sm">

@@ -330,7 +330,7 @@ function Armario({ sesion }) {
       conjunto_prenda: ids.map(prenda_id => ({ prenda_id })),
     }])
     if (error) {
-      mostrarToast('Error al guardar', 'error')
+      mostrarToast(`Error al guardar: ${error.message}`, 'error')
       return
     }
 
@@ -404,6 +404,7 @@ function Armario({ sesion }) {
             </section>
             <section aria-label="Semana" inert={pestañaActiva !== 'semana'} className={panel}>
               <VistaSemanas
+                activa={pestañaActiva === 'semana'}
                 recarga={actualizaciones}
                 onCrearSemana={() => { abrirModal('crear_semana'); vibrar(30) }}
                 onAnadirOutfit={(semana, fecha) => { setObjetivoSemana({ semana, fecha }); abrirModal('elegir_prendas'); vibrar(30) }}

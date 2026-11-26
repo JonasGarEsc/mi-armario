@@ -70,7 +70,7 @@ export default function FormularioSemana({ onExito, onCancelar }) {
     if (errInsert) {
       setError(errInsert.message?.toLowerCase().includes('duplicate')
         ? 'Ya tienes una semana que empieza ese día.'
-        : 'No se pudo crear la semana. Revisa la conexión.')
+        : `No se pudo crear la semana: ${errInsert.message}`)
       return
     }
     onExito()

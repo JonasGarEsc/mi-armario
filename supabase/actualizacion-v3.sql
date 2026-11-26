@@ -52,6 +52,11 @@ drop policy if exists "mi ropa" on public.usos;
 create policy "mi ropa" on public.usos for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
+-- Permisos explícitos: si el proyecto no heredó los privilegios por defecto,
+-- PostgREST devolvería «permission denied» aunque la tabla exista.
+grant select, insert, update, delete on public.semanas to authenticated;
+grant select, insert, update, delete on public.usos to authenticated;
+
 -- 4. Clima ---------------------------------------------------------------
 
 alter table public.maletas add column if not exists destino text;
@@ -160,3 +165,6 @@ create policy "prendas: borrar en mi carpeta"
 
 -- 8. Comprobación --------------------------------------------------------
 -- select tablename, policyname from pg_policies where schemaname = 'public' order by tablename;
+
+-- Refresca la caché de PostgREST para que la API vea las tablas nuevas al instante.
+notify pgrst, 'reload schema';
