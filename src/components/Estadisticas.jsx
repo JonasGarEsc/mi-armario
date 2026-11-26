@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { PUNTO_FAMILIA } from '../lib/colores'
 import { dinero, costePorUso, estadisticasArmario, numUsos } from '../lib/estadisticas'
 import { isoLocal } from '../lib/fechas'
+import { huecosDelArmario } from '../lib/huecos'
 import { vibrar } from '../lib/vibrar'
 import GraficoBarras from './GraficoBarras'
 import Miniatura from './Miniatura'
@@ -44,6 +45,7 @@ export default function Estadisticas({ mostrarToast, onProponer, onCambio }) {
   }, [])
 
   const e = useMemo(() => (prendas ? estadisticasArmario(prendas, hoy) : null), [prendas, hoy])
+  const huecos = useMemo(() => (prendas ? huecosDelArmario(prendas) : []), [prendas])
 
   async function cambiar(prenda, campos, mensaje) {
     vibrar(15)
@@ -89,6 +91,22 @@ export default function Estadisticas({ mostrarToast, onProponer, onCambio }) {
         ))}
       </div>
       {e.conPrecio > 0 && e.conPrecio < e.total && <p className="text-xs text-tenue -mt-4">Con precio: {e.conPrecio} de {e.total} prendas.</p>}
+
+      {huecos.length > 0 && (
+        <section className="flex flex-col gap-2" aria-labelledby="huecos-titulo">
+          <h3 id="huecos-titulo" className="text-lg font-bold">Huecos del armario</h3>
+          <ul className="rounded-xl bg-lamina divide-y divide-linea px-3">
+            {huecos.map((h) => (
+              <li key={`${h.hueco}-${h.color}`} className="flex items-center gap-3 py-2.5">
+                <span aria-hidden="true" className="w-5 h-5 shrink-0 rounded-full border border-linea" style={{ backgroundColor: h.hex }} />
+                <p className="text-sm">
+                  Con <span className="font-medium">{h.etiqueta}</span> ganas {h.ganancia} {h.ganancia === 1 ? 'combinación' : 'combinaciones'}.
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Bloque titulo="Lo que más te pones" vacio="Aún no has anotado ningún uso." hijos={e.masUsadas.length}>
         {e.masUsadas.map((p) => <Fila key={p.id} prenda={p} dato={usos(p)} />)}
