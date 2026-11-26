@@ -6,10 +6,11 @@ import { useImagenFirmada } from '../lib/useImagenFirmada'
 import { vestirPrenda } from '../lib/vestir'
 
 /**
- * Foto de una prenda. Con `ranura`, la viste sobre el maniquí a escala real
- * (ver lib/vestir); la foto puede salirse del hueco, que solo sirve de asa.
+ * Foto de una prenda. Con `ranura`, la viste sobre el maniquí (ver
+ * lib/vestir); `textos` = [nombre, categoría, tipo] decide su largo.
+ * La foto puede salirse del hueco, que solo sirve de asa.
  */
-export default function PrendaAjustada({ url, ancho = 720, ranura = null, alt = '' }) {
+export default function PrendaAjustada({ url, ancho = 720, ranura = null, textos = [], alt = '' }) {
   const { src, fallar } = useImagenFirmada(url, ancho)
   const [caja, setCaja] = useState(undefined)
 
@@ -30,7 +31,7 @@ export default function PrendaAjustada({ url, ancho = 720, ranura = null, alt = 
   if (!src) return <span className="block h-full w-full" aria-hidden="true" />
 
   const hueco = ranura ? RANURAS[ranura] : null
-  const puesta = hueco && caja ? vestirPrenda(caja, ranura) : null
+  const puesta = hueco && caja ? vestirPrenda(caja, ranura, textos) : null
   // Del escenario (0-100) a porcentajes del hueco que contiene la foto.
   const estilo = puesta
     ? {

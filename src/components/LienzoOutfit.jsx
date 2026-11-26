@@ -8,12 +8,14 @@ const TAMANO_LIBRE = 0.28 // 28 % del ancho del escenario
 
 // Silueta de maniquí de escaparate con proporciones humanas (8 cabezas).
 // Las medidas que usa la ropa para vestirlo están en CUERPO (lib/maniqui).
-const PIERNA = 'M40.6 43C40.6 50 42 57 43.3 66c.3 4-.5 8 .3 14l1 8.6h2.7l.6-8.6c.5-5-.5-10-.3-14 .6-7 2-13 2.2-18.5Z'
-const PIE = 'M44.4 88c-.8 2.5-2.4 4.8-2.8 6.4.6 1 4.6 1.1 6.1.2.2-2.1-.1-4.6-.3-6.6Z'
-const BRAZO = 'M39.8 19.8c-1.6.5-2.4 2.4-2.8 4.7l-2 9.7c-.4 1.8-1 7.8-1.8 12.2l2.4.3c1-4.7 2-10.2 2.6-12.2l3.4-8.5Z'
-const MANO = 'M33.2 46.2c-.8 2.3-1 4.8-.2 6.2.8.8 2.2.2 2.6-1l.2-4.8Z'
+// Cadera y piernas son una sola forma, sin escalones entre una y otras.
 const TORSO =
-  'M47.4 17.6c-2.4 1-5.2 1.1-7 2-1.4.7-1.5 2.8-.8 4.6l1.5 3.3c.2 2.5 1.6 4.3 1.7 6 .1 2.5-2.4 4.9-2.5 8-.1 2.5.3 4.5 1.2 5.7l8.5 1.4 8.5-1.4c.9-1.2 1.3-3.2 1.2-5.7-.1-3.1-2.6-5.5-2.5-8 .1-1.7 1.5-3.5 1.7-6l1.5-3.3c.7-1.8.6-3.9-.8-4.6-1.8-.9-4.6-1-7-2Z'
+  'M47.4 17.6C45 18.6 42.2 18.7 40.4 19.6 39 20.3 38.9 22.4 39.6 24.2L41 27.6C41.4 30 42.6 31.8 42.8 34L43 37H57L57.2 34C57.4 31.8 58.6 30 59 27.6L60.4 24.2C61.1 22.4 61 20.3 59.6 19.6 57.8 18.7 55 18.6 52.6 17.6Z'
+const PIERNAS =
+  'M42.7 32.5C42.9 35.5 41 38.5 41 42.5 41 46.5 41.4 50 41.9 55 42.4 59.5 43 63 43.1 66 43.2 70 42.7 74 43.4 79L44.4 88.6H47.3L47.9 79C48.3 74 47.5 70 47.6 66 47.8 61 49.2 55 49.6 50.5L50 50 50.4 50.5C50.8 55 52.2 61 52.4 66 52.5 70 51.7 74 52.1 79L52.7 88.6H55.6L56.6 79C57.3 74 56.8 70 56.9 66 57 63 57.6 59.5 58.1 55 58.6 50 59 46.5 59 42.5 59 38.5 57.1 35.5 57.3 32.5Z'
+const PIE = 'M44.4 88c-.8 2.5-2.4 4.8-2.8 6.4.6 1 4.6 1.1 6.1.2.2-2.1-.1-4.6-.3-6.6Z'
+const BRAZO = 'M40.2 19.8C39.2 20.4 38.6 21.6 38.2 23.4L36.4 33.6C36 36.5 35.3 41.5 34.6 46.4L36.7 46.7C37.5 42 38.3 37 38.7 34.4L41 27.4Z'
+const MANO = 'M34.6 46.2c-.9 1.9-1.2 4.2-.6 5.8.6.9 2 .6 2.5-.5l.3-5Z'
 
 function Maniqui() {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -44,8 +46,7 @@ function Maniqui() {
         {/* Las piezas no llevan color: lo heredan de cada <use>, así el
             contorno se dibuja una vez por debajo y no quedan costuras. */}
         <g id={cuerpo}>
-          <path d={PIERNA} />
-          <path d={PIERNA} transform={espejo} />
+          <path d={PIERNAS} />
           <path d={PIE} />
           <path d={PIE} transform={espejo} />
           <path d={TORSO} />
@@ -59,7 +60,7 @@ function Maniqui() {
       </defs>
 
       <ellipse cx="50" cy="95" rx="13" ry="2.6" fill={`url(#${sombra})`} />
-      <use href={`#${cuerpo}`} fill="#9d9386" stroke="#9d9386" strokeWidth="0.9" strokeLinejoin="round" />
+      <use href={`#${cuerpo}`} fill="#9d9386" stroke="#9d9386" strokeWidth="0.6" strokeLinejoin="round" />
       <use href={`#${cuerpo}`} fill={`url(#${piel})`} />
     </svg>
   )
@@ -176,6 +177,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
         url={cp.prendas.imagen_url}
         ancho={720}
         ranura={ranura}
+        textos={[cp.prendas.nombre, cp.prendas.categorias?.nombre, cp.prendas.categorias?.tipos?.nombre]}
       />
     </div>
   )
