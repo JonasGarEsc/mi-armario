@@ -1,13 +1,19 @@
 @import "tailwindcss";
-/* Corrección automática para campos de formulario en Modo Oscuro */
-.modo-oscuro input,
-.modo-oscuro select,
-.modo-oscuro textarea {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
-  border-color: #334155 !important;
+
+/* Rejilla fluida: llena el ancho disponible en móvil y escritorio sin huecos. */
+@layer components {
+  .rejilla {
+    display: grid;
+    gap: 0.375rem;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
+  @media (min-width: 768px) {
+    .rejilla {
+      gap: 0.5rem;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+  }
 }
-.modo-oscuro input::placeholder { color: #94a3b8 !important; }
 
 /* 1. Shimmer Effect (Skeleton Loading) */
 @keyframes shimmer {

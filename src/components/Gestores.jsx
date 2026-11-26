@@ -144,7 +144,7 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
               <span className="font-semibold text-sm">{item.nombre}</span>
               {seccion === 'categorias' && <span className="text-xs text-neutral-500">{item.tipos?.nombre}</span>}
             </div>
-            <button onClick={() => eliminarItem(item)} className="w-8 h-8 rounded-full bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 font-bold flex items-center justify-center shadow-sm border border-neutral-200 in-[.modo-oscuro]:border-neutral-700 active:scale-90 transition-transform text-sm touch-manipulation">✕</button>
+            <button onClick={() => eliminarItem(item)} aria-label={`Eliminar ${item.nombre}`} className="w-8 h-8 rounded-full bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 font-bold flex items-center justify-center shadow-sm border border-neutral-200 in-[.modo-oscuro]:border-neutral-700 active:scale-90 transition-transform text-sm touch-manipulation">✕</button>
           </li>
         ))}
       </ul>

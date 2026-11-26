@@ -3,6 +3,15 @@ import { supabase } from '../supabase'
 import { vibrar } from '../App'
 import { leerCache, guardarCache } from '../lib/cache'
 
+// La caché solo necesita lo que pinta la rejilla, no el árbol de categorías entero.
+const resumenPrenda = (p) => ({
+  id: p.id,
+  nombre: p.nombre,
+  imagen_url: p.imagen_url,
+  categoria_id: p.categoria_id,
+  categorias: p.categorias ? { nombre: p.categorias.nombre } : null
+})
+
 export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState([])
   const [seleccionadas, setSeleccionadas] = useState([])
@@ -17,7 +26,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
       if (cache) { setPrendas(cache); setCargando(false); }
       
       const { data } = await supabase.from('prendas').select('*, categorias(nombre, tipos(id, nombre))').order('creado_en', { ascending: false })
-      if (data) { setPrendas(data); guardarCache('prendas', data); }
+      if (data) { setPrendas(data); guardarCache('prendas', data.map(resumenPrenda)); }
       setCargando(false)
     }
     obtenerPrendas()
@@ -48,23 +57,38 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
     else setSeleccionadas([...seleccionadas, id])
   }
 
-  function solicitarEliminacionPrenda(id, urlImagen, e) {
+  function solicitarEliminacionPrenda(prenda, e) {
     e.stopPropagation()
     setDialogoGlobal({
       mensaje: '¿Eliminar prenda del armario?',
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
-        const { error } = await supabase.from('prendas').delete().eq('id', id)
+        const { error } = await supabase.from('prendas').delete().eq('id', prenda.id)
         if (error) return mostrarToast('No se pudo eliminar la prenda', 'error')
-        const nombreArchivo = urlImagen.split('/').pop()
-        await supabase.storage.from('prendas').remove([nombreArchivo])
-        const nuevasPrendas = prendas.filter(p => p.id !== id)
+        const nuevasPrendas = prendas.filter(p => p.id !== prenda.id)
         setPrendas(nuevasPrendas)
-        guardarCache('prendas', nuevasPrendas)
-        setSeleccionadas(seleccionadas.filter(sel => sel !== id))
+        guardarCache('prendas', nuevasPrendas.map(resumenPrenda))
+        setSeleccionadas(seleccionadas.filter(sel => sel !== prenda.id))
         vibrar([50, 50])
-        mostrarToast("Prenda eliminada", "info")
+
+        // La foto se borra 7 s después. Mientras el aviso siga en pantalla, se puede deshacer.
+        const archivo = prenda.imagen_url.split('/').pop()
+        let deshecho = false
+        mostrarToast('Prenda eliminada', 'info', {
+          texto: 'Deshacer',
+          onClick: async () => {
+            deshecho = true
+            const fila = { id: prenda.id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: prenda.categoria_id }
+            const { error: errRecuperar } = await supabase.from('prendas').insert([fila])
+            if (errRecuperar) return mostrarToast('No se pudo recuperar la prenda', 'error')
+            const recuperadas = [prenda, ...nuevasPrendas]
+            setPrendas(recuperadas)
+            guardarCache('prendas', recuperadas.map(resumenPrenda))
+            mostrarToast('Prenda recuperada', 'exito')
+          }
+        })
+        setTimeout(() => { if (!deshecho) supabase.storage.from('prendas').remove([archivo]) }, 7500)
       }
     })
   }
@@ -77,10 +101,11 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
         <input 
           type="text" 
           autoComplete="off"
+          aria-label="Buscar prendas"
           placeholder="Buscar..." 
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-3 text-sm outline-none placeholder-neutral-500 transition-colors border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700"
+          className="w-full min-w-0 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-3 text-sm outline-none placeholder-neutral-500 transition-colors border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700"
         />
       </div>
 
@@ -91,14 +116,14 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
       )}
 
       {cargando ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2">
+        <div className="rejilla">
           {[...Array(12)].map((_, i) => <div key={i} className="aspect-square bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 animate-pulse"></div>)}
         </div>
       ) : prendasFiltradas.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">No hay prendas.</div>
       ) : (
         <div className="flex flex-col flex-1">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-0.5 md:gap-2">
+          <div className="rejilla">
             {prendasVisibles.map((prenda) => (
               <div 
                 key={prenda.id} 
@@ -107,7 +132,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
                   seleccionadas.includes(prenda.id) ? 'ring-2 ring-inset ring-black in-[.modo-oscuro]:ring-white' : ''
                 }`}
               >
-                <img src={prenda.imagen_url} loading="lazy" className="w-full h-full object-contain p-2" alt={prenda.nombre} />
+                <img src={prenda.imagen_url} loading="lazy" decoding="async" className="w-full h-full object-contain p-2" alt={prenda.nombre} />
                 
                 {seleccionadas.includes(prenda.id) && (
                   <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-black in-[.modo-oscuro]:bg-white rounded-full flex items-center justify-center border-2 border-white in-[.modo-oscuro]:border-black">
@@ -116,8 +141,8 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
                 )}
 
                 <div className="absolute bottom-1 left-1 flex gap-1 z-10">
-                  <button onClick={(e) => solicitarEliminacionPrenda(prenda.id, prenda.imagen_url, e)} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-red-500 text-[10px] active:scale-90 touch-manipulation">✕</button>
-                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-6 h-6 rounded-full flex items-center justify-center shadow-sm text-black in-[.modo-oscuro]:text-white text-[10px] active:scale-90 touch-manipulation">✎</button>
+                  <button onClick={(e) => solicitarEliminacionPrenda(prenda, e)} aria-label={`Eliminar ${prenda.nombre}`} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-8 h-8 rounded-full flex items-center justify-center shadow-sm text-red-500 text-xs active:scale-90 touch-manipulation">✕</button>
+                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} aria-label={`Editar ${prenda.nombre}`} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-8 h-8 rounded-full flex items-center justify-center shadow-sm text-black in-[.modo-oscuro]:text-white text-xs active:scale-90 touch-manipulation">✎</button>
                 </div>
               </div>
             ))}

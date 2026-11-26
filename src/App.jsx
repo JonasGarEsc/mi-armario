@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useSwipeable } from 'react-swipeable'
-import FormularioPrenda from './components/FormularioPrenda'
 import FormularioEdicion from './components/FormularioEdicion'
 import FormularioMaleta from './components/FormularioMaleta'
 import GaleriaArmario from './components/GaleriaArmario'
@@ -8,6 +7,9 @@ import VistaConjuntos from './components/VistaConjuntos'
 import Gestores from './components/Gestores'
 import { supabase } from './supabase'
 import { esDuplicado } from './lib/outfits'
+
+// El motor de recorte pesa cientos de kB: solo se descarga al abrir el formulario.
+const FormularioPrenda = lazy(() => import('./components/FormularioPrenda'))
 
 export const vibrar = (ms = 50) => {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms)
@@ -32,6 +34,7 @@ export default function App() {
   const [filtroActual, setFiltroActual] = useState(null)
 
   const [dialogoGlobal, setDialogoGlobal] = useState(null)
+  const [ajustesAbiertos, setAjustesAbiertos] = useState(false)
 
   const [temaOscuro, setTemaOscuro] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -46,7 +49,13 @@ export default function App() {
     const root = document.documentElement
     if (temaOscuro) root.classList.add('modo-oscuro')
     else root.classList.remove('modo-oscuro')
+    root.style.colorScheme = temaOscuro ? 'dark' : 'light'
     localStorage.setItem('tema_armario', temaOscuro ? 'dark' : 'light')
+    // El tema lo elige el usuario, no el sistema: las dos etiquetas siguen esa decisión.
+    document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
+      meta.removeAttribute('media')
+      meta.setAttribute('content', temaOscuro ? '#0a0a0a' : '#ffffff')
+    })
   }, [temaOscuro])
 
   useEffect(() => {
@@ -65,13 +74,33 @@ export default function App() {
     cargarDatosMenu()
   }, [menuLateralVisible, actualizaciones])
 
-  const mostrarToast = (mensaje, tipo = 'info') => {
+  const mostrarToast = (mensaje, tipo = 'info', accion = null) => {
     const id = Date.now()
-    setToasts(prev => [...prev, { id, mensaje, tipo }])
+    setToasts(prev => [...prev, { id, mensaje, tipo, accion }])
     vibrar(20)
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id))
-    }, 3500)
+    }, accion ? 7000 : 3500)
+  }
+
+  const cerrarToast = (id) => setToasts(prev => prev.filter(t => t.id !== id))
+
+  // Copia de seguridad manual: las cuatro tablas, en un JSON que se descarga.
+  async function exportarDatos() {
+    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'conjuntos', 'conjunto_prenda']
+    const copia = { exportado_en: new Date().toISOString(), version: 2 }
+    for (const tabla of tablas) {
+      const { data, error } = await supabase.from(tabla).select('*')
+      if (error) return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
+      copia[tabla] = data
+    }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `perletta-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    mostrarToast('Copia descargada', 'exito')
   }
 
   const recargarVistas = () => setActualizaciones(prev => prev + 1)
@@ -169,17 +198,25 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
+    <div className="h-dvh bg-white in-[.modo-oscuro]:bg-[#0a0a0a] text-neutral-900 in-[.modo-oscuro]:text-neutral-100 flex flex-col w-full overflow-hidden transition-colors duration-300 font-sans">
       
       <div className="fixed top-safe mt-4 left-0 w-full z-200 flex flex-col gap-3 items-center pointer-events-none">
         {toasts.map(toast => (
-          <div key={toast.id} className="animate-fade-in-down flex items-center gap-3.5 px-5 py-3 bg-white/80 in-[.modo-oscuro]:bg-[#1a1a1a]/80 backdrop-blur-xl border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 text-neutral-900 in-[.modo-oscuro]:text-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] w-max max-w-[90%] pointer-events-auto">
+          <div key={toast.id} className="animate-fade-in-down flex items-center gap-3.5 pl-3.5 pr-5 py-3 bg-white/80 in-[.modo-oscuro]:bg-[#1a1a1a]/80 backdrop-blur-xl border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 text-neutral-900 in-[.modo-oscuro]:text-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] w-max max-w-[90%] pointer-events-auto">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${toast.tipo === 'exito' ? 'bg-emerald-100 in-[.modo-oscuro]:bg-emerald-900/30 text-emerald-600 in-[.modo-oscuro]:text-emerald-400' : toast.tipo === 'error' ? 'bg-red-100 in-[.modo-oscuro]:bg-red-900/30 text-red-600 in-[.modo-oscuro]:text-red-400' : 'bg-blue-100 in-[.modo-oscuro]:bg-blue-900/30 text-blue-600 in-[.modo-oscuro]:text-blue-400'}`}>
               {toast.tipo === 'exito' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
               {toast.tipo === 'error' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
               {toast.tipo === 'info' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             </div>
-            <p className="text-[13px] md:text-sm font-bold tracking-tight pr-2">{toast.mensaje}</p>
+            <p className="text-[13px] md:text-sm font-bold tracking-tight">{toast.mensaje}</p>
+            {toast.accion && (
+              <button
+                onClick={() => { cerrarToast(toast.id); toast.accion.onClick() }}
+                className="ml-1 text-[13px] font-bold underline underline-offset-4 text-black in-[.modo-oscuro]:text-white active:opacity-60"
+              >
+                {toast.accion.texto}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -187,7 +224,7 @@ export default function App() {
       <header className="bg-white/80 in-[.modo-oscuro]:bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 shrink-0 z-30 transition-colors duration-300">
         <div className="px-4 md:px-6 h-16 flex items-center justify-between max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-3">
-            <button onClick={() => { setMenuLateralVisible(true); vibrar(20); }} className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors touch-manipulation">
+            <button onClick={() => { setMenuLateralVisible(true); vibrar(20); }} aria-label="Abrir menú de categorías" className="w-10 h-10 flex items-center justify-center -ml-2 rounded-full active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors touch-manipulation">
               <svg className="w-6 h-6 text-black in-[.modo-oscuro]:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <div className="w-10 h-10 items-center justify-center transition-colors duration-300 hidden sm:flex">
@@ -200,14 +237,34 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button onClick={() => { setTemaOscuro(!temaOscuro); vibrar(30); }} className="relative w-10 h-10 rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 flex items-center justify-center overflow-hidden transition-colors active:scale-95 touch-manipulation">
+          <div className="flex items-center gap-3 relative">
+            <button onClick={() => { setTemaOscuro(!temaOscuro); vibrar(30); }} aria-label={temaOscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} aria-pressed={temaOscuro} className="relative w-10 h-10 rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 flex items-center justify-center overflow-hidden transition-colors active:scale-95 touch-manipulation">
               <div className={`absolute transition-transform duration-500 ease-in-out ${temaOscuro ? 'translate-y-10 opacity-0' : 'translate-y-0 opacity-100'}`}><svg className="w-5 h-5 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg></div>
               <div className={`absolute transition-transform duration-500 ease-in-out ${temaOscuro ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}><svg className="w-5 h-5 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg></div>
             </button>
-            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-neutral-200 to-neutral-300 in-[.modo-oscuro]:from-neutral-800 in-[.modo-oscuro]:to-neutral-700 border-2 border-white in-[.modo-oscuro]:border-neutral-900 shadow-sm overflow-hidden flex items-center justify-center cursor-pointer active:scale-95 transition-transform touch-manipulation">
+            <button
+              onClick={() => { setAjustesAbiertos(!ajustesAbiertos); vibrar(30) }}
+              aria-label="Menú de ajustes"
+              aria-expanded={ajustesAbiertos}
+              className="w-10 h-10 rounded-full bg-linear-to-tr from-neutral-200 to-neutral-300 in-[.modo-oscuro]:from-neutral-800 in-[.modo-oscuro]:to-neutral-700 border-2 border-white in-[.modo-oscuro]:border-neutral-900 shadow-sm overflow-hidden flex items-center justify-center active:scale-95 transition-transform touch-manipulation"
+            >
                <svg className="w-6 h-6 text-white in-[.modo-oscuro]:text-neutral-500 mt-2" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-            </div>
+            </button>
+
+            {ajustesAbiertos && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setAjustesAbiertos(false)} />
+                <div className="absolute right-0 top-12 z-50 w-60 bg-white in-[.modo-oscuro]:bg-[#141414] border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 rounded-2xl shadow-2xl overflow-hidden animate-pop-in">
+                  <button onClick={() => { setTemaOscuro(!temaOscuro); setAjustesAbiertos(false) }} className="w-full text-left px-5 py-4 text-sm font-semibold active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors">
+                    {temaOscuro ? 'Usar tema claro' : 'Usar tema oscuro'}
+                  </button>
+                  <button onClick={() => { setAjustesAbiertos(false); exportarDatos() }} className="w-full text-left px-5 py-4 text-sm font-semibold border-t border-neutral-100 in-[.modo-oscuro]:border-neutral-800 active:bg-neutral-100 in-[.modo-oscuro]:active:bg-neutral-900 transition-colors">
+                    Exportar copia de seguridad
+                  </button>
+                  <p className="px-5 py-3 text-[11px] text-neutral-400 border-t border-neutral-100 in-[.modo-oscuro]:border-neutral-800">Perletta · v2</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -216,7 +273,7 @@ export default function App() {
         <div {...swipeMenuLateral} className={`absolute top-0 left-0 h-full w-[80%] max-w-sm bg-white in-[.modo-oscuro]:bg-[#0a0a0a] shadow-2xl transform transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col ${menuLateralVisible ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="px-6 py-5 border-b border-neutral-200/60 in-[.modo-oscuro]:border-neutral-800/60 flex justify-between items-center bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/30">
             <h2 className="text-xs font-extrabold tracking-widest text-neutral-500 in-[.modo-oscuro]:text-neutral-400 uppercase">Colección</h2>
-            <button onClick={() => setMenuLateralVisible(false)} className="text-neutral-400 active:scale-90 transition-transform touch-manipulation">
+            <button onClick={() => setMenuLateralVisible(false)} aria-label="Cerrar menú" className="text-neutral-400 active:scale-90 transition-transform touch-manipulation">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
@@ -245,31 +302,31 @@ export default function App() {
         </div>
       </div>
 
-      <main {...swipeNavegacion} className="flex-1 w-full relative overflow-hidden max-w-7xl mx-auto flex flex-col pb-16">
+      <main {...swipeNavegacion} className="flex-1 w-full relative overflow-hidden max-w-7xl mx-auto flex flex-col pb-20 md:pb-24">
         <div className="flex w-[200%] h-full transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform transform-gpu" style={{ transform: pestañaActiva === 'ropa' ? 'translateX(0%)' : 'translateX(-50%)' }}>
-          <div className="w-1/2 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
-            <div className="flex gap-2 mb-5 shrink-0">
-              <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="flex-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">+ Nueva Prenda</button>
-              <button onClick={() => { abrirModal('tipos'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Tipos</button>
-              <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="px-5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Prendas</button>
+          <div className="w-1/2 min-w-0 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
+            <div className="grid grid-cols-2 sm:grid-cols-[1fr_auto_auto] gap-2 mb-5 shrink-0">
+              <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="col-span-2 sm:col-span-1 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">+ Nueva Prenda</button>
+              <button onClick={() => { abrirModal('tipos'); vibrar(30); }} className="px-4 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Tipos</button>
+              <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="px-4 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent in-[.modo-oscuro]:border-neutral-800 font-medium py-3 rounded-xl active:scale-[0.98] transition-transform text-sm md:text-base touch-manipulation">Prendas</button>
             </div>
             <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
           </div>
-          <div className="w-1/2 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
+          <div className="w-1/2 min-w-0 h-full flex flex-col overflow-y-auto overscroll-y-contain hide-scrollbar p-3 md:p-6 touch-pan-y relative z-10">
             <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30); }} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
           </div>
         </div>
       </main>
 
-      <nav className="fixed bottom-0 w-full bg-black text-white pb-safe z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.15)]">
-        <div className="flex justify-around items-center h-16 max-w-7xl mx-auto">
-          <button onClick={() => { setPestañaActiva('ropa'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 touch-manipulation ${pestañaActiva === 'ropa' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
+      <nav aria-label="Secciones" className="fixed bottom-0 inset-x-0 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:bottom-6 md:rounded-full md:overflow-hidden bg-black text-white pb-safe md:pb-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.15)]">
+        <div className="flex justify-around items-center h-16 max-w-7xl mx-auto md:gap-4 md:px-3">
+          <button onClick={() => { setPestañaActiva('ropa'); vibrar(30); }} aria-current={pestañaActiva === 'ropa'} className={`flex-1 md:flex-none md:px-8 flex flex-col md:flex-row items-center justify-center h-full gap-1.5 md:gap-2 transition-all duration-300 touch-manipulation ${pestañaActiva === 'ropa' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2l2 4h4l2-4h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 10h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10z" /></svg>
-            <span className="text-[10px] font-bold tracking-wide uppercase">Ropa</span>
+            <span className="text-[10px] md:text-xs font-bold tracking-wide uppercase">Ropa</span>
           </button>
-          <button onClick={() => { setPestañaActiva('conjuntos'); vibrar(30); }} className={`flex-1 flex flex-col items-center justify-center h-full gap-1.5 transition-all duration-300 touch-manipulation ${pestañaActiva === 'conjuntos' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
+          <button onClick={() => { setPestañaActiva('conjuntos'); vibrar(30); }} aria-current={pestañaActiva === 'conjuntos'} className={`flex-1 md:flex-none md:px-8 flex flex-col md:flex-row items-center justify-center h-full gap-1.5 md:gap-2 transition-all duration-300 touch-manipulation ${pestañaActiva === 'conjuntos' ? 'opacity-100 scale-105' : 'opacity-40 hover:opacity-70'}`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-            <span className="text-[10px] font-bold tracking-wide uppercase">Maletas</span>
+            <span className="text-[10px] md:text-xs font-bold tracking-wide uppercase">Maletas</span>
           </button>
         </div>
       </nav>
@@ -284,7 +341,11 @@ export default function App() {
             </div>
             
             <div className="max-h-[85vh] overflow-y-auto hide-scrollbar px-1">
-              {modalActivo === 'formulario' && <FormularioPrenda onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda añadida", "exito") }} />}
+              {modalActivo === 'formulario' && (
+                <Suspense fallback={<div className="py-16 text-center text-sm text-neutral-400">Cargando editor...</div>}>
+                  <FormularioPrenda onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda añadida", "exito") }} />
+                </Suspense>
+              )}
               {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
               {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Maleta creada", "exito") }} onCancelar={cerrarModal} />}
               

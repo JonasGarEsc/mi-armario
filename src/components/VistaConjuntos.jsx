@@ -123,6 +123,55 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
   const [abriendo, setAbriendo] = useState(null)
   const [maletaActiva, setMaletaActiva] = useState(null)
   const [maxZ, setMaxZ] = useState(10)
+  const [editandoNombre, setEditandoNombre] = useState(null)
+
+  async function guardarNombre() {
+    if (!editandoNombre) return
+    const { tipo, id, valor } = editandoNombre
+    setEditandoNombre(null)
+    const nombre = valor.trim()
+    if (!nombre) return
+    const lista = tipo === 'maleta' ? maletas : conjuntos
+    if (lista.find(x => x.id === id)?.nombre === nombre) return
+
+    const { error } = await supabase.from(tipo === 'maleta' ? 'maletas' : 'conjuntos').update({ nombre }).eq('id', id)
+    if (error) return mostrarToast('No se pudo cambiar el nombre', 'error')
+
+    if (tipo === 'maleta') {
+      const nuevas = maletas.map(m => m.id === id ? { ...m, nombre } : m)
+      setMaletas(nuevas); guardarCache('maletas', nuevas)
+      if (maletaActiva?.id === id) setMaletaActiva({ ...maletaActiva, nombre })
+    } else {
+      const nuevos = conjuntos.map(c => c.id === id ? { ...c, nombre } : c)
+      setConjuntos(nuevos); guardarCache(`conjuntos_${maletaActiva.id}`, nuevos)
+    }
+    mostrarToast('Nombre cambiado', 'exito')
+  }
+
+  // Tocar el nombre lo convierte en campo de texto. Enter o salir del campo guarda.
+  function nombreEditable(tipo, id, nombre, clases) {
+    if (editandoNombre?.tipo === tipo && editandoNombre.id === id) {
+      return (
+        <input
+          value={editandoNombre.valor}
+          autoFocus
+          aria-label="Nuevo nombre"
+          onChange={e => setEditandoNombre({ ...editandoNombre, valor: e.target.value })}
+          onBlur={guardarNombre}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+            if (e.key === 'Escape') setEditandoNombre(null)
+          }}
+          className={`${clases} bg-transparent border-b border-current outline-none text-center min-w-0`}
+        />
+      )
+    }
+    return (
+      <button onClick={(e) => { e.stopPropagation(); setEditandoNombre({ tipo, id, valor: nombre }) }} title="Cambiar nombre" className={`${clases} truncate`}>
+        {nombre}
+      </button>
+    )
+  }
 
   useEffect(() => {
     async function cargarDatos() {
@@ -285,16 +334,15 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <button onClick={() => { setMaletaActiva(null); vibrar(20); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 active:scale-90 transition-transform">←</button>
-              <h3 className="font-bold text-lg tracking-tight truncate">{maletaActiva.nombre}</h3>
-            </div>
+              {nombreEditable('maleta', maletaActiva.id, maletaActiva.nombre, 'font-bold text-lg tracking-tight')}            </div>
             <WidgetClima destino={maletaActiva.nombre} />
           </div>
         )}
 
         <div className="flex w-full gap-2 shrink-0">
-          <input type="text" autoComplete="off" placeholder={!maletaActiva ? "Buscar maleta..." : "Buscar conjunto..."} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-3 text-sm outline-none placeholder-neutral-500 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 transition-colors" />
+          <input type="text" autoComplete="off" aria-label="Buscar" placeholder={!maletaActiva ? "Buscar maleta..." : "Buscar conjunto..."} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 min-w-0 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-3 text-sm outline-none placeholder-neutral-500 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 transition-colors" />
           {!maletaActiva && (
-            <button onClick={onCrearMaleta} className="bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black px-5 py-3 rounded-full font-semibold active:scale-[0.98] transition-transform text-sm">+ Maleta</button>
+            <button onClick={onCrearMaleta} className="shrink-0 bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black px-4 sm:px-5 py-3 rounded-full font-semibold active:scale-[0.98] transition-transform text-sm">+ Maleta</button>
           )}
         </div>
       </div>
@@ -306,12 +354,12 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
       ) : itemsFiltrados.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">Vacío.</div>
       ) : !maletaActiva ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-2 gap-y-6 pt-2 pb-4 px-1">
+        <div className="rejilla gap-y-6 pt-2 pb-4 px-1">
           {itemsFiltrados.map((m) => (
-            <div key={m.id} className="relative flex flex-col items-center w-full">
+            <div key={m.id} className="relative flex flex-col items-center w-full min-w-0">
               <div className="absolute -top-2 right-0 flex flex-col gap-1 z-20">
-                <button onClick={(e) => solicitarEliminar('maleta', m.id, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">✕</button>
-                <button onClick={(e) => solicitarClonar('maleta', m, e)} className="w-6 h-6 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[10px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
+                <button onClick={(e) => solicitarEliminar('maleta', m.id, e)} aria-label={`Eliminar ${m.nombre}`} className="w-7 h-7 bg-white in-[.modo-oscuro]:bg-neutral-800 text-red-500 rounded-full flex items-center justify-center shadow-sm text-[11px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">✕</button>
+                <button onClick={(e) => solicitarClonar('maleta', m, e)} aria-label={`Duplicar ${m.nombre}`} className="w-7 h-7 bg-white in-[.modo-oscuro]:bg-neutral-800 text-black in-[.modo-oscuro]:text-white rounded-full flex items-center justify-center shadow-sm text-[11px] active:scale-90 border border-neutral-100 in-[.modo-oscuro]:border-neutral-700">⎘</button>
               </div>
 
               <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation`}>
@@ -359,22 +407,22 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                  </div>
               </div>
 
-              <p className="mt-2 font-semibold text-[11px] md:text-sm text-center w-full truncate px-1">{m.nombre}</p>
+              {nombreEditable('maleta', m.id, m.nombre, 'mt-2 font-semibold text-[11px] md:text-sm text-center w-full px-1 max-w-full')}
               <p className="text-[9px] text-neutral-500">{m.conjuntos ? m.conjuntos.length : 0} looks</p>
             </div>
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4">
-          {itemsFiltrados.map((conj, i) => (
+          {itemsFiltrados.map((conj) => (
             <div key={conj.id} className="relative border border-neutral-200 in-[.modo-oscuro]:border-neutral-800 rounded-3xl bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900/50 flex flex-col overflow-hidden isolate">
               
-              <div className="flex justify-between items-center px-5 py-4 border-b border-neutral-200 in-[.modo-oscuro]:border-neutral-800 bg-white in-[.modo-oscuro]:bg-neutral-900 z-10">
-                <h3 className="font-bold text-sm truncate pr-4">{conj.nombre}</h3>
-                <div className="flex gap-2">
-                  <button onClick={() => exportarOutfit(conj.id, conj.nombre)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">↓</button>
-                  <button onClick={(e) => solicitarClonar('outfit', conj, e)} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white px-2">⎘</button>
-                  <button onClick={(e) => solicitarEliminar('outfit', conj.id, e)} className="text-red-400 active:text-red-600 px-2">✕</button>
+              <div className="flex justify-between items-center px-5 py-4 border-b border-neutral-200 in-[.modo-oscuro]:border-neutral-800 bg-white in-[.modo-oscuro]:bg-neutral-900 z-10 gap-2">
+                {nombreEditable('outfit', conj.id, conj.nombre, 'font-bold text-sm min-w-0 flex-1 text-left')}
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => exportarOutfit(conj.id, conj.nombre)} aria-label={`Descargar imagen de ${conj.nombre}`} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white p-2 text-sm">↓</button>
+                  <button onClick={(e) => solicitarClonar('outfit', conj, e)} aria-label={`Duplicar ${conj.nombre}`} className="text-neutral-500 active:text-black in-[.modo-oscuro]:active:text-white p-2 text-sm">⎘</button>
+                  <button onClick={(e) => solicitarEliminar('outfit', conj.id, e)} aria-label={`Eliminar ${conj.nombre}`} className="text-red-400 active:text-red-600 p-2 text-sm">✕</button>
                 </div>
               </div>
               

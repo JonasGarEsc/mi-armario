@@ -43,8 +43,9 @@ export default function FormularioPrenda({ onExito }) {
     try {
       setEstadoProceso('Comprimiendo imagen...')
       
-      // FIX 1: useWebWorker en false evita cuelgues en Safari iOS al comprimir
-      const opcionesCompresion = { maxSizeMB: 0.3, maxWidthOrHeight: 1080, useWebWorker: false, fileType: 'image/webp' }
+      // 900 px sobra: la rejilla pinta a 150 y el lienzo del outfit a 130.
+      // useWebWorker en false evita cuelgues en Safari iOS al comprimir.
+      const opcionesCompresion = { maxSizeMB: 0.25, maxWidthOrHeight: 900, useWebWorker: false, fileType: 'image/webp' }
       let archivoProcesado = await imageCompression(archivoOriginal, opcionesCompresion)
 
       if (quitarFondo) {
@@ -52,10 +53,17 @@ export default function FormularioPrenda({ onExito }) {
         // Sin publicPath: la librería usa el CDN de su propia versión (1.7.0).
         // Fijarlo a 1.4.5 descuadraba los modelos con la librería instalada.
         const blobSinFondo = await removeBackground(archivoProcesado)
-        archivoProcesado = new File([blobSinFondo], `recorte-${Date.now()}.png`, { type: 'image/png' })
+        const recorte = new File([blobSinFondo], 'recorte.png', { type: 'image/png' })
+        setEstadoProceso('Comprimiendo recorte...')
+        // El recorte sale en PNG a tamaño completo (400 kB por prenda): se reencodea a WebP.
+        try {
+          archivoProcesado = await imageCompression(recorte, opcionesCompresion)
+        } catch {
+          archivoProcesado = recorte
+        }
       }
 
-      const nombreArchivo = `prenda-${Date.now()}.${quitarFondo ? 'png' : 'webp'}`
+      const nombreArchivo = `prenda-${Date.now()}.${archivoProcesado.type === 'image/png' ? 'png' : 'webp'}`
 
       setEstadoProceso('Subiendo al servidor...')
       const { error: errImg } = await supabase.storage.from('prendas').upload(nombreArchivo, archivoProcesado)
