@@ -330,8 +330,9 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
       onPointerUp={soloLectura ? undefined : alSoltar}
       onPointerCancel={soloLectura ? undefined : alSoltar}
       style={{ ...estilo, touchAction: soloLectura ? 'auto' : 'none' }}
-      className={`absolute flex select-none items-center justify-center ${
-        soloLectura ? 'pointer-events-none' : arrastrando ? 'cursor-grabbing' : 'cursor-grab'
+      // El hueco no capta toques: los recibe la prenda visible (o el hueco si aún no está puesta) y burbujean aquí.
+      className={`pointer-events-none absolute flex select-none items-center justify-center ${
+        soloLectura ? '' : arrastrando ? 'cursor-grabbing' : 'cursor-grab'
       } ${ranura && !arrastrando ? 'transition-[left,top,width,height] duration-200 ease-suave' : ''}`}
       title={ranura ? `Imantada: ${RANURAS[ranura].etiqueta}` : undefined}
     >
@@ -343,8 +344,10 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         largo={cp.prendas.largo}
         escala={escala}
         porDentro={ranura === 'torso' && porDentro}
+        interactiva={!soloLectura}
       />
       {ranura === 'torso' && !soloLectura && !arrastrando && (
+        // Fuera del hueco para no tapar la camiseta, pero dentro del lienzo (64 % + botón < 100 %).
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
@@ -352,7 +355,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
           onClick={alternarPorDentro}
           aria-pressed={porDentro}
           aria-label={porDentro ? 'Sacar la camiseta por fuera' : 'Meter la camiseta por dentro del pantalón'}
-          className="absolute -right-1 -bottom-1 z-10 min-w-11 h-11 flex items-center justify-center"
+          className="pointer-events-auto absolute left-full ml-1 bottom-1 z-10 min-w-11 h-11 flex items-center justify-center whitespace-nowrap"
         >
           <span className="px-2 py-0.5 rounded-full border border-linea bg-superficie/90 text-tinta text-[11px] font-semibold leading-4">
             {porDentro ? 'Por dentro' : 'Por fuera'}

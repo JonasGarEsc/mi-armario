@@ -13,9 +13,11 @@ import { vestirPrenda } from '../lib/vestir'
  * `escala` (0,8-1,2) agranda o encoge la prenda desde su borde superior, como al
  * pellizcarla; `porDentro` mete la camiseta en el pantalón: se corta un poco por
  * debajo de la cinturilla (el pantalón, que va por encima, tapa el resto).
+ * Con `interactiva`, la zona tocable sigue la caja visible cuando está puesta
+ * (con la misma escala y recorte) o todo el hueco si aún no se ha medido.
  */
 export default function PrendaAjustada({
-  url, ancho = 720, ranura = null, textos = [], largo = null, escala = 1, porDentro = false, alt = '',
+  url, ancho = 720, ranura = null, textos = [], largo = null, escala = 1, porDentro = false, alt = '', interactiva = false,
 }) {
   const { src, fallar } = useImagenFirmada(url, ancho)
   const [caja, setCaja] = useState(undefined)
@@ -34,7 +36,9 @@ export default function PrendaAjustada({
     }
   }, [src, url, ranura])
 
-  if (!src) return <span className="block h-full w-full" aria-hidden="true" />
+  if (!src) {
+    return <span className={`block h-full w-full${interactiva ? ' pointer-events-auto touch-none' : ''}`} aria-hidden="true" />
+  }
 
   const hueco = ranura ? RANURAS[ranura] : null
   const puesta = hueco && caja ? vestirPrenda(caja, ranura, textos, largo) : null
@@ -57,7 +61,11 @@ export default function PrendaAjustada({
     : undefined
 
   return (
-    <span className={`relative block h-full w-full ${puesta ? '' : 'overflow-hidden'}`}>
+    <span
+      className={`relative block h-full w-full ${
+        puesta ? '' : `overflow-hidden${interactiva ? ' pointer-events-auto touch-none' : ''}`
+      }`}
+    >
       <img
         crossOrigin="anonymous"
         src={src}
@@ -73,6 +81,20 @@ export default function PrendaAjustada({
             : 'pointer-events-none h-full w-full select-none object-contain drop-shadow-sm'
         }
       />
+      {puesta && interactiva && (
+        // Zona tocable transparente: hereda la misma escala y recorte porDentro que la foto.
+        <span aria-hidden="true" style={estilo} className="pointer-events-none absolute">
+          <span
+            style={{
+              left: `${caja.x * 100}%`,
+              top: `${caja.y * 100}%`,
+              width: `${caja.w * 100}%`,
+              height: `${caja.h * 100}%`,
+            }}
+            className="pointer-events-auto touch-none absolute"
+          />
+        </span>
+      )}
     </span>
   )
 }
