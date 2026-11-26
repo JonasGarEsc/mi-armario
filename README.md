@@ -6,13 +6,17 @@ Armario personal y maletas, en el navegador. Se instala como app (PWA) y guarda 
 
 ![Armario en escritorio](docs/armario.png)
 
+<img src="docs/movil.png" alt="Armario en el móvil" width="260">
+
+En `docs/diseno/` están las demás vistas, en móvil y escritorio, claro y oscuro.
+
 ## Qué hace
 
 - Añadir prendas con la foto recortada automáticamente en el dispositivo (sin subirla a ningún servicio).
-- Organizar prendas por tipo y categoría, buscar y filtrar.
+- Organizar prendas por tipo y categoría, buscar y filtrar (el botón junto al buscador abre los filtros y la gestión de tipos y categorías).
 - Montar outfits arrastrando las prendas dentro de una maleta; la posición se guarda.
 - Crear maletas y duplicarlas; clima del destino y descarga del outfit como imagen.
-- Tema claro y oscuro, copia de seguridad en JSON.
+- Tema claro y oscuro y copia de seguridad en JSON, desde Ajustes.
 
 ## Stack
 
