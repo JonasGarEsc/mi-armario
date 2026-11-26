@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from '../supabase'
-import { borrarArchivo } from '../lib/imagenes'
+import { borrarArchivo, urlImagen } from '../lib/imagenes'
 import { prepararFoto, subirFoto } from '../lib/imagen'
+import { fotoDesdeUrl } from '../lib/retoque'
 import { actualizarPrenda, etiquetasCambiadas, etiquetasDeFormulario, etiquetasParaGuardar } from '../lib/etiquetas'
 import CamposEtiquetas from './CamposEtiquetas'
 import Miniatura from './Miniatura'
+
+// El lienzo de retoque solo se descarga al abrirlo.
+const RetoqueRecorte = lazy(() => import('./RetoqueRecorte'))
 
 export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
   const [tipos, setTipos] = useState([])
@@ -18,6 +22,8 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
   const [estado, setEstado] = useState('')
   const [previsualizacion, setPrevisualizacion] = useState(null)
   const [etiquetas, setEtiquetas] = useState(() => etiquetasDeFormulario(prenda))
+  const [procesandoFoto, setProcesandoFoto] = useState('')
+  const [retoque, setRetoque] = useState(false)
 
   useEffect(() => {
     async function cargarListas() {
@@ -41,8 +47,33 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
 
   const categoriasFiltradas = categorias.filter(c => c.tipo_id === tipoSeleccionado)
 
+  async function recortarDeNuevo() {
+    if (procesandoFoto || guardando) return
+    setErrorFormulario('')
+    setRetoque(false)
+    setProcesandoFoto('Preparando recorte…')
+    try {
+      // La foto actual es la elegida en este formulario o, si no, la guardada.
+      const original = archivo || await fotoDesdeUrl(prenda.imagen_url, 1200, urlImagen)
+      const recortada = await prepararFoto(original, { quitarFondo: true, onEstado: setProcesandoFoto })
+      setArchivo(new File([recortada], 'recorte.png', { type: recortada.type || 'image/png' }))
+      setQuitarFondo(false)
+    } catch (error) {
+      setErrorFormulario(error.message || 'No se pudo recortar la foto.')
+    } finally {
+      setProcesandoFoto('')
+    }
+  }
+
+  function aplicarRetoque(nuevaFoto) {
+    setArchivo(nuevaFoto)
+    setQuitarFondo(false)
+    setRetoque(false)
+  }
+
   async function manejarEdicion(e) {
     e.preventDefault()
+    if (procesandoFoto) return
     setGuardando(true)
     setErrorFormulario('')
     const nuevoNombre = e.target.nombrePrenda.value.trim()
@@ -126,6 +157,22 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
         <label htmlFor="editarFondo" className="flex-1 py-2.5 cursor-pointer select-none">Quitar el fondo de la foto nueva</label>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <button type="button" onClick={recortarDeNuevo} disabled={guardando || Boolean(procesandoFoto)} className="boton boton-secundario min-h-11! text-sm!">
+          Recortar de nuevo
+        </button>
+        <button type="button" onClick={() => setRetoque(valor => !valor)} disabled={guardando || Boolean(procesandoFoto)} aria-expanded={retoque} className="boton boton-secundario min-h-11! text-sm!">
+          {retoque ? 'Cerrar retoque' : 'Retocar a mano'}
+        </button>
+      </div>
+      {procesandoFoto && <p role="status" className="text-sm text-tenue -mt-2">{procesandoFoto}</p>}
+
+      {retoque && (
+        <Suspense fallback={<div role="status" aria-label="Cargando retoque" className="esqueleto h-64 w-full" />}>
+          <RetoqueRecorte url={prenda.imagen_url} archivo={archivo} onAplicar={aplicarRetoque} onCancelar={() => setRetoque(false)} />
+        </Suspense>
+      )}
+
       <div>
         <label htmlFor="nombrePrenda" className="etiqueta">Nombre descriptivo</label>
         <input id="nombrePrenda" type="text" name="nombrePrenda" autoComplete="off" defaultValue={prenda.nombre} required className="campo" />
@@ -153,12 +200,12 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
       {prenda.archivada && <p className="text-sm text-tenue">Esta prenda está archivada: no sale en la galería ni en las propuestas.</p>}
 
       <div className="flex gap-3 mt-2">
-        <button type="submit" disabled={guardando} className="boton boton-primario flex-1">
+        <button type="submit" disabled={guardando || Boolean(procesandoFoto)} className="boton boton-primario flex-1">
           {guardando ? (estado || 'Guardando...') : 'Actualizar'}
         </button>
         <button type="button" onClick={onCancelar} className="boton boton-secundario flex-1">Cancelar</button>
       </div>
-      <button type="button" onClick={cambiarArchivada} disabled={guardando} className="boton boton-secundario w-full">
+      <button type="button" onClick={cambiarArchivada} disabled={guardando || Boolean(procesandoFoto)} className="boton boton-secundario w-full">
         {prenda.archivada ? 'Recuperar del archivo' : 'Archivar (conserva su historial)'}
       </button>
     </form>
