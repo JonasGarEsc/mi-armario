@@ -7,7 +7,7 @@ import { CAMPOS_ETIQUETA, normalizarEtiquetas } from './etiquetas.js'
 
 export const TABLAS_COPIA = ['tipos', 'categorias', 'maletas', 'semanas', 'prendas', 'conjuntos', 'conjunto_prenda', 'usos']
 
-const CAMPOS_EXTRA = [...CAMPOS_ETIQUETA, 'etiquetas_auto', 'archivada']
+const CAMPOS_EXTRA = [...CAMPOS_ETIQUETA, 'etiquetas_auto', 'archivada', 'salida']
 
 /** Fila de `prendas` a partir de una de la copia: lo básico más las etiquetas, si las trae. */
 export function filaDePrenda(prenda, id, categoriaId) {
@@ -16,6 +16,7 @@ export function filaDePrenda(prenda, id, categoriaId) {
   for (const campo of CAMPOS_ETIQUETA) if (etiquetas[campo] !== undefined) fila[campo] = etiquetas[campo]
   if (typeof prenda.etiquetas_auto === 'boolean') fila.etiquetas_auto = prenda.etiquetas_auto
   if (prenda.archivada === true) fila.archivada = true
+  if (prenda.salida === 'donar' || prenda.salida === 'vender') fila.salida = prenda.salida
   return fila
 }
 

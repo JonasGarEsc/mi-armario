@@ -7,6 +7,7 @@
 --   Fase 1. Datos de cada prenda: colores, temporada, abrigo, formalidad, largo,
 --           estampado, precio, etiquetas automáticas y archivada.
 --   Fase 3. Lista de la maleta en la base de datos (tabla maleta_extras).
+--   Fase 4. Marcar prendas para donar o vender (columna salida).
 
 -- Fase 1 · Etiquetas de las prendas ----------------------------------------
 
@@ -62,3 +63,15 @@ drop policy if exists "mi ropa" on public.maleta_extras;
 create policy "mi ropa" on public.maleta_extras for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 grant select, insert, update, delete on public.maleta_extras to authenticated;
+
+-- Fase 4 · Lo que ya no te pones ---------------------------------------------
+-- salida: 'donar' o 'vender' marca una prenda para sacarla del armario; no se propone
+-- en «¿Qué me pongo hoy?» ni en las maletas. archivada (Fase 1) la oculta del todo.
+
+alter table public.prendas add column if not exists salida text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'prendas_salida_valida') then
+    alter table public.prendas add constraint prendas_salida_valida check (salida is null or salida in ('donar', 'vender'));
+  end if;
+end $$;

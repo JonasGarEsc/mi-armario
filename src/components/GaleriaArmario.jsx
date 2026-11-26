@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { vibrar } from '../lib/vibrar'
 import { leerCache, guardarCache } from '../lib/cache'
 import { etiquetaFechaCorta, isoLocal } from '../lib/fechas'
+import { PUNTO_FAMILIA } from '../lib/colores'
 import { CAMPOS_ETIQUETA, insertarPrenda } from '../lib/etiquetas'
 import {
   FAMILIAS_COLOR, GRUPOS_FORMALIDAD, TEMPORADAS, filtrarPrendas, hayFiltros, sinFiltros, ultimaVez,
@@ -26,14 +27,13 @@ const resumenPrenda = (p) => ({
   creado_en: p.creado_en ?? null,
   etiquetas_auto: p.etiquetas_auto ?? null,
   archivada: p.archivada ?? false,
+  salida: p.salida ?? null,
   ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, p[c] ?? null])),
 })
 
 const chipFiltro = (activo) =>
   `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
-// Color representativo de cada familia, solo para el punto del chip.
-const PUNTO_FAMILIA = { neutro: '#8a8d94', cálido: '#d9604a', frío: '#4f7fc0', tierra: '#8b5a2b', pastel: '#f2c6d3', vivo: '#e02f6b' }
 
 export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState(() => leerCache('prendas') || [])
@@ -139,7 +139,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
             deshecho = true
             const fila = { id: prenda.id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: prenda.categoria_id }
             // Con sus etiquetas (color, largo...); sin ellas si la base aún no las tiene.
-            const etiquetas = { ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, prenda[c] ?? null])), etiquetas_auto: prenda.etiquetas_auto ?? null, archivada: prenda.archivada ?? false }
+            const etiquetas = { ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, prenda[c] ?? null])), etiquetas_auto: prenda.etiquetas_auto ?? null, archivada: prenda.archivada ?? false, salida: prenda.salida ?? null }
             const errRecuperar = await insertarPrenda(supabase, fila, etiquetas)
             if (errRecuperar) return mostrarToast('No se pudo recuperar la prenda', 'error')
 
@@ -286,6 +286,9 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold leading-6 truncate">{nombre}</p>
                       <p className="text-sm leading-6 text-tenue truncate">{prenda.categorias?.nombre || 'Sin categoría'}</p>
+                      {prenda.salida && (
+                        <p className="text-xs leading-5 font-medium text-acento truncate">{prenda.salida === 'donar' ? 'Para donar' : 'Para vender'}</p>
+                      )}
                       {ultimaVez(prenda) && (
                         <p className="text-xs leading-5 text-tenue truncate">Usada el {etiquetaFechaCorta(ultimaVez(prenda))}</p>
                       )}

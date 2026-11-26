@@ -158,6 +158,9 @@ export function familiaDeColor(hex) {
 
 export const FAMILIAS_COLOR = ['neutro', 'cálido', 'frío', 'tierra', 'pastel', 'vivo']
 
+// Color representativo de cada familia, para puntos y gráficos.
+export const PUNTO_FAMILIA = { neutro: '#8a8d94', cálido: '#d9604a', frío: '#4f7fc0', tierra: '#8b5a2b', pastel: '#f2c6d3', vivo: '#e02f6b' }
+
 // --- Navegador ------------------------------------------------------------
 
 function cargarImagen(src) {

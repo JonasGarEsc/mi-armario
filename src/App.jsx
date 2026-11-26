@@ -12,6 +12,9 @@ import SelectorPrendas from './components/SelectorPrendas'
 import EtiquetarArmario from './components/EtiquetarArmario'
 import QueMePongo from './components/QueMePongo'
 import AsistenteMaleta from './components/AsistenteMaleta'
+import AvisoUso from './components/AvisoUso'
+import Estadisticas from './components/Estadisticas'
+import ConfirmarUso from './components/ConfirmarUso'
 import { ciudadGuardada, guardarCiudad } from './lib/clima'
 import Gestores from './components/Gestores'
 import Icono from './components/Icono'
@@ -112,6 +115,8 @@ function Armario({ sesion }) {
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
   const [objetivoSemana, setObjetivoSemana] = useState(null)
   const [maletaAsistente, setMaletaAsistente] = useState(null)
+  const [usoPendiente, setUsoPendiente] = useState(null)
+  const [prendaFijada, setPrendaFijada] = useState(null)
   const [refrescoMaleta, setRefrescoMaleta] = useState(0)
 
   const [toasts, setToasts] = useState([])
@@ -419,11 +424,17 @@ function Armario({ sesion }) {
           </div>
         </header>
 
+        <AvisoUso
+          version={actualizaciones}
+          mostrarToast={mostrarToast}
+          onCambio={(outfit) => { setUsoPendiente(outfit); abrirModal('confirmar_uso'); vibrar(20) }}
+        />
+
         <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto overflow-hidden">
           <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
               <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
-              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
+              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
               <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} onPrepararMaleta={prepararMaleta} refresco={refrescoMaleta} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
@@ -433,7 +444,7 @@ function Armario({ sesion }) {
                 activa={pestañaActiva === 'semana'}
                 recarga={actualizaciones}
                 onCrearSemana={() => { abrirModal('crear_semana'); vibrar(30) }}
-                onQueMePongo={() => { abrirModal('que_me_pongo'); vibrar(30) }}
+                onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }}
                 onAnadirOutfit={(semana, fecha) => { setObjetivoSemana({ semana, fecha }); abrirModal('elegir_prendas'); vibrar(30) }}
                 mostrarToast={mostrarToast}
                 setDialogoGlobal={solicitarConfirmacionGlobal}
@@ -467,6 +478,9 @@ function Armario({ sesion }) {
                 cerrarModal(); recargarVistas(); vibrar([50, 50])
                 mostrarToast('Maleta creada', 'exito', maleta?.fecha_inicio ? { texto: 'Prepárala por mí', onClick: () => prepararMaleta(maleta) } : null)
               }} onCancelar={cerrarModal} />}
+              {modalActivo === 'confirmar_uso' && usoPendiente && (
+                <ConfirmarUso outfit={usoPendiente} mostrarToast={mostrarToast} onHecho={() => { cerrarModal(); recargarVistas() }} />
+              )}
               {modalActivo === 'asistente_maleta' && maletaAsistente && (
                 <AsistenteMaleta
                   maleta={maletaAsistente}
@@ -526,8 +540,18 @@ function Armario({ sesion }) {
 
               {modalActivo === 'que_me_pongo' && (
                 <QueMePongo
+                  key={prendaFijada || 'libre'}
+                  prendaInicial={prendaFijada}
                   mostrarToast={mostrarToast}
                   onHecho={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana') }}
+                />
+              )}
+
+              {modalActivo === 'estadisticas' && (
+                <Estadisticas
+                  mostrarToast={mostrarToast}
+                  onCambio={recargarVistas}
+                  onProponer={(id) => { setPrendaFijada(id); abrirModal('que_me_pongo') }}
                 />
               )}
 
@@ -555,6 +579,10 @@ function Armario({ sesion }) {
                     <input id="ciudadClima" type="text" autoComplete="off" placeholder="Madrid" defaultValue={ciudadGuardada()} onBlur={(e) => guardarCiudad(e.target.value)} className="campo" />
                     <p className="text-sm text-tenue mt-1">Se usa si no das permiso de ubicación.</p>
                   </div>
+                  <button onClick={() => abrirModal('estadisticas')} className="boton boton-secundario justify-between!">
+                    Mi armario en números
+                    <Icono nombre="lista" />
+                  </button>
                   <EtiquetarArmario onTerminado={recargarVistas} />
                   <ResumenUsos />
                   <div className="pt-3 mt-1 border-t border-linea">

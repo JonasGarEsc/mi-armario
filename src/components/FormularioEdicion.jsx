@@ -83,6 +83,15 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
     }
   }
 
+  async function cambiarArchivada() {
+    setGuardando(true)
+    setErrorFormulario('')
+    const { error } = await supabase.from('prendas').update({ archivada: !prenda.archivada }).eq('id', prenda.id)
+    setGuardando(false)
+    if (error) return setErrorFormulario('No se pudo archivar. ¿Has ejecutado actualizacion-v4.sql en Supabase?')
+    onExito()
+  }
+
   return (
     <form onSubmit={manejarEdicion} className="flex flex-col gap-4 text-left">
       <h2 className="titulo-hoja">Editar prenda</h2>
@@ -141,12 +150,17 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
 
       <CamposEtiquetas valor={etiquetas} onChange={setEtiquetas} sugerido={prenda.etiquetas_auto === true} />
 
+      {prenda.archivada && <p className="text-sm text-tenue">Esta prenda está archivada: no sale en la galería ni en las propuestas.</p>}
+
       <div className="flex gap-3 mt-2">
         <button type="submit" disabled={guardando} className="boton boton-primario flex-1">
           {guardando ? (estado || 'Guardando...') : 'Actualizar'}
         </button>
         <button type="button" onClick={onCancelar} className="boton boton-secundario flex-1">Cancelar</button>
       </div>
+      <button type="button" onClick={cambiarArchivada} disabled={guardando} className="boton boton-secundario w-full">
+        {prenda.archivada ? 'Recuperar del archivo' : 'Archivar (conserva su historial)'}
+      </button>
     </form>
   )
 }

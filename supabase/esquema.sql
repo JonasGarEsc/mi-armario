@@ -43,7 +43,8 @@ create table if not exists public.prendas (
   estampado text,
   precio numeric(10, 2) check (precio is null or precio >= 0),
   etiquetas_auto boolean,
-  archivada boolean not null default false
+  archivada boolean not null default false,
+  salida text check (salida is null or salida in ('donar', 'vender'))
 );
 
 create table if not exists public.maletas (

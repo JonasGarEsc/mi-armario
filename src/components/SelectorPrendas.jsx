@@ -16,11 +16,11 @@ export default function SelectorPrendas({ fecha, nombreSemana, onGuardar, onCanc
     let vivo = true
     supabase
       .from('prendas')
-      .select('id, nombre, imagen_url, categorias(nombre, tipos(nombre))')
+      .select('*, categorias(nombre, tipos(nombre))')
       .order('creado_en', { ascending: false })
       .then(({ data }) => {
         if (!vivo) return
-        setPrendas(data || [])
+        setPrendas((data || []).filter((p) => !p.archivada))
         setCargando(false)
       })
     return () => { vivo = false }

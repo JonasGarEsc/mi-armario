@@ -166,7 +166,7 @@ export function sugerirOutfits(prendas, {
   const huecos = { torso: [], piernas: [], vestido: [], abrigo: [], pies: [] }
   const base = new Map()
   for (const p of prendas) {
-    if (p.archivada) continue
+    if (p.archivada || p.salida) continue
     const hueco = huecoDe(p)
     if (!huecos[hueco]) continue
     const fijada = fijas.has(p.id)
