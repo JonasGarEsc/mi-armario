@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { limitarPosicion } from '../lib/outfits'
 import { RANURAS, dentroDelManiqui, inferirRanura, ranuraMasCercana } from '../lib/maniqui'
 import { vibrar } from '../lib/vibrar'
@@ -7,20 +7,146 @@ import Miniatura from './Miniatura'
 const TAMANO_LIBRE = 0.28 // 28 % del ancho del escenario
 
 function Maniqui() {
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const madera = `${uid}-madera`
+  const sombra = `${uid}-sombra`
+
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 100 100"
       preserveAspectRatio="xMidYMid meet"
-      className="pointer-events-none absolute inset-0 h-full w-full text-linea"
+      className="pointer-events-none absolute inset-0 h-full w-full"
     >
-      <g fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.75">
-        <circle cx="50" cy="13" r="8" />
-        <path d="M47 21v4m6-4v4" />
-        <path d="M50 25c-7 0-13 2-17 5l2 22h30l2-22c-4-3-10-5-17-5z" />
-        <path d="M32 30c-4 6-6 15-7 26l5 1c1-9 3-16 6-22M68 30c4 6 6 15 7 26l-5 1c-1-9-3-16-6-22" />
-        <path d="M41 52l-2 16 2 18h6l2-20 2 20h6l2-18-2-16" />
-        <path d="M37 88h9m8 0h9" />
+      <defs>
+        <linearGradient id={madera} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#d3b48c" />
+          <stop offset="0.25" stopColor="#ecd7ba" />
+          <stop offset="0.5" stopColor="#fbf1e2" />
+          <stop offset="0.78" stopColor="#e7d0b0" />
+          <stop offset="1" stopColor="#c6a276" />
+        </linearGradient>
+        <radialGradient id={sombra}>
+          <stop offset="0" stopColor="#000000" stopOpacity="0.16" />
+          <stop offset="1" stopColor="#000000" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <ellipse cx="50" cy="95.7" rx="15" ry="3.4" fill={`url(#${sombra})`} />
+
+      {/* Piernas */}
+      <g fill="none" strokeLinecap="round">
+        <g stroke="#b9976e" strokeWidth="5.2">
+          <path d="M46.2 48.4 45.2 68" />
+          <path d="M53.8 48.4 54.8 68" />
+        </g>
+        <g stroke={`url(#${madera})`} strokeWidth="4.4">
+          <path d="M46.2 48.4 45.2 68" />
+          <path d="M53.8 48.4 54.8 68" />
+        </g>
+        <g stroke="#b9976e" strokeWidth="4.4">
+          <path d="M45.2 68 44.8 88" />
+          <path d="M54.8 68 55.2 88" />
+        </g>
+        <g stroke={`url(#${madera})`} strokeWidth="3.6">
+          <path d="M45.2 68 44.8 88" />
+          <path d="M54.8 68 55.2 88" />
+        </g>
+      </g>
+
+      {/* Pies */}
+      <g fill={`url(#${madera})`} stroke="#b9976e" strokeWidth="0.45" strokeLinejoin="round">
+        <path d="M44.8 87.6C43.5 89.6 42.4 92.2 42.6 94c1.3 1 3.6.8 4.8-.4l-1.2-5.8Z" />
+        <path d="M55.2 87.6c1.3 2 2.4 4.6 2.2 6.4-1.3 1-3.6.8-4.8-.4l1.2-5.8Z" />
+      </g>
+
+      {/* Brazos */}
+      <g fill="none" strokeLinecap="round">
+        <g stroke="#b9976e" strokeWidth="4.3">
+          <path d="M41.2 23.6 38 38.8" />
+          <path d="M58.8 23.6 62 38.8" />
+        </g>
+        <g stroke={`url(#${madera})`} strokeWidth="3.5">
+          <path d="M41.2 23.6 38 38.8" />
+          <path d="M58.8 23.6 62 38.8" />
+        </g>
+        <g stroke="#b9976e" strokeWidth="3.7">
+          <path d="M38 38.8 36.2 51.6" />
+          <path d="M62 38.8 63.8 51.6" />
+        </g>
+        <g stroke={`url(#${madera})`} strokeWidth="2.9">
+          <path d="M38 38.8 36.2 51.6" />
+          <path d="M62 38.8 63.8 51.6" />
+        </g>
+      </g>
+
+      {/* Manos */}
+      <g fill={`url(#${madera})`} stroke="#b9976e" strokeWidth="0.4" strokeLinejoin="round">
+        <path d="M36.2 51.4c-.7 1.8-1 3.8-.7 5.4.8.6 1.8.3 2.3-.6l-.5-4.9Z" />
+        <path d="M63.8 51.4c.7 1.8 1 3.8.7 5.4-.8.6-1.8.3-2.3-.6l.5-4.9Z" />
+      </g>
+
+      {/* Torso */}
+      <path
+        d="M50 21.3c-2.8 0-5.8.8-8.8 2.3-.3 3.2.8 8.2 2.2 13.2h13.2c1.4-5 2.5-10 2.2-13.2-3-1.5-6-2.3-8.8-2.3Z"
+        fill={`url(#${madera})`}
+        stroke="#b9976e"
+        strokeWidth="0.45"
+        strokeLinejoin="round"
+      />
+      {/* Cintura */}
+      <rect x="45.4" y="36.6" width="9.2" height="2" rx="1" fill="#c7aa82" stroke="#b9976e" strokeWidth="0.4" />
+      {/* Pelvis */}
+      <path
+        d="M44.2 38.2h11.6l1.5 5.4c-.8 2.7-3.4 4.8-7.3 6-3.9-1.2-6.5-3.3-7.3-6Z"
+        fill={`url(#${madera})`}
+        stroke="#b9976e"
+        strokeWidth="0.45"
+        strokeLinejoin="round"
+      />
+
+      {/* Cuello */}
+      <path
+        d="M47.5 15.2h5l-.2 5.6h-4.6Z"
+        fill={`url(#${madera})`}
+        stroke="#b9976e"
+        strokeWidth="0.4"
+        strokeLinejoin="round"
+      />
+      <circle cx="50" cy="20.3" r="2.05" fill={`url(#${madera})`} stroke="#b9976e" strokeWidth="0.4" />
+
+      {/* Cabeza */}
+      <ellipse cx="50" cy="9.6" rx="5.3" ry="6.3" fill={`url(#${madera})`} stroke="#b9976e" strokeWidth="0.45" />
+      <ellipse cx="48.6" cy="8.5" rx="1.5" ry="3.1" fill="#ffffff" opacity="0.16" />
+
+      {/* Articulaciones */}
+      <g fill={`url(#${madera})`} stroke="#b9976e" strokeWidth="0.4">
+        <circle cx="41.2" cy="23.6" r="2.6" />
+        <circle cx="58.8" cy="23.6" r="2.6" />
+        <circle cx="38" cy="38.8" r="2.25" />
+        <circle cx="62" cy="38.8" r="2.25" />
+        <circle cx="36.2" cy="51.6" r="1.8" />
+        <circle cx="63.8" cy="51.6" r="1.8" />
+        <circle cx="46.2" cy="48.4" r="2.4" />
+        <circle cx="53.8" cy="48.4" r="2.4" />
+        <circle cx="45.2" cy="68" r="2.2" />
+        <circle cx="54.8" cy="68" r="2.2" />
+        <circle cx="44.8" cy="88" r="1.7" />
+        <circle cx="55.2" cy="88" r="1.7" />
+      </g>
+      <g fill="#a98a62" opacity="0.5">
+        <circle cx="41.2" cy="23.6" r="0.5" />
+        <circle cx="58.8" cy="23.6" r="0.5" />
+        <circle cx="38" cy="38.8" r="0.45" />
+        <circle cx="62" cy="38.8" r="0.45" />
+        <circle cx="36.2" cy="51.6" r="0.4" />
+        <circle cx="63.8" cy="51.6" r="0.4" />
+        <circle cx="46.2" cy="48.4" r="0.45" />
+        <circle cx="53.8" cy="48.4" r="0.45" />
+        <circle cx="45.2" cy="68" r="0.45" />
+        <circle cx="54.8" cy="68" r="0.45" />
+        <circle cx="44.8" cy="88" r="0.35" />
+        <circle cx="55.2" cy="88" r="0.35" />
       </g>
     </svg>
   )

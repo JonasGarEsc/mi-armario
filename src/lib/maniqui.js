@@ -3,10 +3,10 @@
 
 export const RANURAS = {
   cabeza: { x: 40, y: 2, w: 20, h: 15, capa: 6, etiqueta: 'Cabeza' },
-  torso: { x: 30, y: 22, w: 40, h: 28, capa: 3, etiqueta: 'Torso' },
-  abrigo: { x: 25, y: 22, w: 50, h: 32, capa: 4, etiqueta: 'Abrigo' },
-  vestido: { x: 28, y: 30, w: 44, h: 46, capa: 2, etiqueta: 'Vestido' },
-  piernas: { x: 34, y: 50, w: 32, h: 38, capa: 1, etiqueta: 'Piernas' },
+  torso: { x: 29, y: 19, w: 42, h: 31, capa: 3, etiqueta: 'Torso' },
+  abrigo: { x: 24, y: 19, w: 52, h: 35, capa: 4, etiqueta: 'Abrigo' },
+  vestido: { x: 27, y: 20, w: 46, h: 56, capa: 2, etiqueta: 'Vestido' },
+  piernas: { x: 33, y: 45, w: 34, h: 45, capa: 1, etiqueta: 'Piernas' },
   pies: { x: 34, y: 85, w: 32, h: 13, capa: 5, etiqueta: 'Pies' },
   accesorio: { x: 76, y: 40, w: 18, h: 18, capa: 7, etiqueta: 'Accesorio' },
 }
