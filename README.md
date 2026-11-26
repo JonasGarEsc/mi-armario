@@ -4,11 +4,16 @@ Armario personal y maletas en el navegador. Se instala como app (PWA) y guarda t
 
 [mi-armario-sooty.vercel.app](https://mi-armario-sooty.vercel.app)
 
-![Armario en escritorio](docs/armario.png)
+<p>
+  <img src="docs/capturas/movil-armario-claro.png" alt="Armario en el móvil" width="220">
+  <img src="docs/capturas/movil-ficha-claro.png" alt="Ficha de una prenda" width="220">
+  <img src="docs/capturas/movil-maleta-claro.png" alt="Maleta preparada" width="220">
+  <img src="docs/capturas/movil-hoy-claro.png" alt="Hoy: propuesta y me gusta" width="220">
+</p>
 
-<img src="docs/movil.png" alt="Armario en el móvil" width="260">
+<img src="docs/capturas/movil-armario-oscuro.png" alt="Armario en el móvil, tema oscuro" width="220">
 
-En `docs/diseno/` están las demás vistas, en móvil y escritorio, claro y oscuro.
+Las capturas las genera la prueba de navegador en `docs/capturas/`.
 
 ## Qué hace
 
@@ -173,12 +178,24 @@ La función valida que el endpoint sea `https` y de un servicio push conocido (`
 ## Comprobar
 
 ```
-npm test        # fechas, nombres, maniquí, copias y lógica de outfits
+npm test        # fechas, nombres, maniquí, copias, Supabase falso y lógica de outfits
 npm run lint
 npm run build
+npm run test:e2e  # navegador real; no lo ejecuta npm test
 ```
 
-GitHub Actions ejecuta lo mismo en cada push y en cada pull request (`.github/workflows/ci.yml`).
+GitHub Actions ejecuta `npm test`, `npm run lint` y `npm run build` en cada push y en cada pull request (`.github/workflows/ci.yml`). La prueba de navegador se ejecuta aparte porque necesita Microsoft Edge instalado.
+
+### Prueba de navegador
+
+`npm run test:e2e` recorre la app entera en un viewport móvil con `playwright-core` y el Edge ya instalado (`channel: 'msedge'`), sin descargar navegadores:
+
+- Levanta un Supabase falso en Node con `http`, sin dependencias: GoTrue (entrar con contraseña), PostgREST en memoria con relaciones anidadas, filtros, orden, tramos, `count` y `head`, RPC y Storage (subir, firmar y servir fotos). Los datos y las fotos de prendas son inventados y se generan al vuelo.
+- Arranca Vite con `VITE_SUPABASE_URL` y la clave falsa en las variables de entorno del proceso; no lee ni modifica `.env`.
+- Bloquea cualquier petición a hosts externos. Las de Open-Meteo se contestan con un clima inventado.
+- Entra, comprueba las miniaturas, abre la ficha y vuelve con Atrás, prueba la pulsación larga en táctil, edita conservando la búsqueda, borra y deshace, añade una prenda sin recorte con IA, crea un outfit, prepara una maleta, usa Hoy («Me gusta» y «Me lo pongo») y exporta la copia desde Ajustes.
+- Falla si hay un error de consola, una excepción no controlada o una petición a un host externo.
+- Deja las capturas del README en `docs/capturas/`.
 
 ## Estructura
 
@@ -202,6 +219,10 @@ src/lib/deseos.js           cuánto combina un deseo con tu armario
 src/lib/colaOffline.js      acciones sin conexión que se envían al volver la red
 src/lib/uso.js              qué outfits planificados faltan por anotar como puestos
 src/lib/estadisticas.js     «Mi armario en números»
+e2e/prueba.mjs              recorrido de la app y capturas del README
+e2e/supabase-falso.js       Supabase falso: auth, REST, RPC y Storage
+e2e/clima-falso.js          respuestas inventadas de Open-Meteo
+docs/capturas/              capturas móviles del README
 supabase/esquema.sql        instalación completa desde cero
 supabase/actualizacion-v3.sql  migración para proyectos con datos
 supabase/actualizacion-v4.sql  etiquetas de las prendas
@@ -215,7 +236,3 @@ supabase/multiusuario.sql   cuentas separadas y políticas por dueño
 ## Licencias
 
 `@imgly/background-removal` se distribuye con licencia **AGPL-3.0**. Si el proyecto se publica como servicio, conviene revisar qué implica o sustituirlo por otro recorte.
-
-## Pendiente
-
-- Tests de interfaz (el flujo de añadir prenda, montar un outfit y crear una semana).
