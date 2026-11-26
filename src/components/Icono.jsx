@@ -12,6 +12,7 @@ const trazos = {
   descargar: 'M12 4v11m0 0l-4-4m4 4l4-4M5 20h14',
   duplicar: 'M9 9h10v11H9zM5 15V4h10',
   borrar: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
+  salir: 'M15 12H4m4-4l-4 4 4 4M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4',
 }
 
 export default function Icono({ nombre, className = 'w-6 h-6' }) {

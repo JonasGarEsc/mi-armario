@@ -6,6 +6,7 @@ import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import Gestores from './components/Gestores'
 import Icono from './components/Icono'
+import Acceso from './components/Acceso'
 import { supabase } from './supabase'
 import { esDuplicado } from './lib/outfits'
 
@@ -21,7 +22,75 @@ const SECCIONES = [
   { id: 'conjuntos', nombre: 'Maletas', icono: 'maleta' }
 ]
 
+// Puerta de entrada: sin sesión no se monta el armario, así ninguna consulta sale
+// antes de que Supabase sepa quién eres (y RLS no devuelva vacío).
 export default function App() {
+  const [sesion, setSesion] = useState(undefined)
+  const [sinAcceso, setSinAcceso] = useState(false)
+
+  useEffect(() => {
+    let activo = true
+
+    async function aplicar(nueva) {
+      if (!nueva) {
+        if (activo) { setSesion(null); setSinAcceso(false) }
+        return
+      }
+      // La lista de miembros decide quién entra. Si la migración aún no está puesta
+      // la tabla no existe: se deja pasar para no romper la app de antes.
+      const { data, error } = await supabase.from('miembros').select('user_id').maybeSingle()
+      if (!activo) return
+      setSinAcceso(!error && !data)
+      setSesion(nueva)
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (activo) aplicar(data.session ?? null)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evento, nueva) => {
+      // Fuera del callback: dentro de él supabase-js tiene el candado de auth.
+      setTimeout(() => { if (activo) aplicar(nueva ?? null) }, 0)
+    })
+
+    return () => { activo = false; subscription.unsubscribe() }
+  }, [])
+
+  if (sesion === undefined) return <PantallaCarga />
+  if (!sesion) return <Acceso />
+  if (sinAcceso) return <SinAcceso email={sesion.user?.email} />
+  return <Armario sesion={sesion} />
+}
+
+function PantallaCarga() {
+  return (
+    <div className="h-dvh grid place-items-center bg-papel">
+      <div role="status" aria-label="Cargando" className="esqueleto h-10 w-40" />
+    </div>
+  )
+}
+
+function SinAcceso({ email }) {
+  return (
+    <div className="min-h-dvh flex flex-col justify-center bg-papel text-tinta font-sans px-6 py-10 pt-safe pb-safe">
+      <div className="w-full max-w-sm mx-auto">
+        <h1 className="text-2xl font-bold tracking-tight mb-3">Esta cuenta no tiene acceso</h1>
+        <p className="text-tenue mb-2">
+          Has entrado como <strong className="text-tinta wrap-break-word">{email}</strong>, pero no está en la lista de
+          miembros de la base de datos.
+        </p>
+        <p className="text-sm text-tenue mb-6">
+          Añádela desde el SQL Editor de Supabase (está en <code>supabase/rls.sql</code>) y vuelve a entrar.
+        </p>
+        <button onClick={() => supabase.auth.signOut()} className="boton boton-secundario w-full">
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Armario({ sesion }) {
   const [pestañaActiva, setPestañaActiva] = useState('ropa')
   const [actualizaciones, setActualizaciones] = useState(0)
   
@@ -355,6 +424,13 @@ export default function App() {
                     Descargar copia de seguridad
                     <Icono nombre="descargar" />
                   </button>
+                  <div className="pt-3 mt-1 border-t border-linea">
+                    <p className="text-sm text-tenue mb-2 truncate">Sesión: {sesion.user?.email}</p>
+                    <button onClick={() => { cerrarModal(); supabase.auth.signOut() }} className="boton boton-secundario w-full justify-between!">
+                      Cerrar sesión
+                      <Icono nombre="salir" />
+                    </button>
+                  </div>
                   <p className="text-sm text-tenue pt-2">Perletta v2</p>
                 </div>
               )}
