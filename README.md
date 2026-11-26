@@ -1,5 +1,5 @@
 Gestor de armario y outfits que funciona como app instalable (PWA).
-**Demo:** https://mi-armario-sooty.vercel.app
+**Demo:** https://mi-armario-u82z.vercel.app
 
 ## Funcionalidad
 - Añadir prendas con recorte de fondo automático
