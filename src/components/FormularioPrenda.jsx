@@ -134,6 +134,10 @@ export default function FormularioPrenda({ onExito }) {
         </div>
       </div>
 
+      {tipos.length === 0 && (
+        <p className="text-sm text-tenue">Aún no tienes tipos ni categorías: créalos en Ajustes → Tipos y Categorías.</p>
+      )}
+
       <button type="submit" disabled={cargando} className="boton boton-primario mt-2 w-full">
         {cargando && <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>}
         {cargando ? estadoProceso : 'Guardar prenda'}

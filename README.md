@@ -42,7 +42,7 @@ Cada cuenta ve solo su ropa. La cuenta se crea desde la propia pantalla de acces
    El `.env` viejo sigue en el historial de Git; rotar la clave es lo que lo inutiliza.
 4. Despliega **después** del paso 1: si no, las cuentas nuevas verían todo lo anterior.
 
-Las cuentas nuevas heredan el catálogo de tipos y categorías de la primera, así el formulario de prenda no arranca vacío.
+Las cuentas nuevas empiezan vacías: cada una crea sus tipos y categorías en **Ajustes → Tipos / Categorías** antes de añadir la primera prenda.
 
 ## Comprobar
 

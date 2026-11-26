@@ -120,40 +120,10 @@ create policy "prendas: borrar en mi carpeta"
   on storage.objects for delete to authenticated
   using (bucket_id = 'prendas' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
--- 6. Cuenta nueva = catálogo heredado: copia los tipos y categorías del primer usuario
---    para que el formulario de prenda no arranque vacío.
-create or replace function public.sembrar_armario()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare plantilla uuid;
-begin
-  select id into plantilla from auth.users order by created_at limit 1;
-  if plantilla is null or plantilla = new.id then
-    return new;
-  end if;
-
-  insert into public.tipos (user_id, nombre)
-    select new.id, nombre from public.tipos where user_id = plantilla
-    on conflict do nothing;
-
-  insert into public.categorias (user_id, nombre, tipo_id)
-    select new.id, c.nombre, nt.id
-    from public.categorias c
-    join public.tipos viejo on viejo.id = c.tipo_id
-    join public.tipos nt on nt.user_id = new.id and nt.nombre = viejo.nombre
-    where c.user_id = plantilla
-    on conflict do nothing;
-
-  return new;
-end $$;
-
+-- 6. Cada cuenta empieza vacía: sus tipos y categorías los crea ella en Ajustes.
+--    (Aquí se retira la herencia que hubiera de una versión anterior.)
 drop trigger if exists sembrar_armario on auth.users;
-create trigger sembrar_armario
-  after insert on auth.users
-  for each row execute function public.sembrar_armario();
+drop function if exists public.sembrar_armario();
 
 -- 7. Comprobación: todas las tablas deben salir con la política "mi ropa".
 -- select tablename, policyname from pg_policies where schemaname = 'public' order by tablename;
