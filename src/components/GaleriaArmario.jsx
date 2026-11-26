@@ -12,7 +12,10 @@ const resumenPrenda = (p) => ({
   categorias: p.categorias ? { nombre: p.categorias.nombre } : null
 })
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast, filtroCategoria, setDialogoGlobal }) {
+// Las fotos nuevas se suben con una copia -320.webp para la rejilla; las viejas no la tienen.
+const conMiniatura = (url) => (url ? url.replace(/(\.[a-z0-9]+)(\?.*)?$/i, '-320$1$2') : url)
+
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState([])
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -24,7 +27,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
     async function obtenerPrendas() {
       const cache = leerCache('prendas')
       if (cache) { setPrendas(cache); setCargando(false); }
-      
+
       const { data } = await supabase.from('prendas').select('*, categorias(nombre, tipos(id, nombre))').order('creado_en', { ascending: false })
       if (data) { setPrendas(data); guardarCache('prendas', data.map(resumenPrenda)); }
       setCargando(false)
@@ -60,7 +63,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
   function solicitarEliminacionPrenda(prenda, e) {
     e.stopPropagation()
     setDialogoGlobal({
-      mensaje: '¿Eliminar prenda del armario?',
+      mensaje: '¿Eliminar esta prenda?',
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
@@ -74,6 +77,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
 
         // La foto se borra 7 s después. Mientras el aviso siga en pantalla, se puede deshacer.
         const archivo = prenda.imagen_url.split('/').pop()
+        const archivoMiniatura = conMiniatura(archivo)
         let deshecho = false
         mostrarToast('Prenda eliminada', 'info', {
           texto: 'Deshacer',
@@ -88,7 +92,10 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
             mostrarToast('Prenda recuperada', 'exito')
           }
         })
-        setTimeout(() => { if (!deshecho) supabase.storage.from('prendas').remove([archivo]) }, 7500)
+        setTimeout(() => {
+          if (deshecho) return
+          supabase.storage.from('prendas').remove(archivoMiniatura !== archivo ? [archivo, archivoMiniatura] : [archivo])
+        }, 7500)
       }
     })
   }
@@ -97,59 +104,86 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
 
   return (
     <div className="flex flex-col flex-1 relative shrink-0">
-      <div className="mb-4">
-        <input 
-          type="text" 
+      <div className="mb-5 md:mb-7 flex items-center gap-3 border-b border-linea">
+        <svg className="w-4 h-4 text-tenue shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
+        <input
+          type="text"
           autoComplete="off"
           aria-label="Buscar prendas"
-          placeholder="Buscar..." 
+          placeholder="Buscar por nombre o categoría"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full min-w-0 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-full px-4 py-3 text-sm outline-none placeholder-neutral-500 transition-colors border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700"
+          className="w-full min-w-0 bg-transparent py-2.5 text-sm outline-none placeholder:text-tenue"
         />
       </div>
 
       {seleccionadas.length >= 2 && (
-        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-4 w-full bg-black in-[.modo-oscuro]:bg-white text-white in-[.modo-oscuro]:text-black py-3 rounded-lg font-semibold active:scale-[0.98] transition-transform text-sm touch-manipulation">
-          Crear Outfit ({seleccionadas.length})
+        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-5 w-full bg-tinta text-papel py-3 active:opacity-80 transition-opacity text-sm touch-manipulation">
+          Crear outfit con {seleccionadas.length} prendas
         </button>
       )}
 
       {cargando ? (
         <div className="rejilla">
-          {[...Array(12)].map((_, i) => <div key={i} className="aspect-square bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 animate-pulse"></div>)}
+          {[...Array(12)].map((_, i) => <div key={i} className="aspect-4/5 lamina animate-pulse"></div>)}
         </div>
       ) : prendasFiltradas.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">No hay prendas.</div>
+        <div className="flex-1 flex flex-col items-start md:items-center justify-center gap-3 py-16 md:py-24">
+          <p className="font-display text-2xl md:text-3xl text-tinta">Aún no hay prendas</p>
+          <p className="text-sm text-tenue max-w-xs md:text-center">Empieza por la que más te pones. La foto se recorta sola.</p>
+          {onAnadirPrenda && (
+            <button onClick={onAnadirPrenda} className="mt-2 bg-tinta text-papel px-5 py-3 text-sm active:opacity-80 transition-opacity touch-manipulation">Añadir una prenda</button>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col flex-1">
           <div className="rejilla">
-            {prendasVisibles.map((prenda) => (
-              <div 
-                key={prenda.id} 
-                onClick={() => alternarSeleccion(prenda.id)}
-                className={`relative aspect-square cursor-pointer active:opacity-70 transition-opacity bg-neutral-50 in-[.modo-oscuro]:bg-neutral-900 touch-manipulation ${
-                  seleccionadas.includes(prenda.id) ? 'ring-2 ring-inset ring-black in-[.modo-oscuro]:ring-white' : ''
-                }`}
-              >
-                <img src={prenda.imagen_url} loading="lazy" decoding="async" className="w-full h-full object-contain p-2" alt={prenda.nombre} />
-                
-                {seleccionadas.includes(prenda.id) && (
-                  <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-black in-[.modo-oscuro]:bg-white rounded-full flex items-center justify-center border-2 border-white in-[.modo-oscuro]:border-black">
-                    <span className="text-white in-[.modo-oscuro]:text-black text-[10px] font-bold">✓</span>
-                  </div>
-                )}
+            {prendasVisibles.map((prenda) => {
+              const seleccionada = seleccionadas.includes(prenda.id)
+              return (
+                <article key={prenda.id} className="group flex flex-col">
+                  <div className={`relative w-full aspect-4/5 lamina overflow-hidden ${seleccionada ? 'ring-1 ring-acento' : ''}`}>
+                    <button
+                      onClick={() => alternarSeleccion(prenda.id)}
+                      aria-pressed={seleccionada}
+                      aria-label={`Seleccionar ${prenda.nombre}`}
+                      className="absolute inset-0 w-full h-full touch-manipulation active:opacity-80 transition-opacity"
+                    >
+                      <img
+                        src={conMiniatura(prenda.imagen_url)}
+                        onError={(e) => { if (e.currentTarget.src !== prenda.imagen_url) { e.currentTarget.srcset = ''; e.currentTarget.src = prenda.imagen_url } }}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-contain p-3 md:p-5 transition-transform duration-500 md:group-hover:scale-[1.03]"
+                        alt={prenda.nombre}
+                      />
+                    </button>
 
-                <div className="absolute bottom-1 left-1 flex gap-1 z-10">
-                  <button onClick={(e) => solicitarEliminacionPrenda(prenda, e)} aria-label={`Eliminar ${prenda.nombre}`} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-8 h-8 rounded-full flex items-center justify-center shadow-sm text-red-500 text-xs active:scale-90 touch-manipulation">✕</button>
-                  <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda); }} aria-label={`Editar ${prenda.nombre}`} className="bg-white/90 in-[.modo-oscuro]:bg-black/90 w-8 h-8 rounded-full flex items-center justify-center shadow-sm text-black in-[.modo-oscuro]:text-white text-xs active:scale-90 touch-manipulation">✎</button>
-                </div>
-              </div>
-            ))}
+                    {seleccionada && (
+                      <span className="absolute top-2 left-2 bg-acento text-papel text-[10px] w-5 h-5 flex items-center justify-center">✓</span>
+                    )}
+
+                    <div className="absolute top-1 right-1 flex gap-0.5 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+                      <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda) }} aria-label={`Editar ${prenda.nombre}`} className="w-8 h-8 flex items-center justify-center text-tinta bg-papel/85 hover:bg-papel active:opacity-60 touch-manipulation">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 4.5l3 3L7 20H4v-3L16.5 4.5z" /></svg>
+                      </button>
+                      <button onClick={(e) => solicitarEliminacionPrenda(prenda, e)} aria-label={`Eliminar ${prenda.nombre}`} className="w-8 h-8 flex items-center justify-center text-tinta bg-papel/85 hover:bg-papel hover:text-red-700 active:opacity-60 touch-manipulation">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 md:mt-3 min-w-0">
+                    <p className="font-display text-base md:text-lg leading-tight truncate">{prenda.nombre || 'Sin nombre'}</p>
+                    <p className="text-[11px] md:text-xs text-tenue truncate">{prenda.categorias?.nombre || 'Sin categoría'}</p>
+                  </div>
+                </article>
+              )
+            })}
           </div>
           {limiteVisibles < prendasFiltradas.length && (
             <div ref={observadorReferencia} className="w-full h-10 my-4 flex justify-center items-center">
-              <div className="w-5 h-5 border-2 border-neutral-300 border-t-black in-[.modo-oscuro]:border-neutral-700 in-[.modo-oscuro]:border-t-white rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border border-linea border-t-tinta rounded-full animate-spin"></div>
             </div>
           )}
         </div>

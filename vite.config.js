@@ -11,19 +11,17 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Armario Virtual',
+        name: 'Perletta — armario y maletas',
         short_name: 'Perletta',
-        description: 'Gestor de armario y maletas',
-        theme_color: '#0f172a',
-        background_color: '#ffffff',
+        description: 'Tu armario y tus maletas: qué tienes, qué te pones y qué te llevas.',
+        lang: 'es',
+        theme_color: '#f6f3ee',
+        background_color: '#f6f3ee',
         display: 'standalone',
         icons: [
-          {
-            src: '/logoPerletta.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
+          { src: '/icono-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icono-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icono-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       // El motor de IA (23 MB de wasm) no se precachea: se descarga al usar el recorte.

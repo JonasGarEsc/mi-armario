@@ -22,7 +22,7 @@ export default class LimiteErrores extends Component {
         </p>
         <button
           onClick={() => { localStorage.clear(); location.reload() }}
-          className="bg-black text-white font-bold px-6 py-3 rounded-xl"
+          className="bg-black text-white font-bold px-6 py-3 rounded-[2px]"
         >
           Limpiar caché y recargar
         </button>
