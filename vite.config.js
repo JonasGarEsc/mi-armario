@@ -21,7 +21,7 @@ export default defineConfig({
         icons: [
           { src: '/icono-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icono-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icono-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          { src: '/icono-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       // El motor de IA (23 MB de wasm) no se precachea: se descarga al usar el recorte.
