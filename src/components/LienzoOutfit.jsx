@@ -217,6 +217,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         ancho={720}
         ranura={ranura}
         textos={[cp.prendas.nombre, cp.prendas.categorias?.nombre, cp.prendas.categorias?.tipos?.nombre]}
+        largo={cp.prendas.largo}
       />
     </div>
   )

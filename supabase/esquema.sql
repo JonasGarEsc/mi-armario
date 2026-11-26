@@ -32,7 +32,18 @@ create table if not exists public.prendas (
   imagen_url text not null,
   categoria_id uuid not null references public.categorias (id) on delete restrict,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
-  creado_en timestamptz not null default now()
+  creado_en timestamptz not null default now(),
+  -- Etiquetas (ver actualizacion-v4.sql)
+  colores text[],
+  familia_color text,
+  temporada text[],
+  abrigo smallint check (abrigo is null or abrigo between 1 and 5),
+  formalidad smallint check (formalidad is null or formalidad between 1 and 5),
+  largo text,
+  estampado text,
+  precio numeric(10, 2) check (precio is null or precio >= 0),
+  etiquetas_auto boolean,
+  archivada boolean not null default false
 );
 
 create table if not exists public.maletas (

@@ -41,6 +41,12 @@ export function reglaDePrenda(ranura, textos = []) {
   return VESTIR[ranura] || null
 }
 
+/** Altura del bajo según el largo escrito en la prenda (etiqueta `largo`), si lo hay. */
+export function largoDeclarado(regla, largo) {
+  if (!largo) return null
+  return regla.declarados?.[String(largo).toLowerCase()] ?? null
+}
+
 /** Altura del bajo según el nombre, la categoría o el tipo (en ese orden). */
 export function largoPorNombre(regla, textos = []) {
   const t = normalizar(textos)
@@ -69,10 +75,11 @@ function caberEnZona(caja, relacion, zona, ancla) {
 
 /**
  * Rectángulo (en % del escenario) que debe ocupar la foto completa para que
- * la prenda vista al maniquí. `textos` = [nombre, categoría, tipo].
+ * la prenda vista al maniquí. `textos` = [nombre, categoría, tipo]; `largo` es
+ * la etiqueta de largo de la prenda y manda sobre lo que diga el nombre.
  * Devuelve null si no hay regla o no hay medidas.
  */
-export function vestirPrenda(caja, ranura, textos = []) {
+export function vestirPrenda(caja, ranura, textos = [], largo = null) {
   const regla = reglaDePrenda(ranura, textos)
   if (!regla || !caja || !(caja.w > 0) || !(caja.h > 0)) return null
   const relacion = caja.relacion > 0 ? caja.relacion : 1
@@ -91,7 +98,7 @@ export function vestirPrenda(caja, ranura, textos = []) {
 
   // Largo: por el nombre; si no lo dice, el largo realista más parecido al
   // que tendría la foto sin deformar.
-  let bajo = largoPorNombre(regla, textos)
+  let bajo = largoDeclarado(regla, largo) ?? largoPorNombre(regla, textos)
   if (bajo === null) {
     if (medida) {
       // Relación largo/anchura de la prenda tal como sale en la foto.

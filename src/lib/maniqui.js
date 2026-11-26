@@ -32,6 +32,8 @@ export const RANURAS = {
 //    la prenda, luego en su categoría y luego en su tipo; el primero que
 //    encaja manda. Con 'nombre' solo cuenta el nombre (una categoría «Tops»
 //    no convierte todas las camisetas en tops cortos).
+//  - declarados: largo escrito en la prenda (etiqueta `largo`) → altura del bajo;
+//    manda sobre los patrones del nombre, que son solo el respaldo
 //  - posibles: si ningún patrón encaja, el bajo se lleva al largo realista
 //    más cercano al que sugiere la forma de la foto (o `defecto` sin medidas)
 //  - proporcion: convierte la relación largo/anchura medida en la foto en un
@@ -60,6 +62,7 @@ export const VESTIR = {
       [/camisa|blusa/, 45.5],
       [/jersey|su[eé]ter|sudadera|polo|punto|pijama|camiseta|tirantes|manga/, CADERA],
     ],
+    declarados: { crop: CROP, cadera: CADERA, corto: CROP, largo: 49, maxi: 49 },
     posibles: [CROP, CADERA],
     defecto: CADERA,
     proporcion: 17.7,
@@ -75,6 +78,7 @@ export const VESTIR = {
       [/abrigo|parka/, RODILLA],
       [/plum[ií]fero|anorak|cazadora|bomber|chaqueta|americana|blazer|sudadera|c[aá]rdigan|rebeca/, 47],
     ],
+    declarados: { corto: 44, cadera: 47, rodilla: RODILLA, largo: RODILLA + 8, maxi: RODILLA + 8 },
     posibles: [47, RODILLA],
     defecto: 47,
     proporcion: 26.5,
@@ -89,6 +93,7 @@ export const VESTIR = {
       [/midi/, 76],
       [/largo|maxi/, CUERPO.tobillo + 1],
     ],
+    declarados: { mini: 55, corto: 55, rodilla: 64, midi: 76, maxi: CUERPO.tobillo + 1, largo: CUERPO.tobillo + 1 },
     posibles: [55, 64, 76, CUERPO.tobillo + 1],
     defecto: 64,
     proporcion: 16.8,
@@ -101,6 +106,7 @@ export const VESTIR = {
       [/midi/, 76],
       [/larga|maxi/, CUERPO.tobillo],
     ],
+    declarados: { mini: 51, corto: 51, rodilla: 60, midi: 76, maxi: CUERPO.tobillo, largo: CUERPO.tobillo },
     posibles: [51, 60, 76, CUERPO.tobillo],
     defecto: 60,
     proporcion: 17,
@@ -114,6 +120,7 @@ export const VESTIR = {
       [/pirata|capri|3\/4|culotte|tobiller|cropped/, TOBILLERO],
       [/legging|malla|largo/, CUERPO.tobillo],
     ],
+    declarados: { corto: 53, mini: 53, bermuda: 61, rodilla: 61, tobillero: TOBILLERO, largo: CUERPO.tobillo, maxi: CUERPO.tobillo },
     posibles: [53, 61, TOBILLERO, CUERPO.tobillo],
     defecto: CUERPO.tobillo,
     proporcion: 17.5,

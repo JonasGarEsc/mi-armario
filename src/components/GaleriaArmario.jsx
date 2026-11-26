@@ -3,6 +3,10 @@ import { supabase } from '../supabase'
 import { vibrar } from '../lib/vibrar'
 import { leerCache, guardarCache } from '../lib/cache'
 import { etiquetaFechaCorta, isoLocal } from '../lib/fechas'
+import { CAMPOS_ETIQUETA, insertarPrenda } from '../lib/etiquetas'
+import {
+  FAMILIAS_COLOR, GRUPOS_FORMALIDAD, TEMPORADAS, filtrarPrendas, hayFiltros, sinFiltros, ultimaVez,
+} from '../lib/filtros'
 import { borrarArchivo } from '../lib/imagenes'
 import Icono from './Icono'
 import Miniatura from './Miniatura'
@@ -18,7 +22,17 @@ const resumenPrenda = (p) => ({
     ? { nombre: p.categorias.nombre, tipos: p.categorias.tipos ? { id: p.categorias.tipos.id } : null }
     : null,
   usos: Array.isArray(p.usos) ? p.usos.map(u => ({ fecha: u.fecha })) : [],
+  creado_en: p.creado_en ?? null,
+  etiquetas_auto: p.etiquetas_auto ?? null,
+  archivada: p.archivada ?? false,
+  ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, p[c] ?? null])),
 })
+
+const chipFiltro = (activo) =>
+  `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
+
+// Color representativo de cada familia, solo para el punto del chip.
+const PUNTO_FAMILIA = { neutro: '#8a8d94', cálido: '#d9604a', frío: '#4f7fc0', tierra: '#8b5a2b', pastel: '#f2c6d3', vivo: '#e02f6b' }
 
 export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState(() => leerCache('prendas') || [])
@@ -26,6 +40,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(() => !leerCache('prendas'))
   const [busqueda, setBusqueda] = useState('')
+  const [filtros, setFiltros] = useState(sinFiltros)
   const [limiteVisibles, setLimiteVisibles] = useState(24)
   const observadorReferencia = useRef(null)
 
@@ -50,14 +65,16 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
     obtenerPrendas()
   }, [])
 
-  useEffect(() => { setLimiteVisibles(24) }, [busqueda, filtroCategoria])
+  useEffect(() => { setLimiteVisibles(24) }, [busqueda, filtroCategoria, filtros])
 
-  const prendasFiltradas = prendas.filter(prenda => {
-    const term = busqueda.toLowerCase()
-    const coincideBusqueda = (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
-    const coincideFiltro = filtroCategoria ? prenda.categoria_id === filtroCategoria.id : true
-    return coincideBusqueda && coincideFiltro
+  const prendasFiltradas = filtrarPrendas(prendas, {
+    busqueda,
+    categoriaId: filtroCategoria?.id || null,
+    filtros,
+    hoy: isoLocal(new Date()),
   })
+  const alternarFiltro = (campo, valor) =>
+    setFiltros(f => ({ ...f, [campo]: f[campo] === valor ? '' : valor }))
 
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
@@ -120,7 +137,9 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
           onClick: async () => {
             deshecho = true
             const fila = { id: prenda.id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: prenda.categoria_id }
-            const { error: errRecuperar } = await supabase.from('prendas').insert([fila])
+            // Con sus etiquetas (color, largo...); sin ellas si la base aún no las tiene.
+            const etiquetas = { ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, prenda[c] ?? null])), etiquetas_auto: prenda.etiquetas_auto ?? null, archivada: prenda.archivada ?? false }
+            const errRecuperar = await insertarPrenda(supabase, fila, etiquetas)
             if (errRecuperar) return mostrarToast('No se pudo recuperar la prenda', 'error')
 
             // También vuelven sus outfits y sus usos, no solo la ficha.
@@ -156,11 +175,6 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
     mostrarToast('Anotado: te lo has puesto hoy', 'exito')
   }
 
-  function ultimaVez(prenda) {
-    const fechas = (prenda.usos || []).map(u => u.fecha).filter(Boolean).sort()
-    return fechas.length > 0 ? fechas[fechas.length - 1] : null
-  }
-
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
 
   return (
@@ -181,6 +195,31 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
         <button onClick={onAbrirFiltros} aria-label="Filtrar por categoría" className="boton-icono w-12! h-12! rounded-xl! bg-lamina">
           <Icono nombre="filtro" />
         </button>
+      </div>
+
+      <div role="group" aria-label="Filtros" className="-mx-4 md:mx-0 px-4 md:px-0 mb-4 flex gap-2 overflow-x-auto sin-barra">
+        {FAMILIAS_COLOR.map(f => (
+          <button key={f} onClick={() => alternarFiltro('familia', f)} aria-pressed={filtros.familia === f} className={`${chipFiltro(filtros.familia === f)} inline-flex items-center gap-2`}>
+            <span className="w-3.5 h-3.5 rounded-full border border-linea" style={{ background: PUNTO_FAMILIA[f] }} aria-hidden="true" />
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+        {TEMPORADAS.map(t => (
+          <button key={t} onClick={() => alternarFiltro('temporada', t)} aria-pressed={filtros.temporada === t} className={chipFiltro(filtros.temporada === t)}>
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+        {GRUPOS_FORMALIDAD.map(g => (
+          <button key={g.id} onClick={() => alternarFiltro('formalidad', g.id)} aria-pressed={filtros.formalidad === g.id} className={chipFiltro(filtros.formalidad === g.id)}>
+            {g.etiqueta}
+          </button>
+        ))}
+        <button onClick={() => setFiltros(f => ({ ...f, olvidadas: !f.olvidadas }))} aria-pressed={filtros.olvidadas} className={chipFiltro(filtros.olvidadas)}>
+          Sin usar en 90 días
+        </button>
+        {hayFiltros(filtros) && (
+          <button onClick={() => setFiltros(sinFiltros)} className="shrink-0 min-h-11 px-3 text-sm text-tenue whitespace-nowrap">Quitar filtros</button>
+        )}
       </div>
 
       {filtroCategoria && (

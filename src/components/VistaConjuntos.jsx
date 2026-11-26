@@ -9,8 +9,8 @@ import Icono from './Icono'
 import Miniatura from './Miniatura'
 import LienzoOutfit from './LienzoOutfit'
 
-const CONSULTA_CONJUNTOS = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
-const CONSULTA_SIN_RANURA = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
+const CONSULTA_CONJUNTOS = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(*, categorias(nombre, tipos(nombre))))'
+const CONSULTA_SIN_RANURA = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
 function resumenMaleta(maleta) {
   const urls = []

@@ -10,8 +10,8 @@ import { vibrar } from '../lib/vibrar'
 import Icono from './Icono'
 import LienzoOutfit from './LienzoOutfit'
 
-const CONSULTA_CONJUNTOS = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
-const CONSULTA_SIN_RANURA = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
+const CONSULTA_CONJUNTOS = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(*, categorias(nombre, tipos(nombre))))'
+const CONSULTA_SIN_RANURA = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
 export default function VistaSemanas({ activa = false, recarga = 0, onCrearSemana, onAnadirOutfit, mostrarToast, setDialogoGlobal }) {
   const [semanas, setSemanas] = useState(() => leerCache('semanas') || [])

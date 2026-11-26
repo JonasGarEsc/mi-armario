@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { borrarArchivo } from '../lib/imagenes'
 import { prepararFoto, subirFoto } from '../lib/imagen'
+import { actualizarPrenda, etiquetasCambiadas, etiquetasDeFormulario, etiquetasParaGuardar } from '../lib/etiquetas'
+import CamposEtiquetas from './CamposEtiquetas'
 import Miniatura from './Miniatura'
 
 export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
@@ -15,6 +17,7 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
   const [quitarFondo, setQuitarFondo] = useState(false)
   const [estado, setEstado] = useState('')
   const [previsualizacion, setPrevisualizacion] = useState(null)
+  const [etiquetas, setEtiquetas] = useState(() => etiquetasDeFormulario(prenda))
 
   useEffect(() => {
     async function cargarListas() {
@@ -60,7 +63,10 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
       const cambios = { nombre: nuevoNombre, categoria_id: categoriaSeleccionada }
       if (nuevaFoto) cambios.imagen_url = nuevaFoto.url
 
-      const { error } = await supabase.from('prendas').update(cambios).eq('id', prenda.id)
+      // Si cambias algo a mano, la IA ya no pisa esta prenda al etiquetar el armario.
+      const fila = etiquetasParaGuardar(etiquetas)
+      const editadas = etiquetasCambiadas(prenda, fila)
+      const error = await actualizarPrenda(supabase, prenda.id, cambios, editadas ? { ...fila, etiquetas_auto: false } : {})
       if (error) {
         if (nuevaFoto) await borrarArchivo(nuevaFoto.url)
         throw new Error('Error al actualizar la prenda.')
@@ -132,6 +138,8 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
           </select>
         </div>
       </div>
+
+      <CamposEtiquetas valor={etiquetas} onChange={setEtiquetas} sugerido={prenda.etiquetas_auto === true} />
 
       <div className="flex gap-3 mt-2">
         <button type="submit" disabled={guardando} className="boton boton-primario flex-1">

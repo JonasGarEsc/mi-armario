@@ -9,6 +9,7 @@ import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import VistaSemanas from './components/VistaSemanas'
 import SelectorPrendas from './components/SelectorPrendas'
+import EtiquetarArmario from './components/EtiquetarArmario'
 import Gestores from './components/Gestores'
 import Icono from './components/Icono'
 import Acceso from './components/Acceso'
@@ -169,7 +170,7 @@ function Armario({ sesion }) {
   // Copia de seguridad manual: todo el armario en un JSON que se descarga.
   async function exportarDatos() {
     const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos']
-    const copia = { exportado_en: new Date().toISOString(), version: 3 }
+    const copia = { exportado_en: new Date().toISOString(), version: 4 }
     for (const tabla of tablas) {
       const { data, error } = await supabase.from(tabla).select('*')
       if (error) return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
@@ -519,6 +520,7 @@ function Armario({ sesion }) {
                     <Icono nombre="lista" />
                   </label>
                   <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada.</p>
+                  <EtiquetarArmario onTerminado={recargarVistas} />
                   <ResumenUsos />
                   <div className="pt-3 mt-1 border-t border-linea">
                     <p className="text-sm text-tenue mb-2 truncate">Sesión: {sesion.user?.email}</p>

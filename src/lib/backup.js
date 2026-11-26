@@ -1,10 +1,25 @@
 import { nombreLibre } from './nombres.js'
+import { CAMPOS_ETIQUETA, normalizarEtiquetas } from './etiquetas.js'
 
 // Restaurar una copia: se añade a lo que ya hay, sin borrar nada.
 // Los ids se regeneran y las relaciones se vuelven a atar por nombre o por id
 // antiguo, así que también sirve para pasar un armario a otra cuenta.
 
 export const TABLAS_COPIA = ['tipos', 'categorias', 'maletas', 'semanas', 'prendas', 'conjuntos', 'conjunto_prenda', 'usos']
+
+const CAMPOS_EXTRA = [...CAMPOS_ETIQUETA, 'etiquetas_auto', 'archivada']
+
+/** Fila de `prendas` a partir de una de la copia: lo básico más las etiquetas, si las trae. */
+export function filaDePrenda(prenda, id, categoriaId) {
+  const fila = { id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: categoriaId }
+  const etiquetas = normalizarEtiquetas(prenda) // copias antiguas: no traen nada de esto
+  for (const campo of CAMPOS_ETIQUETA) if (etiquetas[campo] !== undefined) fila[campo] = etiquetas[campo]
+  if (typeof prenda.etiquetas_auto === 'boolean') fila.etiquetas_auto = prenda.etiquetas_auto
+  if (prenda.archivada === true) fila.archivada = true
+  return fila
+}
+
+const sinExtras = (fila) => Object.fromEntries(Object.entries(fila).filter(([k]) => !CAMPOS_EXTRA.includes(k)))
 
 function enLotes(lista, tam = 200) {
   const lotes = []
@@ -164,12 +179,16 @@ export async function importarCopia(supabase, crudo) {
       continue
     }
     const id = nuevoId()
-    filasPrendas.push({ id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: categoriaNueva })
+    filasPrendas.push(filaDePrenda(prenda, id, categoriaNueva))
     if (prenda.id) mapaPrendas.set(prenda.id, id)
   }
 
   for (const lote of enLotes(filasPrendas)) {
-    const { error } = await supabase.from('prendas').insert(lote)
+    let { error } = await supabase.from('prendas').insert(lote)
+    // Base de datos sin actualizacion-v4.sql: las prendas entran sin etiquetas.
+    if (error && lote.some((f) => CAMPOS_EXTRA.some((c) => c in f))) {
+      ({ error } = await supabase.from('prendas').insert(lote.map(sinExtras)))
+    }
     if (error) throw new Error('No se pudieron importar algunas prendas.')
     resumen.prendas += lote.length
   }

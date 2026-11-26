@@ -102,3 +102,15 @@ test('medirAnchura ignora filas vacías y respeta el percentil', () => {
   assert.equal(medirAnchura(caja, 0, 1, 1), 0.8)
   assert.equal(medirAnchura({}, 0, 1), null)
 })
+
+test('el largo escrito en la prenda manda sobre el nombre', () => {
+  const caja = { x: 0.3, y: 0.05, w: 0.4, h: 0.9, relacion: 1, perfil: Array.from({ length: 40 }, () => 0.3) }
+  // El nombre dice «shorts», pero la etiqueta dice largo: se viste largo.
+  const largo = vestirPrenda(caja, 'piernas', ['Shorts vaqueros'], 'largo')
+  assert.ok(cerca(bajo(caja, largo), CUERPO.tobillo))
+  const corto = vestirPrenda(caja, 'piernas', ['Vaquero'], 'corto')
+  assert.ok(cerca(bajo(caja, corto), 53))
+  // Una etiqueta desconocida no rompe nada: se usa el nombre.
+  const sinPista = vestirPrenda(caja, 'piernas', ['Shorts vaqueros'], 'xyz')
+  assert.ok(cerca(bajo(caja, sinPista), 53))
+})
