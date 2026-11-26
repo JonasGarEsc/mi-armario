@@ -167,6 +167,12 @@ Deno.serve(async (req) => {
   if (typeof cuerpo.url !== 'string' || !cuerpo.url.trim()) return responder({ error: 'Falta el enlace' }, 400)
   const url = cuerpo.url
 
+  // Cuota diaria (cerrado por defecto) antes de salir a la red.
+  const { data: cuota, error: errorCuota } = await supabase.rpc('consumir_cuota', { nombre: 'leer-enlace' })
+  if (errorCuota || cuota !== true) {
+    return responder({ error: 'Has alcanzado el límite de hoy. Inténtalo mañana.' }, 429)
+  }
+
   const inicio = Date.now()
   const restante = () => ESPERA_MS - (Date.now() - inicio)
 

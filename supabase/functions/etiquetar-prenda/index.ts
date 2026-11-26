@@ -92,6 +92,12 @@ Deno.serve(async (req) => {
   if (bytes.length === 0 || bytes.length > MAX_BYTES) return responder({ error: 'La foto es demasiado grande' }, 413)
   if (!TIPOS_PERMITIDOS.includes(tipoMime)) return responder({ error: 'Formato no admitido' }, 415)
 
+  // --- Cuota diaria (cerrado por defecto) ----------------------------------
+  const { data: cuota, error: errorCuota } = await supabase.rpc('consumir_cuota', { nombre: 'etiquetar-prenda' })
+  if (errorCuota || cuota !== true) {
+    return responder({ error: 'Has alcanzado el límite de hoy. Inténtalo mañana.' }, 429)
+  }
+
   // --- Lo que ya tiene la persona, para clasificar con sus nombres ----------
   const { data: categorias } = await supabase.from('categorias').select('nombre, tipos(nombre)')
   const porTipo = new Map<string, string[]>()
@@ -104,22 +110,29 @@ Deno.serve(async (req) => {
   const lista = [...porTipo.entries()].map(([t, cs]) => `- ${t}: ${cs.join(', ')}`).join('\n') || '(todavía no tiene ninguno)'
 
   // --- Claude ----------------------------------------------------------------
-  const respuesta = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': claveIA, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({
-      model: MODELO,
-      max_tokens: 500,
-      system: INSTRUCCIONES,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: tipoMime, data: aBase64(bytes) } },
-          { type: 'text', text: `Tipos y categorías que ya tiene la persona:\n${lista}\n\nDescribe la prenda de la foto.` },
-        ],
-      }],
-    }),
-  })
+  let respuesta: Response
+  try {
+    respuesta = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': claveIA, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({
+        model: MODELO,
+        max_tokens: 500,
+        system: INSTRUCCIONES,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: tipoMime, data: aBase64(bytes) } },
+            { type: 'text', text: `Tipos y categorías que ya tiene la persona:\n${lista}\n\nDescribe la prenda de la foto.` },
+          ],
+        }],
+      }),
+    })
+  } catch (error) {
+    console.error('Anthropic', error instanceof Error ? error.name : 'error')
+    return responder({ error: 'El servicio de visión no respondió' }, 502)
+  }
 
   if (!respuesta.ok) {
     console.error('Anthropic', respuesta.status, await respuesta.text())

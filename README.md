@@ -60,10 +60,13 @@ Si el proyecto ya tenía datos, ejecuta en este orden:
 2. `supabase/actualizacion-v3.sql`: añade semanas, la columna `ranura` del maniquí, la tabla `usos`, el destino y las fechas de la maleta, las cascadas y el bucket privado.
 
 3. `supabase/actualizacion-v4.sql`: añade a las prendas colores, temporada, abrigo, formalidad, largo, estampado, precio, el origen de las etiquetas y `archivada`, la columna `salida` (donar o vender), la escala y «por dentro» de cada prenda del maniquí, la columna `deseada` (lista de deseos) y la tabla `maleta_extras` (lista de la maleta). Si falta, la app sigue funcionando: la lista se guarda solo en el móvil.
+4. `supabase/actualizacion-v5.sql`: deja un solo uso por prenda y día, añade la cuota diaria de las funciones de pago (`consumir_cuota`), las valoraciones y las suscripciones a avisos push. Va en una transacción: se aplica entera o no se aplica.
 
 Ejecuta el SQL antes de desplegar la versión nueva. La app aguanta sin algunas columnas (por ejemplo, guarda la posición aunque no exista `ranura`), pero la sección Semana necesita su tabla.
 
 En **Authentication → Providers → Email**, deja activo el proveedor y desactiva **Confirm email**. Así una cuenta recién creada puede entrar sin servidor de correo. Para que «¿Olvidaste la contraseña?» llegue a cualquiera en producción, configura un SMTP propio en Supabase (Resend, Brevo, etc.): el correo integrado tiene un límite muy bajo.
+
+Con el registro abierto, cualquiera puede crear una cuenta en tu proyecto. Si la app es solo tuya, desactiva el registro de nuevos usuarios en **Authentication** (en **Providers → Email**, «Allow new users to sign up»).
 
 En **Authentication → URL Configuration**, añade la URL de la app y `http://localhost:5173` a las Redirect URLs. Sin eso, el enlace de recuperación no vuelve a Perletta.
 
@@ -91,6 +94,16 @@ Los colores salen de la foto en el propio móvil, sin coste ni red. El resto (ti
 4. Opcional: `supabase secrets set MODELO_ETIQUETADO=claude-haiku-5-5` usa un modelo más barato y rápido (por defecto, `claude-sonnet-5-5`).
 
 La función exige sesión iniciada, solo lee fotos de la carpeta del propio usuario y rechaza imágenes de más de 1,5 MB.
+
+## Leer enlaces de tiendas
+
+La lista de deseos puede rellenar nombre, precio y foto pegando el enlace de una tienda. Esa lectura la hace otra Edge Function, `leer-enlace`, que descarga la página con filtros contra SSRF. Despliégala con:
+
+```
+supabase functions deploy leer-enlace
+```
+
+No necesita secretos. Exige sesión iniciada y comparte la cuota diaria de `consumir_cuota` (50 lecturas al día por cuenta; 100 para el etiquetado con IA).
 
 ## Comprobar
 
@@ -125,7 +138,9 @@ src/lib/estadisticas.js     «Mi armario en números»
 supabase/esquema.sql        instalación completa desde cero
 supabase/actualizacion-v3.sql  migración para proyectos con datos
 supabase/actualizacion-v4.sql  etiquetas de las prendas
+supabase/actualizacion-v5.sql  cuotas, valoraciones y avisos push
 supabase/functions/etiquetar-prenda/  visión con IA (Edge Function)
+supabase/functions/leer-enlace/       lectura de enlaces de tiendas (Edge Function)
 supabase/multiusuario.sql   cuentas separadas y políticas por dueño
 ```
 

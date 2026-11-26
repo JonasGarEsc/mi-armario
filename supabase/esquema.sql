@@ -115,6 +115,36 @@ create table if not exists public.maleta_extras (
   unique (maleta_id, prenda_id)
 );
 
+-- Cuota diaria de las funciones de pago. Sin políticas ni permisos: solo la
+-- función consumir_cuota (security definer) la toca.
+create table if not exists public.uso_funciones (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  dia date not null default current_date,
+  funcion text not null,
+  llamadas int not null default 0,
+  primary key (user_id, dia, funcion)
+);
+
+create table if not exists public.valoraciones (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  clave text not null check (length(clave) <= 500),
+  valor smallint not null check (valor in (-1, 1)),
+  creado_en timestamptz not null default now(),
+  primary key (user_id, clave)
+);
+
+create table if not exists public.avisos_push (
+  endpoint text primary key,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  hora smallint not null default 8 check (hora between 0 and 23),
+  zona text not null default 'Europe/Madrid',
+  lat real,
+  lon real,
+  ultimo_envio date
+);
+
 -- 2. Índices -------------------------------------------------------------
 
 create index if not exists prendas_user_idx on public.prendas (user_id, creado_en desc);
@@ -124,6 +154,7 @@ create index if not exists conjuntos_maleta_idx on public.conjuntos (maleta_id);
 create index if not exists conjuntos_semana_idx on public.conjuntos (semana_id, fecha);
 create index if not exists conjunto_prenda_prenda_idx on public.conjunto_prenda (prenda_id);
 create index if not exists usos_prenda_idx on public.usos (prenda_id, fecha desc);
+create unique index if not exists usos_prenda_fecha_idx on public.usos (prenda_id, fecha);
 create unique index if not exists maleta_extras_texto_idx
   on public.maleta_extras (maleta_id, lower(texto)) where texto is not null;
 create index if not exists maleta_extras_maleta_idx on public.maleta_extras (maleta_id);
@@ -140,7 +171,7 @@ create unique index if not exists conjuntos_por_dia_nombre
 do $$
 declare t text;
 begin
-  foreach t in array array['tipos', 'categorias', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras'] loop
+  foreach t in array array['tipos', 'categorias', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras', 'valoraciones', 'avisos_push'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "mi ropa" on public.%I', t);
     execute format(
@@ -151,6 +182,43 @@ begin
   end loop;
 end $$;
 
+-- Cuota de las funciones de pago: tabla cerrada, solo la toca consumir_cuota.
+alter table public.uso_funciones enable row level security;
+revoke all on public.uso_funciones from anon, authenticated;
+
+create or replace function public.consumir_cuota(nombre text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  limite int;
+  usuario uuid := auth.uid();
+begin
+  limite := case nombre
+    when 'etiquetar-prenda' then 100
+    when 'leer-enlace' then 50
+    else null
+  end;
+
+  if usuario is null or limite is null then
+    return false;
+  end if;
+
+  insert into public.uso_funciones (user_id, dia, funcion, llamadas)
+  values (usuario, current_date, nombre, 1)
+  on conflict (user_id, dia, funcion) do update
+    set llamadas = public.uso_funciones.llamadas + 1
+    where public.uso_funciones.llamadas < limite;
+
+  return found;
+end;
+$$;
+
+revoke all on function public.consumir_cuota(text) from public, anon;
+grant execute on function public.consumir_cuota(text) to authenticated;
+
 -- Bucket privado: las fotos se leen con URL firmada, no por URL pública.
 insert into storage.buckets (id, name, public)
 values ('prendas', 'prendas', false)
@@ -158,7 +226,8 @@ on conflict (id) do update set public = false;
 
 grant select, insert, update, delete on
   public.tipos, public.categorias, public.prendas, public.maletas,
-  public.semanas, public.conjuntos, public.conjunto_prenda, public.usos, public.maleta_extras
+  public.semanas, public.conjuntos, public.conjunto_prenda, public.usos, public.maleta_extras,
+  public.valoraciones, public.avisos_push
   to authenticated;
 
 drop policy if exists "prendas: leer las mías" on storage.objects;
