@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
 import { leerCache, guardarCache } from '../lib/cache'
+import Icono from './Icono'
+import Miniatura from './Miniatura'
 
 // La caché solo necesita lo que pinta la rejilla, no el árbol de categorías entero.
 const resumenPrenda = (p) => ({
@@ -12,25 +14,17 @@ const resumenPrenda = (p) => ({
   categorias: p.categorias ? { nombre: p.categorias.nombre } : null
 })
 
-// Rejilla ligera: Supabase reduce y recodifica la foto en AVIF (~9 kB). Si falla, se usa el original.
-const conTamano = (url) =>
-  url && url.includes('/storage/v1/object/public/')
-    ? url.replace('/object/public/', '/render/image/public/') + '?width=480&resize=contain&quality=70&format=avif'
-    : url
-
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, mostrarToast, filtroCategoria, setDialogoGlobal }) {
-  const [prendas, setPrendas] = useState([])
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
+  const [prendas, setPrendas] = useState(() => leerCache('prendas') || [])
+  const [menuAbierto, setMenuAbierto] = useState(null)
   const [seleccionadas, setSeleccionadas] = useState([])
-  const [cargando, setCargando] = useState(true)
+  const [cargando, setCargando] = useState(() => !leerCache('prendas'))
   const [busqueda, setBusqueda] = useState('')
   const [limiteVisibles, setLimiteVisibles] = useState(24)
   const observadorReferencia = useRef(null)
 
   useEffect(() => {
     async function obtenerPrendas() {
-      const cache = leerCache('prendas')
-      if (cache) { setPrendas(cache); setCargando(false); }
-
       const { data } = await supabase.from('prendas').select('*, categorias(nombre, tipos(id, nombre))').order('creado_en', { ascending: false })
       if (data) { setPrendas(data); guardarCache('prendas', data.map(resumenPrenda)); }
       setCargando(false)
@@ -43,7 +37,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
   const prendasFiltradas = prendas.filter(prenda => {
     const term = busqueda.toLowerCase()
     const coincideBusqueda = (prenda.nombre || '').toLowerCase().includes(term) || (prenda.categorias?.nombre || '').toLowerCase().includes(term)
-    const coincideFiltro = filtroCategoria ? prenda.categoria_id === filtroCategoria : true
+    const coincideFiltro = filtroCategoria ? prenda.categoria_id === filtroCategoria.id : true
     return coincideBusqueda && coincideFiltro
   })
 
@@ -102,79 +96,90 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
 
   return (
-    <div className="flex flex-col flex-1 relative shrink-0">
-      <div className="mb-5 md:mb-7 flex items-center gap-3 border-b border-linea">
-        <svg className="w-4 h-4 text-tenue shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
-        <input
-          type="text"
-          autoComplete="off"
-          aria-label="Buscar prendas"
-          placeholder="Buscar por nombre o categoría"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full min-w-0 bg-transparent py-2.5 text-sm outline-none placeholder:text-tenue"
-        />
+    <div className="flex flex-col flex-1 shrink-0">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1 min-w-0 md:max-w-sm">
+          <Icono nombre="buscar" className="w-5 h-5 absolute left-3.5 top-3.5 text-tenue pointer-events-none" />
+          <input
+            type="search"
+            autoComplete="off"
+            aria-label="Buscar prendas"
+            placeholder="Buscar prendas"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="campo pl-11!"
+          />
+        </div>
+        <button onClick={onAbrirFiltros} aria-label="Filtrar por categoría" className="boton-icono w-12! h-12! rounded-xl! bg-lamina">
+          <Icono nombre="filtro" />
+        </button>
       </div>
 
-      {seleccionadas.length >= 2 && (
-        <button onClick={() => onCrearConjunto(seleccionadas)} className="mb-5 w-full bg-tinta text-papel py-3 active:opacity-80 transition-opacity text-sm touch-manipulation">
-          Crear outfit con {seleccionadas.length} prendas
+      {filtroCategoria && (
+        <button onClick={onQuitarFiltro} aria-label={`Quitar el filtro ${filtroCategoria.nombre}`} className="self-start mb-4 min-h-11 max-w-full pl-4 pr-3 rounded-full bg-lamina flex items-center gap-2">
+          <span className="truncate">{filtroCategoria.nombre}</span>
+          <Icono nombre="cerrar" className="w-5 h-5 shrink-0" />
         </button>
       )}
 
       {cargando ? (
-        <div className="rejilla">
-          {[...Array(12)].map((_, i) => <div key={i} className="aspect-4/5 lamina animate-pulse"></div>)}
+        <div className="rejilla" role="status" aria-label="Cargando prendas">
+          {[...Array(6)].map((_, i) => (
+            <div key={i}>
+              <div className="esqueleto aspect-4/5" />
+              <div className="h-12 mt-2 flex flex-col justify-center gap-2"><div className="esqueleto h-3 w-2/3" /><div className="esqueleto h-3 w-1/3" /></div>
+            </div>
+          ))}
         </div>
       ) : prendasFiltradas.length === 0 ? (
-        <div className="flex-1 flex flex-col items-start md:items-center justify-center gap-3 py-16 md:py-24">
-          <p className="font-display text-2xl md:text-3xl text-tinta">Aún no hay prendas</p>
-          <p className="text-sm text-tenue max-w-xs md:text-center">Empieza por la que más te pones. La foto se recorta sola.</p>
-          {onAnadirPrenda && (
-            <button onClick={onAnadirPrenda} className="mt-2 bg-tinta text-papel px-5 py-3 text-sm active:opacity-80 transition-opacity touch-manipulation">Añadir una prenda</button>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
+          <Icono nombre="percha" className="w-12 h-12 text-tenue" />
+          <p className="text-xl font-bold">{prendas.length === 0 ? 'Aún no hay prendas' : 'No hay prendas que coincidan'}</p>
+          {prendas.length === 0 && (
+            <>
+              <p className="text-tenue max-w-xs">Empieza por la que más te pones. La foto se recorta sola.</p>
+              <button onClick={onAnadirPrenda} className="boton boton-primario mt-2">Añadir una prenda</button>
+            </>
           )}
         </div>
       ) : (
-        <div className="flex flex-col flex-1">
-          <div className="rejilla">
+        <>
+          <div className="rejilla mb-4">
             {prendasVisibles.map((prenda) => {
               const seleccionada = seleccionadas.includes(prenda.id)
+              const nombre = prenda.nombre || 'Sin nombre'
               return (
-                <article key={prenda.id} className="group flex flex-col">
-                  <div className={`relative w-full aspect-4/5 lamina overflow-hidden ${seleccionada ? 'ring-1 ring-acento' : ''}`}>
+                <article key={prenda.id} className="min-w-0">
+                  <div className="relative">
                     <button
                       onClick={() => alternarSeleccion(prenda.id)}
                       aria-pressed={seleccionada}
-                      aria-label={`Seleccionar ${prenda.nombre}`}
-                      className="absolute inset-0 w-full h-full touch-manipulation active:opacity-80 transition-opacity"
+                      aria-label={`Seleccionar ${nombre}`}
+                      className={`block w-full aspect-4/5 rounded-xl bg-foto overflow-hidden border-2 ${seleccionada ? 'border-acento' : 'border-transparent'}`}
                     >
-                      <img
-                        src={conTamano(prenda.imagen_url)}
-                        onError={(e) => { if (e.currentTarget.src !== prenda.imagen_url) { e.currentTarget.srcset = ''; e.currentTarget.src = prenda.imagen_url } }}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-contain p-3 md:p-5 transition-transform duration-500 md:group-hover:scale-[1.03]"
-                        alt={prenda.nombre}
-                      />
+                      <Miniatura url={prenda.imagen_url} alt={nombre} className="w-full h-full object-contain p-3 md:p-4" />
                     </button>
-
                     {seleccionada && (
-                      <span className="absolute top-2 left-2 bg-acento text-papel text-[10px] w-5 h-5 flex items-center justify-center">✓</span>
+                      <span className="aparece pointer-events-none absolute top-2 left-2 w-7 h-7 rounded-full bg-acento text-sobre-acento flex items-center justify-center">
+                        <Icono nombre="marca" className="w-4 h-4" />
+                      </span>
                     )}
-
-                    <div className="absolute top-1 right-1 flex gap-0.5 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
-                      <button onClick={(e) => { e.stopPropagation(); onEditarPrenda(prenda) }} aria-label={`Editar ${prenda.nombre}`} className="w-8 h-8 flex items-center justify-center text-tinta bg-papel/85 hover:bg-papel active:opacity-60 touch-manipulation">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 4.5l3 3L7 20H4v-3L16.5 4.5z" /></svg>
-                      </button>
-                      <button onClick={(e) => solicitarEliminacionPrenda(prenda, e)} aria-label={`Eliminar ${prenda.nombre}`} className="w-8 h-8 flex items-center justify-center text-tinta bg-papel/85 hover:bg-papel hover:text-red-700 active:opacity-60 touch-manipulation">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
+                    {menuAbierto === prenda.id && (
+                      <div className="aparece absolute inset-0 rounded-xl bg-velo flex flex-col justify-end gap-2 p-2" onClick={() => setMenuAbierto(null)} onKeyDown={(e) => { if (e.key === 'Escape') setMenuAbierto(null) }}>
+                        <button autoFocus onClick={() => { setMenuAbierto(null); onEditarPrenda(prenda) }} aria-label={`Editar ${nombre}`} className="boton boton-secundario">Editar</button>
+                        <button onClick={(e) => { setMenuAbierto(null); solicitarEliminacionPrenda(prenda, e) }} aria-label={`Eliminar ${nombre}`} className="boton boton-peligro">Eliminar</button>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-2 md:mt-3 min-w-0">
-                    <p className="font-display text-base md:text-lg leading-tight truncate">{prenda.nombre || 'Sin nombre'}</p>
-                    <p className="text-[11px] md:text-xs text-tenue truncate">{prenda.categorias?.nombre || 'Sin categoría'}</p>
+                  <div className="flex items-center mt-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold leading-6 truncate">{nombre}</p>
+                      <p className="text-sm leading-6 text-tenue truncate">{prenda.categorias?.nombre || 'Sin categoría'}</p>
+                    </div>
+                    <button onClick={() => setMenuAbierto(menuAbierto === prenda.id ? null : prenda.id)} aria-label={`Opciones de ${nombre}`} aria-expanded={menuAbierto === prenda.id} className="boton-icono -mr-2 text-tenue">
+                      <Icono nombre="puntos" />
+                    </button>
                   </div>
                 </article>
               )
@@ -182,10 +187,26 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
           </div>
           {limiteVisibles < prendasFiltradas.length && (
             <div ref={observadorReferencia} className="w-full h-10 my-4 flex justify-center items-center">
-              <div className="w-5 h-5 border border-linea border-t-tinta rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border-2 border-linea border-t-tinta rounded-full animate-spin"></div>
             </div>
           )}
+        </>
+      )}
+
+      {seleccionadas.length > 0 ? (
+        <div className="aparece sticky bottom-0 md:bottom-4 z-20 mt-auto flex items-center gap-2 rounded-2xl bg-superficie p-2 shadow-(--sombra) md:self-center">
+          <button onClick={() => setSeleccionadas([])} aria-label="Quitar la selección" className="boton-icono">
+            <Icono nombre="cerrar" />
+          </button>
+          <button onClick={() => onCrearConjunto(seleccionadas)} disabled={seleccionadas.length < 2} className="boton boton-primario flex-1 min-w-0 md:px-8">
+            {seleccionadas.length < 2 ? 'Elige otra prenda' : `Crear outfit con ${seleccionadas.length} prendas`}
+          </button>
         </div>
+      ) : !cargando && prendas.length > 0 && (
+        <button onClick={onAnadirPrenda} className="accion boton boton-primario">
+          <Icono nombre="mas" className="w-5 h-5" />
+          Añadir prenda
+        </button>
       )}
     </div>
   )

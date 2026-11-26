@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: 'Perletta',
         description: 'Tu armario y tus maletas: qué tienes, qué te pones y qué te llevas.',
         lang: 'es',
-        theme_color: '#f6f3ee',
-        background_color: '#f6f3ee',
+        theme_color: '#f6f6f7',
+        background_color: '#f6f6f7',
         display: 'standalone',
         icons: [
           { src: '/icono-192.png', sizes: '192x192', type: 'image/png' },

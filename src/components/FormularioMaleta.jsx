@@ -16,21 +16,19 @@ export default function FormularioMaleta({ onExito, onCancelar }) {
   }
 
   return (
-    <form onSubmit={manejarEnvio} className="flex flex-col gap-5 text-left pb-4">
-      <h2 className="font-display text-3xl md:text-4xl mb-1">Diseñar Maleta</h2>
+    <form onSubmit={manejarEnvio} className="flex flex-col gap-4 text-left">
+      <h2 className="titulo-hoja">Diseñar Maleta</h2>
 
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-[2px] bg-red-100 in-[.modo-oscuro]:bg-red-900/30 border border-red-200 in-[.modo-oscuro]:border-red-800 text-red-700 in-[.modo-oscuro]:text-red-400">
-          <span className="text-sm font-semibold">{error}</span>
-        </div>
+        <div role="alert" className="aviso-error">{error}</div>
       )}
       <div>
-        <label className="block text-[13px] mb-2 text-tenue">Destino o Fecha</label>
-        <input type="text" name="nombreMaleta" autoComplete="off" required placeholder="Ej. París, Fin de semana..." className="w-full p-4 rounded-[2px] bg-tinta/5 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm" />
+        <label htmlFor="nombreMaleta" className="etiqueta">Destino o Fecha</label>
+        <input id="nombreMaleta" type="text" name="nombreMaleta" autoComplete="off" required placeholder="Ej. París, Fin de semana..." className="campo" />
       </div>
-      <div className="flex gap-3 mt-4">
-        <button type="submit" className="flex-1 bg-tinta text-papel font-bold py-4 rounded-[2px] active:scale-[0.98] transition-transform text-sm">Crear Maleta</button>
-        <button type="button" onClick={onCancelar} className="flex-1 bg-tinta/5 text-neutral-900 in-[.modo-oscuro]:text-white font-bold py-4 rounded-[2px] active:scale-[0.98] transition-transform text-sm">Cancelar</button>
+      <div className="flex gap-3 mt-2">
+        <button type="submit" className="boton boton-primario flex-1">Crear Maleta</button>
+        <button type="button" onClick={onCancelar} className="boton boton-secundario flex-1">Cancelar</button>
       </div>
     </form>
   )

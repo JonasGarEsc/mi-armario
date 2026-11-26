@@ -4,6 +4,8 @@ import { vibrar } from '../App'
 import { toPng } from 'html-to-image'
 import { leerCache, guardarCache } from '../lib/cache'
 import { limitarPosicion } from '../lib/outfits'
+import Icono from './Icono'
+import Miniatura from './Miniatura'
 
 function WidgetClima({ destino }) {
   const [clima, setClima] = useState(null)
@@ -27,27 +29,17 @@ function WidgetClima({ destino }) {
           const weatherData = await weatherRes.json()
           if (montado) setClima({ nombre: name, max: weatherData.daily.temperature_2m_max[0], min: weatherData.daily.temperature_2m_min[0] })
         }
-      } catch (e) { console.error('Error API clima') }
+      } catch { console.error('Error API clima') }
       if(montado) setCargando(false)
     }
     obtenerClima()
     return () => { montado = false }
   }, [destino])
 
-  if (cargando) return <div className="h-8 w-40 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 animate-pulse rounded-md mt-1"></div>
-  if (!clima) return null
-
+  // La línea mide lo mismo cargando, sin dato y con dato: nada salta al llegar el clima.
   return (
-    <div className="flex items-center gap-2 mt-1">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-md border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 w-max">
-        <span className="text-xs">🌍</span>
-        <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-600 in-[.modo-oscuro]:text-neutral-400">{clima.nombre}</span>
-      </div>
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-md border border-neutral-200/50 in-[.modo-oscuro]:border-neutral-800/50 w-max">
-        <span className="text-[11px] font-bold text-neutral-800 in-[.modo-oscuro]:text-neutral-200">{clima.max}°</span>
-        <span className="text-neutral-300 in-[.modo-oscuro]:text-neutral-600">/</span>
-        <span className="text-[11px] font-medium text-neutral-500 in-[.modo-oscuro]:text-neutral-500">{clima.min}°</span>
-      </div>
+    <div className="h-6 flex items-center text-sm text-tenue">
+      {cargando ? <div className="esqueleto h-3 w-40" /> : clima && <p className="truncate">{clima.nombre}: máxima {clima.max}°, mínima {clima.min}°</p>}
     </div>
   )
 }
@@ -108,7 +100,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none will-change-transform ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-300 ease-out cursor-grab'}`}
+      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-200 ease-suave cursor-grab'}`}
     >
       <img src={cp.prendas.imagen_url} loading="lazy" draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-sm select-none" alt="Ropa" />
     </div>
@@ -116,11 +108,10 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
 }
 
 export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogoGlobal }) {
-  const [maletas, setMaletas] = useState([])
+  const [maletas, setMaletas] = useState(() => leerCache('maletas') || [])
   const [conjuntos, setConjuntos] = useState([])
-  const [cargando, setCargando] = useState(true)
+  const [cargando, setCargando] = useState(() => !leerCache('maletas'))
   const [busqueda, setBusqueda] = useState('')
-  const [abriendo, setAbriendo] = useState(null)
   const [maletaActiva, setMaletaActiva] = useState(null)
   const [maxZ, setMaxZ] = useState(10)
   const [editandoNombre, setEditandoNombre] = useState(null)
@@ -162,12 +153,12 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
             if (e.key === 'Escape') setEditandoNombre(null)
           }}
-          className={`${clases} bg-transparent border-b border-current outline-none text-center min-w-0`}
+          className={`${clases} w-full min-w-0 bg-transparent border-b-2 border-acento`}
         />
       )
     }
     return (
-      <button onClick={(e) => { e.stopPropagation(); setEditandoNombre({ tipo, id, valor: nombre }) }} title="Cambiar nombre" className={`${clases} truncate`}>
+      <button onClick={(e) => { e.stopPropagation(); setEditandoNombre({ tipo, id, valor: nombre }) }} title="Cambiar nombre" className={`${clases} truncate text-left`}>
         {nombre}
       </button>
     )
@@ -203,6 +194,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
           if (error) return mostrarToast('No se pudo eliminar', 'error')
           const nuevas = maletas.filter(m => m.id !== id)
           setMaletas(nuevas); guardarCache('maletas', nuevas)
+          setMaletaActiva(null)
         } else {
           const { error } = await supabase.from('conjuntos').delete().eq('id', id)
           if (error) return mostrarToast('No se pudo eliminar', 'error')
@@ -230,15 +222,15 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
         <div className="flex flex-col gap-4 text-left mb-4">
           {tipo === 'outfit' && (
             <div>
-              <label className="block text-sm font-semibold mb-2">Destino:</label>
-              <select onChange={(e) => idMaletaDestino = e.target.value} defaultValue={idMaletaDestino} className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none">
+              <label htmlFor="clonDestino" className="etiqueta">Destino:</label>
+              <select id="clonDestino" onChange={(e) => idMaletaDestino = e.target.value} defaultValue={idMaletaDestino} className="campo">
                 {maletas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="block text-sm font-semibold mb-2">Nuevo nombre:</label>
-            <input type="text" onChange={(e) => nuevoNombre = e.target.value} defaultValue={nuevoNombre} className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-800 outline-none" />
+            <label htmlFor="clonNombre" className="etiqueta">Nuevo nombre:</label>
+            <input id="clonNombre" type="text" autoComplete="off" onChange={(e) => nuevoNombre = e.target.value} defaultValue={nuevoNombre} className="campo" />
           </div>
         </div>
       ),
@@ -271,6 +263,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
           }
           const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
           if (listaMaletas) { setMaletas(listaMaletas); guardarCache('maletas', listaMaletas) }
+          setMaletaActiva(null)
           mostrarToast("Maleta clonada", "exito")
         }
         vibrar([50, 50])
@@ -294,16 +287,23 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
         a.href = dataUrl; a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`; a.click()
       }
       vibrar([30, 30])
-    } catch (e) { mostrarToast("Error al exportar", "error") }
+    } catch { mostrarToast("Error al exportar", "error") }
   }
 
   function abrirMaleta(maleta) {
     vibrar(20)
-    setAbriendo(maleta.id)
-    setTimeout(() => { 
-      setMaletaActiva(maleta)
-      setAbriendo(null)
-    }, 800)
+    const cache = leerCache(`conjuntos_${maleta.id}`)
+    setConjuntos(cache || [])
+    setCargando(!cache)
+    setBusqueda('')
+    setMaletaActiva(maleta)
+  }
+
+  function volver() {
+    vibrar(20)
+    setBusqueda('')
+    setCargando(false)
+    setMaletaActiva(null)
   }
 
   async function actualizarEstado(conjuntoId, prendaId, x, y, z) {
@@ -328,122 +328,99 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
   const itemsFiltrados = !maletaActiva ? maletas.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase())) : conjuntos.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
 
   return (
-    <div className="flex flex-col h-full w-full relative">
-      <div className="flex flex-col gap-4 mb-5 md:mb-7 w-full shrink-0">
-        {maletaActiva ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <button onClick={() => { setMaletaActiva(null); vibrar(20); }} aria-label="Volver a las maletas" className="w-8 h-8 flex items-center justify-center text-tenue hover:text-tinta active:opacity-60 transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              {nombreEditable('maleta', maletaActiva.id, maletaActiva.nombre, 'font-display text-3xl md:text-5xl leading-none min-w-0')}
-            </div>
-            <div className="pl-11"><WidgetClima destino={maletaActiva.nombre} /></div>
+    <div key={maletaActiva?.id || 'lista'} className={`flex flex-col flex-1 shrink-0 ${maletaActiva ? 'entra' : ''}`}>
+      {maletaActiva ? (
+        <div className="mb-3">
+          <div className="flex items-center gap-1 min-h-12">
+            <button onClick={volver} aria-label="Volver a las maletas" className="boton-icono -ml-3">
+              <Icono nombre="volver" />
+            </button>
+            <h2 className="flex-1 min-w-0 flex">
+              {nombreEditable('maleta', maletaActiva.id, maletaActiva.nombre, 'min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
+            </h2>
+            <button onClick={(e) => solicitarClonar('maleta', maletaActiva, e)} aria-label={`Duplicar ${maletaActiva.nombre}`} className="boton-icono">
+              <Icono nombre="duplicar" />
+            </button>
+            <button onClick={(e) => solicitarEliminar('maleta', maletaActiva.id, e)} aria-label={`Eliminar ${maletaActiva.nombre}`} className="boton-icono -mr-2">
+              <Icono nombre="borrar" />
+            </button>
           </div>
-        ) : (
-          <div className="flex items-end justify-between gap-4">
-            <h2 className="font-display text-3xl md:text-6xl leading-none">Maletas</h2>
-            <button onClick={onCrearMaleta} className="shrink-0 bg-tinta text-papel text-[13px] md:text-sm px-4 md:px-5 py-2.5 md:py-3 mb-0.5 active:opacity-80 transition-opacity touch-manipulation"><span className="sm:hidden">Nueva</span><span className="hidden sm:inline">Nueva maleta</span></button>
-          </div>
-        )}
-
-        <div className="flex items-center gap-3 border-b border-linea">
-          <svg className="w-4 h-4 text-tenue shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
-          <input type="text" autoComplete="off" aria-label="Buscar" placeholder={!maletaActiva ? 'Buscar maleta' : 'Buscar outfit'} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="flex-1 min-w-0 bg-transparent py-2.5 text-sm outline-none placeholder:text-tenue" />
+          <WidgetClima destino={maletaActiva.nombre} />
         </div>
+      ) : (
+        <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Maletas</h2>
+      )}
+
+      <div className="relative mb-4 md:max-w-sm">
+        <Icono nombre="buscar" className="w-5 h-5 absolute left-3.5 top-3.5 text-tenue pointer-events-none" />
+        <input type="search" autoComplete="off" aria-label="Buscar" placeholder={!maletaActiva ? 'Buscar maleta' : 'Buscar outfit'} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo pl-11!" />
       </div>
 
       {cargando ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 px-1">
-           {[...Array(6)].map((_, i) => <div key={i} className="aspect-2/3 bg-tinta/5 animate-pulse"></div>)}
+        <div role="status" aria-label="Cargando" className={maletaActiva ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'rejilla'}>
+          {maletaActiva
+            ? <div className="esqueleto h-114 md:h-139" />
+            : [0, 1].map(i => <div key={i}><div className="esqueleto aspect-square" /><div className="h-12 mt-2 flex flex-col justify-center gap-2"><div className="esqueleto h-3 w-2/3" /><div className="esqueleto h-3 w-1/3" /></div></div>)}
         </div>
       ) : itemsFiltrados.length === 0 ? (
-        <div className="flex-1 flex flex-col justify-center gap-2 py-16 md:py-24">
-          <p className="font-display text-2xl md:text-3xl">{maletaActiva ? 'Esta maleta está vacía' : 'Todavía no hay maletas'}</p>
-          <p className="text-sm text-tenue max-w-sm">{maletaActiva ? 'Elige prendas en el armario y crea un outfit para esta maleta.' : 'Crea una, elige prendas del armario y monta los outfits dentro.'}</p>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
+          <Icono nombre="maleta" className="w-12 h-12 text-tenue" />
+          <p className="text-xl font-bold">{busqueda ? 'Nada coincide con la búsqueda' : maletaActiva ? 'Esta maleta está vacía' : 'Todavía no hay maletas'}</p>
+          {!busqueda && <p className="text-tenue max-w-xs">{maletaActiva ? 'Elige prendas en el armario y crea un outfit para esta maleta.' : 'Crea una, elige prendas del armario y monta los outfits dentro.'}</p>}
+          {!busqueda && !maletaActiva && <button onClick={onCrearMaleta} className="boton boton-primario mt-2">Nueva maleta</button>}
         </div>
       ) : !maletaActiva ? (
-        <div className="rejilla gap-y-6 pt-2 pb-4 px-1">
-          {itemsFiltrados.map((m) => (
-            <div key={m.id} className="group relative flex flex-col items-center w-full min-w-0">
-              <div className="absolute -top-2 right-0 flex flex-col gap-1 z-20 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
-                <button onClick={(e) => solicitarEliminar('maleta', m.id, e)} aria-label={`Eliminar ${m.nombre}`} className="w-8 h-8 flex items-center justify-center text-tenue hover:text-red-700 active:opacity-60 transition-colors">✕</button>
-                <button onClick={(e) => solicitarClonar('maleta', m, e)} aria-label={`Duplicar ${m.nombre}`} className="w-8 h-8 flex items-center justify-center text-tenue hover:text-tinta active:opacity-60 transition-colors">⎘</button>
-              </div>
-
-              <div onClick={() => abrirMaleta(m)} className={`relative w-full max-w-30 md:max-w-36 aspect-2/3 perspective-[2000px] cursor-pointer transition-transform duration-400 active:scale-[0.98] md:hover:scale-[1.03] mb-1 md:mb-4 mx-auto drop-shadow-xl touch-manipulation`}>
-                 <div className="absolute -top-3 md:-top-5 left-1/2 -translate-x-1/2 w-8 md:w-16 h-3 md:h-5 flex justify-between z-0">
-                    <div className="w-0.75 h-full bg-linear-to-r from-neutral-300 via-neutral-100 to-neutral-400 in-[.modo-oscuro]:from-[#8a7258] in-[.modo-oscuro]:via-[#9d8568] in-[.modo-oscuro]:to-[#6b5743] border-x border-neutral-400 in-[.modo-oscuro]:border-[#3d3228]"></div>
-                    <div className="w-0.75 h-full bg-linear-to-r from-neutral-300 via-neutral-100 to-neutral-400 in-[.modo-oscuro]:from-[#8a7258] in-[.modo-oscuro]:via-[#9d8568] in-[.modo-oscuro]:to-[#6b5743] border-x border-neutral-400 in-[.modo-oscuro]:border-[#3d3228]"></div>
-                    <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-b from-neutral-200 to-neutral-400 in-[.modo-oscuro]:from-[#9d8568] in-[.modo-oscuro]:to-[#6b5743] rounded-t-sm"></div>
-                 </div>
-                 <div className="absolute -bottom-2 md:-bottom-3 left-1.5 md:left-3 w-3 md:w-4 h-3 bg-linear-to-b from-neutral-300 to-neutral-400 in-[.modo-oscuro]:from-[#8a7258] in-[.modo-oscuro]:to-[#3d3228] rounded-b-sm z-0 flex flex-col items-center justify-end shadow-md border-x border-neutral-400/50 in-[.modo-oscuro]:border-[#2a241d]">
-                   <div className="w-3.5 h-1 bg-black rounded-full shadow-lg border border-neutral-400 in-[.modo-oscuro]:border-neutral-600"></div>
-                 </div>
-                 <div className="absolute -bottom-2 md:-bottom-3 right-1.5 md:right-3 w-3 md:w-4 h-3 bg-linear-to-b from-neutral-300 to-neutral-400 in-[.modo-oscuro]:from-[#8a7258] in-[.modo-oscuro]:to-[#3d3228] rounded-b-sm z-0 flex flex-col items-center justify-end shadow-md border-x border-neutral-400/50 in-[.modo-oscuro]:border-[#2a241d]">
-                   <div className="w-3.5 h-1 bg-black rounded-full shadow-lg border border-neutral-400 in-[.modo-oscuro]:border-neutral-600"></div>
-                 </div>
-
-                 <div className="absolute top-0 left-0 w-full h-full bg-[#6f5b45] in-[.modo-oscuro]:bg-[#2a241d] rounded-sm border border-neutral-600 in-[.modo-oscuro]:border-[#9d8568] overflow-hidden z-10 flex flex-col justify-center">
-                    <div className="absolute inset-1 border border-neutral-700/50 in-[.modo-oscuro]:border-[#9d8568]/30 z-10 overflow-hidden pointer-events-none">
-                       <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#3d3228] -translate-x-1/2 -translate-y-1/2 rotate-45"></div>
-                       <div className="absolute top-1/2 left-1/2 w-[150%] h-0.5 bg-neutral-800 in-[.modo-oscuro]:bg-[#3d3228] -translate-x-1/2 -translate-y-1/2 -rotate-45"></div>
-                    </div>
-                    
-                    <div className={`absolute inset-0 z-20 transition-all duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] delay-150 ${abriendo === m.id ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-75'}`}>
-                      {extraerImagenesMaleta(m).map((url, idx) => {
-                         const posiciones = [
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] -rotate-6 z-10",
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] rotate-12 z-20",
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75%] h-[75%] -rotate-12 z-30",
-                           "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[70%] h-[70%] rotate-6 z-40"
-                         ]
-                         return <img key={idx} src={url} className={`absolute ${posiciones[idx]} object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.5)]`} alt="Prenda interior" />
-                      })}
-                    </div>
-                 </div>
-
-                 <div 
-                   className="absolute top-0 left-0 w-full h-full rounded-sm origin-left transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] z-30 shadow-[3px_0_10px_rgba(0,0,0,0.6)] transform-3d"
-                   style={{ transform: abriendo === m.id ? 'perspective(1500px) rotateY(-105deg)' : 'perspective(1500px) rotateY(0deg)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
-                 >
-                    <div className="absolute inset-0 bg-linear-to-br from-[#f1e7d7] via-[#ddc9ac] to-[#bfa385] in-[.modo-oscuro]:from-[#9d8568] in-[.modo-oscuro]:via-[#8a7258] in-[.modo-oscuro]:to-[#5d4b39] rounded-sm border border-white/60 in-[.modo-oscuro]:border-[#b8a184]/40 overflow-hidden">
-                      <div className="absolute inset-0 flex justify-evenly px-0.5 md:px-2 py-1 md:py-4">
-                          {[...Array(5)].map((_, i) => <div key={i} className="w-0.5 md:w-1 h-full bg-white/50 in-[.modo-oscuro]:bg-black/20 shadow-[1px_0_2px_rgba(0,0,0,0.1)]"></div>)}
-                      </div>
-                      <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-4 md:w-8 h-0.75 bg-linear-to-b from-neutral-200 to-neutral-400 in-[.modo-oscuro]:from-[#b8a184] in-[.modo-oscuro]:to-[#6b5743] rounded-sm shadow-sm border border-neutral-500/40 in-[.modo-oscuro]:border-[#3d3228]"></div>
-                    </div>
-                 </div>
-              </div>
-
-              {nombreEditable('maleta', m.id, m.nombre, 'mt-3 font-display text-base md:text-lg text-center w-full px-1 max-w-full')}
-              <p className="text-[11px] text-tenue">{m.conjuntos && m.conjuntos.length === 1 ? "1 outfit" : `${m.conjuntos ? m.conjuntos.length : 0} outfits`}</p>
-            </div>
-          ))}
+        <div className="rejilla mb-4">
+          {itemsFiltrados.map((m) => {
+            const imagenes = extraerImagenesMaleta(m)
+            const outfits = m.conjuntos?.length || 0
+            return (
+              <button key={m.id} onClick={() => abrirMaleta(m)} className="min-w-0 self-start text-left rounded-xl">
+                <span className={`aspect-square rounded-xl bg-foto p-3 grid gap-2 ${imagenes.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${imagenes.length > 2 ? 'grid-rows-2' : 'grid-rows-1'}`}>
+                  {imagenes.length === 0
+                    ? <span className="place-self-center text-tenue"><Icono nombre="maleta" className="w-12 h-12" /></span>
+                    : imagenes.map(url => <Miniatura key={url} url={url} alt="" className="w-full h-full min-w-0 min-h-0 object-contain" />)}
+                </span>
+                <span className="block mt-2 font-semibold leading-6 truncate">{m.nombre}</span>
+                <span className="block text-sm leading-6 text-tenue">{outfits === 1 ? '1 outfit' : `${outfits} outfits`}</span>
+              </button>
+            )
+          })}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-4">
           {itemsFiltrados.map((conj) => (
-            <div key={conj.id} className="relative border border-linea bg-tinta/[0.02] flex flex-col overflow-hidden isolate">
-              
-              <div className="flex justify-between items-center px-5 py-4 border-b border-linea bg-papel z-10 gap-2">
-                {nombreEditable('outfit', conj.id, conj.nombre, 'font-display text-xl leading-none min-w-0 flex-1 text-left')}
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => exportarOutfit(conj.id, conj.nombre)} aria-label={`Descargar imagen de ${conj.nombre}`} className="text-tenue hover:text-tinta active:opacity-60 p-2">↓</button>
-                  <button onClick={(e) => solicitarClonar('outfit', conj, e)} aria-label={`Duplicar ${conj.nombre}`} className="text-tenue hover:text-tinta active:opacity-60 p-2">⎘</button>
-                  <button onClick={(e) => solicitarEliminar('outfit', conj.id, e)} aria-label={`Eliminar ${conj.nombre}`} className="text-tenue hover:text-red-700 active:opacity-60 p-2">✕</button>
-                </div>
+            <article key={conj.id} className="min-w-0 rounded-xl border border-linea bg-superficie overflow-hidden isolate">
+              <div className="flex items-center pl-4 pr-1 h-14 border-b border-linea">
+                <h3 className="flex-1 min-w-0 flex">
+                  {nombreEditable('outfit', conj.id, conj.nombre, 'min-h-11 max-w-full text-lg font-semibold')}
+                </h3>
+                <button onClick={() => exportarOutfit(conj.id, conj.nombre)} aria-label={`Descargar imagen de ${conj.nombre}`} className="boton-icono">
+                  <Icono nombre="descargar" className="w-5 h-5" />
+                </button>
+                <button onClick={(e) => solicitarClonar('outfit', conj, e)} aria-label={`Duplicar ${conj.nombre}`} className="boton-icono">
+                  <Icono nombre="duplicar" className="w-5 h-5" />
+                </button>
+                <button onClick={(e) => solicitarEliminar('outfit', conj.id, e)} aria-label={`Eliminar ${conj.nombre}`} className="boton-icono">
+                  <Icono nombre="borrar" className="w-5 h-5" />
+                </button>
               </div>
-              
-              <div id={`lienzo-${conj.id}`} className="relative w-full h-100 md:h-125 bg-papel overflow-hidden touch-none z-0">
-                <div className="absolute inset-0 opacity-[0.03] in-[.modo-oscuro]:opacity-[0.05]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+
+              <div id={`lienzo-${conj.id}`} data-sin-swipe className="relative w-full h-100 md:h-125 bg-foto overflow-hidden z-0">
                 {conj.conjunto_prenda.filter(cp => cp.prendas).map((cp, idx) => (
                   <PrendaArrastrable key={cp.prenda_id} cp={cp} index={idx} maxZ={maxZ} setMaxZ={setMaxZ} onGuardarEstado={actualizarEstado} />
                 ))}
               </div>
-            </div>
+            </article>
           ))}
         </div>
+      )}
+
+      {!maletaActiva && !cargando && maletas.length > 0 && (
+        <button onClick={onCrearMaleta} className="accion boton boton-primario">
+          <Icono nombre="mas" className="w-5 h-5" />
+          Nueva maleta
+        </button>
       )}
     </div>
   )

@@ -92,49 +92,47 @@ export default function FormularioPrenda({ onExito }) {
   }
 
   return (
-    <form onSubmit={manejarEnvio} className="flex flex-col gap-5 text-left pb-4">
-      <h2 className="font-display text-3xl md:text-4xl mb-1">Añadir prenda</h2>
+    <form onSubmit={manejarEnvio} className="flex flex-col gap-4 text-left">
+      <h2 className="titulo-hoja">Añadir prenda</h2>
 
       {errorFormulario && (
-        <div className="p-4 border-l-2 border-red-700 bg-red-700/5 text-red-800 in-[.modo-oscuro]:text-red-300">
-          <span className="text-sm">{errorFormulario}</span>
-        </div>
+        <div role="alert" className="aviso-error">{errorFormulario}</div>
       )}
 
       <div>
-        <label htmlFor="imagen" className="block text-[13px] mb-2 text-tenue">Fotografía</label>
-        <input id="imagen" type="file" name="imagen" accept="image/*" required className="campo p-0 text-sm file:mr-4 file:py-2.5 file:px-4 file:border-0 file:bg-tinta file:text-papel file:text-xs file:cursor-pointer touch-manipulation" />
+        <label htmlFor="imagen" className="etiqueta">Fotografía</label>
+        <input id="imagen" type="file" name="imagen" accept="image/*" required className="campo p-1.5! text-tenue file:mr-3 file:min-h-9 file:px-3 file:border-0 file:rounded-lg file:bg-lamina file:text-tinta file:font-semibold file:cursor-pointer" />
       </div>
 
-      <div className="flex items-center gap-3">
-        <input type="checkbox" id="toggleFondo" checked={quitarFondo} onChange={(e) => setQuitarFondo(e.target.checked)} className="w-4 h-4 accent-acento cursor-pointer touch-manipulation" />
-        <label htmlFor="toggleFondo" className="text-sm text-tinta cursor-pointer select-none">Quitar el fondo automáticamente</label>
+      <div className="flex items-center gap-3 min-h-11">
+        <input type="checkbox" id="toggleFondo" checked={quitarFondo} onChange={(e) => setQuitarFondo(e.target.checked)} className="w-6 h-6 shrink-0 accent-acento cursor-pointer" />
+        <label htmlFor="toggleFondo" className="flex-1 py-2.5 cursor-pointer select-none">Quitar el fondo automáticamente</label>
       </div>
 
       <div>
-        <label htmlFor="nombrePrenda" className="block text-[13px] mb-2 text-tenue">Nombre</label>
-        <input id="nombrePrenda" type="text" name="nombrePrenda" autoComplete="off" required placeholder="Cazadora de cuero negra" className="campo touch-manipulation" />
+        <label htmlFor="nombrePrenda" className="etiqueta">Nombre</label>
+        <input id="nombrePrenda" type="text" name="nombrePrenda" autoComplete="off" required placeholder="Cazadora de cuero negra" className="campo" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="tipoPrenda" className="block text-[13px] mb-2 text-tenue">Tipo</label>
-          <select id="tipoPrenda" value={tipoSeleccionado} onChange={(e) => setTipoSeleccionado(e.target.value)} required className="campo touch-manipulation">
+          <label htmlFor="tipoPrenda" className="etiqueta">Tipo</label>
+          <select id="tipoPrenda" value={tipoSeleccionado} onChange={(e) => setTipoSeleccionado(e.target.value)} required className="campo">
             <option value="">Elegir…</option>
             {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
           </select>
         </div>
         <div>
-          <label htmlFor="categoria" className="block text-[13px] mb-2 text-tenue">Categoría</label>
-          <select id="categoria" name="categoria" required disabled={!tipoSeleccionado} className="campo disabled:opacity-50 touch-manipulation">
+          <label htmlFor="categoria" className="etiqueta">Categoría</label>
+          <select id="categoria" name="categoria" required disabled={!tipoSeleccionado} className="campo disabled:opacity-50">
             <option value="">Elegir…</option>
             {categoriasFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>
       </div>
 
-      <button type="submit" disabled={cargando} className="mt-3 flex items-center justify-center gap-3 bg-tinta text-papel py-3.5 w-full active:opacity-80 transition-opacity disabled:opacity-70 touch-manipulation">
-        {cargando && <div className="w-4 h-4 border border-papel/40 border-t-papel rounded-full animate-spin"></div>}
+      <button type="submit" disabled={cargando} className="boton boton-primario mt-2 w-full">
+        {cargando && <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>}
         {cargando ? estadoProceso : 'Guardar prenda'}
       </button>
     </form>

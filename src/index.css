@@ -1,32 +1,58 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: custom
+ * paper: #f6f6f7 · accent: #1d4ed8 · display: system-ui · body: system-ui
+ * nav: tab bar abajo en móvil, pestañas en la cabecera en escritorio · signature: la rejilla de prendas · states: loading, empty, full
+ * waive: 28a, las miniaturas de la rejilla siguen en carga diferida (arreglo de la auditoría)
+ * axes: light+dark/sans/cobalt · posture: tool · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V3 · weakest: V, la personalidad la ponen las fotos y no el marco, a propósito */
 @import "tailwindcss";
-@import "@fontsource/instrument-serif/400.css";
 
-/* Perletta. Papel cálido, tinta, un solo acento. Serif para la ropa, sans para todo lo demás. */
+/* Perletta. El marco es neutro, el color lo pone la ropa. Un acento para la acción principal y la selección.
+   Radios: 12 px en controles y fotos, 24 px en hojas, redondo en botones de icono y filtros. */
 @theme {
-  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --color-papel: var(--papel);
+  --color-superficie: var(--superficie);
+  --color-lamina: var(--lamina);
+  --color-foto: var(--foto);
   --color-tinta: var(--tinta);
   --color-tenue: var(--tenue);
   --color-linea: var(--linea);
   --color-acento: var(--acento);
+  --color-sobre-acento: var(--sobre-acento);
+  --color-peligro: var(--peligro);
+  --color-velo: var(--velo);
+  --ease-suave: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 :root {
-  --papel: #f6f3ee;
-  --tinta: #17140f;
-  --tenue: #6f675d;
-  --linea: #ddd5c9;
-  --acento: #a4542f;
+  --papel: #f6f6f7;
+  --superficie: #ffffff;
+  --lamina: #eceef1;
+  --foto: #ffffff;
+  --tinta: #17181b;
+  --tenue: #585c66;
+  --linea: #e0e2e6;
+  --acento: #1d4ed8;
+  --sobre-acento: #ffffff;
+  --peligro: #b3261e;
+  --velo: rgb(10 12 16 / 0.45);
+  --sombra: 0 6px 24px rgb(10 12 16 / 0.16);
   color-scheme: light;
 }
 
-.modo-oscuro {
-  --papel: #12100e;
-  --tinta: #efe9df;
-  --tenue: #968c7e;
-  --linea: #2c2721;
-  --acento: #c97a52;
+:root.modo-oscuro {
+  --papel: #0f1012;
+  --superficie: #191b1e;
+  --lamina: #25282c;
+  --foto: #3b3f46;
+  --tinta: #f0f1f3;
+  --tenue: #a6abb4;
+  --linea: #2e3136;
+  --acento: #8ab0ff;
+  --sobre-acento: #0b1530;
+  --peligro: #ff8a80;
+  --velo: rgb(0 0 0 / 0.65);
+  --sombra: 0 6px 24px rgb(0 0 0 / 0.5);
   color-scheme: dark;
 }
 
@@ -34,11 +60,16 @@ html,
 body {
   overflow-x: clip;
   background: var(--papel);
+  color: var(--tinta);
 }
 
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--acento);
-  outline-offset: 3px;
+  outline-offset: 2px;
+}
+/* La hoja recibe el foco solo para el teclado y el lector de pantalla. */
+[role="dialog"]:focus-visible {
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -51,67 +82,153 @@ body {
   }
 }
 
-@layer components {
-  /* Láminas: el mismo encuadre para todas las fotos, sin caja ni tarjeta. */
-  .rejilla {
-    display: grid;
-    gap: 1.75rem 1rem;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+@layer base {
+  button {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 150ms, opacity 150ms;
   }
-  @media (min-width: 768px) {
-    .rejilla {
-      gap: 2.5rem 1.75rem;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  /* Respuesta inmediata al dedo en todos los botones. */
+  button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  button:disabled {
+    cursor: default;
+  }
+}
+
+@layer components {
+  .boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    padding: 0 1.25rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .boton-primario {
+    background: var(--acento);
+    color: var(--sobre-acento);
+  }
+  .boton-secundario {
+    background: var(--lamina);
+    color: var(--tinta);
+  }
+  .boton-peligro {
+    background: var(--peligro);
+    color: var(--superficie);
+  }
+  /* Después de las variantes para ganarles también en el orden. */
+  .boton.boton:disabled {
+    background: var(--lamina);
+    color: var(--tenue);
+  }
+  .boton-icono {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+  }
+  @media (hover: hover) {
+    .boton-icono:hover {
+      background: var(--lamina);
     }
   }
-  .lamina {
-    background: color-mix(in oklab, var(--papel), var(--tinta) 4%);
-  }
-  .lamina img {
-    filter: drop-shadow(0 12px 20px rgb(0 0 0 / 0.12));
-  }
+
   .campo {
     width: 100%;
-    border: 1px solid var(--linea);
-    background: transparent;
-    border-radius: 2px;
-    padding: 0.85rem 1rem;
-    font-size: 0.95rem;
+    min-height: 48px;
+    border: 1px solid color-mix(in oklab, var(--tinta) 22%, transparent);
+    border-radius: 12px;
+    background: var(--superficie);
+    padding: 0.7rem 0.9rem;
+    font-size: 1rem;
     color: var(--tinta);
   }
   .campo::placeholder {
     color: var(--tenue);
   }
+  .etiqueta {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--tenue);
+  }
+  .titulo-hoja {
+    min-width: 0;
+    padding-right: 3rem;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: break-word;
+  }
+  .aviso-error {
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--peligro) 10%, transparent);
+    padding: 0.75rem 1rem;
+    color: var(--peligro);
+  }
+
+  .rejilla {
+    display: grid;
+    gap: 1.25rem 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
+  }
+  @media (min-width: 768px) {
+    .rejilla {
+      gap: 2rem 1.25rem;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    }
+  }
+  .esqueleto {
+    border-radius: 12px;
+    background: var(--lamina);
+    animation: latido 1.4s ease-in-out infinite;
+  }
+
+  /* Acción principal: al alcance del pulgar en móvil, en la fila del título en escritorio. */
+  .accion {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin-top: auto;
+    align-self: flex-end;
+    box-shadow: var(--sombra);
+  }
+  @media (min-width: 768px) {
+    .accion {
+      position: absolute;
+      top: 2rem;
+      right: 2rem;
+      bottom: auto;
+      margin: 0;
+      box-shadow: none;
+    }
+  }
 }
 
-/* Skeleton */
-@keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
-}
-.animate-shimmer {
-  animation: shimmer 2s infinite linear;
-  background: linear-gradient(to right, rgb(0 0 0 / 0.03) 4%, rgb(0 0 0 / 0.07) 25%, rgb(0 0 0 / 0.03) 36%);
-  background-size: 1000px 100%;
-}
-.modo-oscuro .animate-shimmer {
-  background: linear-gradient(to right, rgb(255 255 255 / 0.02) 4%, rgb(255 255 255 / 0.06) 25%, rgb(255 255 255 / 0.02) 36%);
-  background-size: 1000px 100%;
-}
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
 
-/* Bottom sheet */
-@keyframes slideUpSheet {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+@keyframes latido {
+  50% { opacity: 0.55; }
 }
-.animate-slide-up {
-  animation: slideUpSheet 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+@keyframes aparecer {
+  from { opacity: 0; transform: scale(0.97); }
 }
-
-@keyframes popIn {
-  0% { opacity: 0; transform: scale(0.97); }
-  100% { opacity: 1; transform: scale(1); }
+@keyframes entrar {
+  from { opacity: 0; transform: translateX(24px); }
 }
-.animate-pop-in { animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-.hide-scrollbar::-webkit-scrollbar { display: none; }
-.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.aparece { animation: aparecer 180ms var(--ease-suave); }
+.entra { animation: entrar 220ms var(--ease-suave); }
+.sin-barra::-webkit-scrollbar { display: none; }
+.sin-barra { scrollbar-width: none; }
