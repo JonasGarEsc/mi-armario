@@ -207,9 +207,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
-        const ids = conjuntos.map((c) => c.id)
-        if (ids.length > 0) await supabase.from('conjunto_prenda').delete().in('conjunto_id', ids)
-        await supabase.from('conjuntos').delete().eq('semana_id', semana.id)
+        // La base borra en cascada los outfits y las prendas de estos.
         const { error } = await supabase.from('semanas').delete().eq('id', semana.id)
         if (error) return mostrarToast('No se pudo eliminar la semana', 'error')
         const lista = semanas.filter((s) => s.id !== semana.id)
@@ -229,7 +227,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
-        await supabase.from('conjunto_prenda').delete().eq('conjunto_id', conjunto.id)
+        // La base borra en cascada las prendas del outfit.
         const { error } = await supabase.from('conjuntos').delete().eq('id', conjunto.id)
         if (error) return mostrarToast('No se pudo eliminar el outfit', 'error')
         const nuevos = conjuntos.filter((c) => c.id !== conjunto.id)

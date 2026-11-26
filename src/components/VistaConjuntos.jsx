@@ -248,17 +248,14 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
         if (tipo === 'maleta') {
-          const { data: suyos } = await supabase.from('conjuntos').select('id').eq('maleta_id', id)
-          const ids = (suyos || []).map(c => c.id)
-          if (ids.length > 0) await supabase.from('conjunto_prenda').delete().in('conjunto_id', ids)
-          await supabase.from('conjuntos').delete().eq('maleta_id', id)
+          // La base borra en cascada sus conjuntos, las prendas de estos y los extras.
           const { error } = await supabase.from('maletas').delete().eq('id', id)
           if (error) return mostrarToast('No se pudo eliminar', 'error')
           const nuevas = maletas.filter(m => m.id !== id)
           setMaletas(nuevas); guardarCache('maletas', cacheMaletas(nuevas))
           setMaletaActiva(null)
         } else {
-          await supabase.from('conjunto_prenda').delete().eq('conjunto_id', id)
+          // La base borra en cascada las prendas del outfit.
           const { error } = await supabase.from('conjuntos').delete().eq('id', id)
           if (error) return mostrarToast('No se pudo eliminar', 'error')
           const nuevos = conjuntos.filter(c => c.id !== id)
