@@ -11,6 +11,7 @@ import VistaSemanas from './components/VistaSemanas'
 import SelectorPrendas from './components/SelectorPrendas'
 import EtiquetarArmario from './components/EtiquetarArmario'
 import QueMePongo from './components/QueMePongo'
+import AsistenteMaleta from './components/AsistenteMaleta'
 import { ciudadGuardada, guardarCiudad } from './lib/clima'
 import Gestores from './components/Gestores'
 import Icono from './components/Icono'
@@ -110,6 +111,8 @@ function Armario({ sesion }) {
   const [prendasParaConjunto, setPrendasParaConjunto] = useState([])
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
   const [objetivoSemana, setObjetivoSemana] = useState(null)
+  const [maletaAsistente, setMaletaAsistente] = useState(null)
+  const [refrescoMaleta, setRefrescoMaleta] = useState(0)
 
   const [toasts, setToasts] = useState([])
   
@@ -224,6 +227,13 @@ function Armario({ sesion }) {
   }
 
   const recargarVistas = () => setActualizaciones(prev => prev + 1)
+
+  function prepararMaleta(maleta) {
+    setMaletaAsistente(maleta)
+    setPestañaActiva('conjuntos')
+    abrirModal('asistente_maleta')
+    vibrar(30)
+  }
   
   const abrirModal = (tipo) => {
     if (!modalActivo) origenFoco.current = document.activeElement
@@ -416,7 +426,7 @@ function Armario({ sesion }) {
               <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
-              <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
+              <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} onPrepararMaleta={prepararMaleta} refresco={refrescoMaleta} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
             </section>
             <section aria-label="Semana" inert={pestañaActiva !== 'semana'} className={panel}>
               <VistaSemanas
@@ -453,7 +463,17 @@ function Armario({ sesion }) {
                 </Suspense>
               )}
               {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
-              {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Maleta creada", "exito") }} onCancelar={cerrarModal} />}
+              {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={(maleta) => {
+                cerrarModal(); recargarVistas(); vibrar([50, 50])
+                mostrarToast('Maleta creada', 'exito', maleta?.fecha_inicio ? { texto: 'Prepárala por mí', onClick: () => prepararMaleta(maleta) } : null)
+              }} onCancelar={cerrarModal} />}
+              {modalActivo === 'asistente_maleta' && maletaAsistente && (
+                <AsistenteMaleta
+                  maleta={maletaAsistente}
+                  mostrarToast={mostrarToast}
+                  onHecho={() => { cerrarModal(); setRefrescoMaleta(n => n + 1); setPestañaActiva('conjuntos') }}
+                />
+              )}
               {modalActivo === 'crear_semana' && <FormularioSemana onExito={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana'); vibrar([50, 50]); mostrarToast("Semana creada", "exito") }} onCancelar={cerrarModal} />}
               {modalActivo === 'elegir_prendas' && objetivoSemana && (
                 <SelectorPrendas

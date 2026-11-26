@@ -21,6 +21,7 @@ En `docs/diseno/` están las demás vistas, en móvil y escritorio, claro y oscu
 - Marcar «Me lo he puesto» en una prenda y ver la última fecha de uso.
 - **Etiquetado automático**: al elegir la foto, la app calcula los colores en el móvil y una IA propone nombre, tipo, categoría, temporada, abrigo, formalidad, largo y estampado. Tú confirmas o corriges. En Ajustes, «Etiquetar mi armario» hace lo mismo con las prendas que ya tenías.
 - **¿Qué me pongo hoy?** (en Armario y en Semana): con el tiempo de hoy, lo que más tiempo llevas sin ponerte y la armonía de color, propone 3 outfits vestidos en el maniquí. «Otra» cambia uno, tocar una prenda la fija, y «Me lo pongo» lo deja como outfit de hoy en la Semana y anota el uso.
+- **Maleta inteligente**: «Prepárala por mí» consulta el tiempo del destino día a día (previsión hasta 15 días; más allá, la media del año pasado) y monta un outfit distinto por día con las menos prendas posibles, con un máximo de pares de zapatos y un plan por día (ciudad, playa, cena, montaña). Se guarda como outfits normales y añade a la lista lo que no es ropa. La lista de la maleta vive en Supabase.
 - Filtros en el armario por color, temporada, formalidad y «sin usar en 90 días».
 - El largo de cada prenda (crop, cadera, bermuda, midi…) decide cómo cae en el maniquí.
 - Cambiar la foto al editar una prenda.
@@ -51,7 +52,7 @@ Si el proyecto ya tenía datos, ejecuta en este orden:
 1. `supabase/multiusuario.sql`: añade `user_id`, pone las políticas por dueño y limita el bucket a la carpeta de cada cuenta.
 2. `supabase/actualizacion-v3.sql`: añade semanas, la columna `ranura` del maniquí, la tabla `usos`, el destino y las fechas de la maleta, las cascadas y el bucket privado.
 
-3. `supabase/actualizacion-v4.sql`: añade a las prendas colores, temporada, abrigo, formalidad, largo, estampado, precio, el origen de las etiquetas y `archivada`.
+3. `supabase/actualizacion-v4.sql`: añade a las prendas colores, temporada, abrigo, formalidad, largo, estampado, precio, el origen de las etiquetas y `archivada`, y la tabla `maleta_extras` (lista de la maleta). Si falta, la app sigue funcionando: la lista se guarda solo en el móvil.
 
 Ejecuta el SQL antes de desplegar la versión nueva. La app aguanta sin algunas columnas (por ejemplo, guarda la posición aunque no exista `ranura`), pero la sección Semana necesita su tabla.
 
@@ -105,7 +106,9 @@ src/lib/colores.js          colores dominantes de una foto (OKLab) y familia de 
 src/lib/etiquetas.js        etiquetas de las prendas: validación y llamadas a Supabase
 src/lib/vestir.js           cómo cae cada prenda sobre el maniquí
 src/lib/sugerir.js          propuestas de outfit (clima, rotación, color, formalidad)
-src/lib/clima.js            tiempo de hoy con Open-Meteo
+src/lib/clima.js            tiempo de hoy y previsión de un viaje con Open-Meteo
+src/lib/capsula.js          maleta mínima: un outfit distinto por día con las menos prendas
+src/lib/checklistMaleta.js  lista de la maleta en la base de datos
 supabase/esquema.sql        instalación completa desde cero
 supabase/actualizacion-v3.sql  migración para proyectos con datos
 supabase/actualizacion-v4.sql  etiquetas de las prendas

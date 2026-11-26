@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../lib/vibrar'
+import { useChecklistMaleta } from '../lib/useChecklistMaleta'
 import { leerCache, guardarCache } from '../lib/cache'
 import { desdeISO, etiquetaFechaCorta, isoLocal } from '../lib/fechas'
 import { nombreLibre } from '../lib/nombres'
@@ -123,7 +124,7 @@ function WidgetClima({ maleta }) {
   )
 }
 
-export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogoGlobal }) {
+export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refresco = 0, mostrarToast, setDialogoGlobal }) {
   const [maletas, setMaletas] = useState(() => leerCache('maletas') || [])
   const [conjuntos, setConjuntos] = useState([])
   const [cargando, setCargando] = useState(() => !leerCache('maletas'))
@@ -132,21 +133,16 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
   const [editandoNombre, setEditandoNombre] = useState(null)
   const [abriendoId, setAbriendoId] = useState(null)
   const [checklistAbierta, setChecklistAbierta] = useState(false)
-  const [marcadas, setMarcadas] = useState([])
+  const [nuevaCosa, setNuevaCosa] = useState('')
+  const lista = useChecklistMaleta(maletaActiva?.id, refresco)
   const temporizadorMaleta = useRef(null)
 
   useEffect(() => () => clearTimeout(temporizadorMaleta.current), [])
 
   useEffect(() => {
-    if (!maletaActiva) {
-      setMarcadas([])
-      setChecklistAbierta(false)
-      return
-    }
-    const guardadas = leerCache(`checklist_${maletaActiva.id}`)
-    setMarcadas(Array.isArray(guardadas) ? guardadas : [])
     setChecklistAbierta(false)
-  }, [maletaActiva])
+    setNuevaCosa('')
+  }, [maletaActiva?.id])
 
   // La tapa se abre y, al terminar el giro, se entra. Con movimiento reducido, directo.
   function entrarMaleta(m) {
@@ -238,7 +234,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
       setCargando(false)
     }
     cargarDatos()
-  }, [maletaActiva])
+  }, [maletaActiva, refresco])
 
   function solicitarEliminar(tipo, id, e) {
     if (e) e.stopPropagation()
@@ -435,13 +431,21 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     return [...unicas.values()]
   })()
 
-  const hechas = marcadas.filter(id => prendasDeLaMaleta.some(p => p.id === id)).length
+  const hechas = lista.marcadas.filter(id => prendasDeLaMaleta.some(p => p.id === id)).length
+    + lista.extras.filter(e => e.hecho).length
+  const totalLista = prendasDeLaMaleta.length + lista.extras.length
 
   function alternarChecklist(id) {
-    if (!maletaActiva) return
-    const nuevas = marcadas.includes(id) ? marcadas.filter(x => x !== id) : [...marcadas, id]
-    setMarcadas(nuevas)
-    guardarCache(`checklist_${maletaActiva.id}`, nuevas)
+    vibrar(8)
+    lista.alternarPrenda(id)
+  }
+
+  async function anadirCosa(e) {
+    e.preventDefault()
+    const n = await lista.anadir(nuevaCosa)
+    if (n === -1) return mostrarToast('No se pudo añadir a la lista', 'error')
+    if (n === 0 && nuevaCosa.trim()) mostrarToast('Eso ya está en la lista', 'info')
+    setNuevaCosa('')
     vibrar(8)
   }
 
@@ -467,7 +471,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
           </div>
           <WidgetClima maleta={maletaActiva} />
 
-          {prendasDeLaMaleta.length > 0 && (
+          {lista.listo && (
             <div className="mt-1">
               <button
                 onClick={() => setChecklistAbierta(!checklistAbierta)}
@@ -475,13 +479,13 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                 className="min-h-9 flex items-center gap-2 text-sm font-semibold text-acento"
               >
                 <Icono nombre="lista" className="w-4 h-4" />
-                Lista de la maleta · {hechas}/{prendasDeLaMaleta.length}
+                Lista de la maleta · {hechas}/{totalLista}
               </button>
 
               {checklistAbierta && (
                 <ul className="mt-2 rounded-xl border border-linea divide-y divide-linea overflow-hidden">
                   {prendasDeLaMaleta.map(prenda => {
-                    const hecha = marcadas.includes(prenda.id)
+                    const hecha = lista.marcadas.includes(prenda.id)
                     return (
                       <li key={prenda.id}>
                         <label className="flex items-center gap-3 px-3 py-2 min-h-11 cursor-pointer">
@@ -499,9 +503,33 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                       </li>
                     )
                   })}
+                  {lista.extras.map(extra => (
+                    <li key={extra.id} className="flex items-center gap-1 pl-3">
+                      <label className="flex-1 min-w-0 flex items-center gap-3 py-2 min-h-11 cursor-pointer">
+                        <input type="checkbox" checked={extra.hecho} onChange={() => { vibrar(8); lista.alternarExtra(extra.id) }} className="w-5 h-5 shrink-0 accent-acento" />
+                        <span className={`flex-1 min-w-0 truncate text-sm ${extra.hecho ? 'line-through text-tenue' : ''}`}>{extra.texto}</span>
+                      </label>
+                      <button onClick={() => lista.quitar(extra.id)} aria-label={`Quitar ${extra.texto} de la lista`} className="boton-icono w-11! h-11! text-tenue">
+                        <Icono nombre="cerrar" className="w-4 h-4" />
+                      </button>
+                    </li>
+                  ))}
+                  <li>
+                    <form onSubmit={anadirCosa} className="flex items-center gap-2 p-2">
+                      <input value={nuevaCosa} onChange={(e) => setNuevaCosa(e.target.value)} aria-label="Añadir a la lista" placeholder="Añadir: cargador, neceser…" autoComplete="off" className="campo flex-1 min-w-0 min-h-11!" />
+                      <button type="submit" disabled={!nuevaCosa.trim()} className="boton boton-secundario min-h-11! px-4!">Añadir</button>
+                    </form>
+                  </li>
                 </ul>
               )}
             </div>
+          )}
+
+          {maletaActiva.fecha_inicio && (
+            <button onClick={() => onPrepararMaleta?.(maletaActiva)} className="boton boton-secundario w-full mt-3">
+              <Icono nombre="maleta" className="w-5 h-5" />
+              Prepárala por mí
+            </button>
           )}
         </div>
       ) : (

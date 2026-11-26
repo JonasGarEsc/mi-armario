@@ -98,6 +98,19 @@ create table if not exists public.usos (
   creado_en timestamptz not null default now()
 );
 
+-- Lista de la maleta: cosas que no son ropa (texto) o prendas ya metidas (prenda_id).
+create table if not exists public.maleta_extras (
+  id uuid primary key default gen_random_uuid(),
+  maleta_id uuid not null references public.maletas (id) on delete cascade,
+  texto text,
+  prenda_id uuid references public.prendas (id) on delete cascade,
+  hecho boolean not null default false,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  creado_en timestamptz not null default now(),
+  check (texto is not null or prenda_id is not null),
+  unique (maleta_id, prenda_id)
+);
+
 -- 2. Índices -------------------------------------------------------------
 
 create index if not exists prendas_user_idx on public.prendas (user_id, creado_en desc);
@@ -107,6 +120,9 @@ create index if not exists conjuntos_maleta_idx on public.conjuntos (maleta_id);
 create index if not exists conjuntos_semana_idx on public.conjuntos (semana_id, fecha);
 create index if not exists conjunto_prenda_prenda_idx on public.conjunto_prenda (prenda_id);
 create index if not exists usos_prenda_idx on public.usos (prenda_id, fecha desc);
+create unique index if not exists maleta_extras_texto_idx
+  on public.maleta_extras (maleta_id, lower(texto)) where texto is not null;
+create index if not exists maleta_extras_maleta_idx on public.maleta_extras (maleta_id);
 
 -- Un nombre repetido sí vale en maletas distintas; dentro de la misma maleta
 -- (o del mismo día de una semana) no, para que la lista sea legible.
@@ -120,7 +136,7 @@ create unique index if not exists conjuntos_por_dia_nombre
 do $$
 declare t text;
 begin
-  foreach t in array array['tipos', 'categorias', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos'] loop
+  foreach t in array array['tipos', 'categorias', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists "mi ropa" on public.%I', t);
     execute format(
@@ -138,7 +154,7 @@ on conflict (id) do update set public = false;
 
 grant select, insert, update, delete on
   public.tipos, public.categorias, public.prendas, public.maletas,
-  public.semanas, public.conjuntos, public.conjunto_prenda, public.usos
+  public.semanas, public.conjuntos, public.conjunto_prenda, public.usos, public.maleta_extras
   to authenticated;
 
 drop policy if exists "prendas: leer las mías" on storage.objects;

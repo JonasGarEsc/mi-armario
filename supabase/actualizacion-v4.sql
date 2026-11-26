@@ -6,6 +6,7 @@
 -- Qué añade (se va ampliando fase a fase):
 --   Fase 1. Datos de cada prenda: colores, temporada, abrigo, formalidad, largo,
 --           estampado, precio, etiquetas automáticas y archivada.
+--   Fase 3. Lista de la maleta en la base de datos (tabla maleta_extras).
 
 -- Fase 1 · Etiquetas de las prendas ----------------------------------------
 
@@ -35,3 +36,29 @@ begin
 end $$;
 
 create index if not exists prendas_etiquetas_idx on public.prendas (user_id, etiquetas_auto);
+
+-- Fase 3 · Lista de la maleta ------------------------------------------------
+-- Antes la lista (casillas de prendas) vivía solo en el móvil. Ahora cada fila es
+-- una cosa que no es ropa (texto) o una prenda ya metida en la maleta (prenda_id).
+
+create table if not exists public.maleta_extras (
+  id uuid primary key default gen_random_uuid(),
+  maleta_id uuid not null references public.maletas (id) on delete cascade,
+  texto text,
+  prenda_id uuid references public.prendas (id) on delete cascade,
+  hecho boolean not null default false,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  creado_en timestamptz not null default now(),
+  check (texto is not null or prenda_id is not null),
+  unique (maleta_id, prenda_id)
+);
+
+create unique index if not exists maleta_extras_texto_idx
+  on public.maleta_extras (maleta_id, lower(texto)) where texto is not null;
+create index if not exists maleta_extras_maleta_idx on public.maleta_extras (maleta_id);
+
+alter table public.maleta_extras enable row level security;
+drop policy if exists "mi ropa" on public.maleta_extras;
+create policy "mi ropa" on public.maleta_extras for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+grant select, insert, update, delete on public.maleta_extras to authenticated;

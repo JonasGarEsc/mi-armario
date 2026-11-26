@@ -47,7 +47,9 @@ export async function coordenadasDeCiudad(ciudad) {
   const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(ciudad)}&count=1&language=es&format=json`)
   const datos = await r.json()
   const primero = datos.results?.[0]
-  return primero ? { lat: primero.latitude, lon: primero.longitude, nombre: primero.name } : null
+  return primero
+    ? { lat: primero.latitude, lon: primero.longitude, nombre: primero.name, pais: primero.country_code || null }
+    : null
 }
 
 async function pedirClima({ lat, lon }) {
@@ -92,4 +94,91 @@ export async function climaDeHoy({ ciudad = ciudadGuardada(), forzar = false } =
   } catch {
     return null
   }
+}
+
+// --- Previsión de un viaje ---------------------------------------------------
+
+const DIAS_PREVISION = 15 // hasta dónde llega la previsión de Open-Meteo
+
+function sumarDias(iso, dias) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + dias)).toISOString().slice(0, 10)
+}
+
+/** Mismo día un año antes (el 29 de febrero pasa al 28). */
+export function mismoDiaAnioAnterior(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const f = new Date(Date.UTC(y - 1, m - 1, d))
+  if (f.getUTCMonth() !== m - 1) f.setUTCDate(0)
+  return f.toISOString().slice(0, 10)
+}
+
+/** Qué fuente usar para cada día: la previsión o la media del año anterior. */
+export function fuenteDelDia(fechaISO, hoyISO) {
+  const desde = sumarDias(hoyISO, -1)
+  const hasta = sumarDias(hoyISO, DIAS_PREVISION)
+  if (fechaISO >= desde && fechaISO <= hasta) return { fuente: 'prevision', fecha: fechaISO }
+  return { fuente: 'historico', fecha: fechaISO < desde ? fechaISO : mismoDiaAnioAnterior(fechaISO) }
+}
+
+/** Todos los días de una respuesta diaria, como { fecha, temp, min, max, lluvia }. */
+export function resumenesDiarios(json) {
+  const tiempos = json?.daily?.time
+  if (!Array.isArray(tiempos)) return []
+  return tiempos
+    .map((fecha, i) => ({ fecha, ...resumenClima(json, i) }))
+    .filter((d) => typeof d.temp === 'number')
+}
+
+async function pedirRango(base, { lat, lon }, desde, hasta, diario) {
+  const params = new URLSearchParams({ latitude: lat, longitude: lon, daily: diario, timezone: 'auto', start_date: desde, end_date: hasta })
+  const r = await fetch(`${base}?${params}`)
+  return resumenesDiarios(await r.json())
+}
+
+/**
+ * Tiempo previsto, día a día, del destino de una maleta. Hasta 15 días vista usa la
+ * previsión; más allá, o en el pasado, la media del mismo día del año anterior
+ * (`estimado: true`, para avisar de que es orientativo).
+ * Devuelve { dias, nombre, pais } o null si el destino no existe o falla la red.
+ */
+export async function previsionViaje({ destino, fechas, hoy }) {
+  try {
+    const sitio = await coordenadasDeCiudad(destino)
+    if (!sitio || fechas.length === 0) return null
+
+    const dias = new Map()
+    const pedir = async (fuente, desde, hasta) => {
+      const lista = fuente === 'prevision'
+        ? await pedirRango('https://api.open-meteo.com/v1/forecast', sitio, desde, hasta,
+          'apparent_temperature_max,apparent_temperature_min,precipitation_probability_max,precipitation_sum')
+        : await pedirRango('https://archive-api.open-meteo.com/v1/archive', sitio, desde, hasta,
+          'apparent_temperature_max,apparent_temperature_min,precipitation_sum')
+      return new Map(lista.map((d) => [d.fecha, d]))
+    }
+
+    // Se piden de una vez los días de cada fuente (un rango por fuente).
+    const plan = fechas.map((f) => ({ ...fuenteDelDia(f, hoy), original: f }))
+    for (const fuente of ['prevision', 'historico']) {
+      const suyos = plan.filter((p) => p.fuente === fuente)
+      if (suyos.length === 0) continue
+      const ordenadas = suyos.map((p) => p.fecha).sort()
+      const respuesta = await pedir(fuente, ordenadas[0], ordenadas[ordenadas.length - 1])
+      for (const p of suyos) {
+        const d = respuesta.get(p.fecha)
+        if (d) dias.set(p.original, { ...d, fecha: p.original, estimado: fuente === 'historico' })
+      }
+    }
+
+    const lista = fechas.map((f) => dias.get(f)).filter(Boolean)
+    return lista.length ? { dias: lista, nombre: sitio.nombre, pais: sitio.pais } : null
+  } catch {
+    return null
+  }
+}
+
+/** País de casa (dos letras) a partir del idioma del dispositivo; ES si no se sabe. */
+export function paisDeCasa(idioma = typeof navigator !== 'undefined' ? navigator.language : '') {
+  const region = String(idioma || '').split('-')[1]
+  return /^[A-Za-z]{2}$/.test(region || '') ? region.toUpperCase() : 'ES'
 }

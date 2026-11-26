@@ -16,6 +16,14 @@ export const OCASIONES = {
   deporte: { etiqueta: 'Deporte', objetivo: 1 },
 }
 
+/** Ocasiones de un viaje: cada día de la maleta puede tener la suya. */
+export const OCASIONES_VIAJE = {
+  ciudad: { etiqueta: 'Ciudad', objetivo: 2.5 },
+  playa: { etiqueta: 'Playa', objetivo: 1 },
+  cena: { etiqueta: 'Cena', objetivo: 3.5 },
+  montaña: { etiqueta: 'Montaña', objetivo: 1.5 },
+}
+
 const PODA = 10 // prendas que pasan a combinarse por hueco
 const DIAS_DESCANSO = 3 // una prenda usada hace menos de 3 días no se propone
 const ABIERTO = /sandalia|chancla|alpargata|zueco|cangrejera|ojotas/i
@@ -134,9 +142,14 @@ function puntuarConjunto(piezas, base, ctx) {
  * `fijadas`: ids que deben llevar todos los outfits.
  * `descartar`: claves de outfits que no se repiten; `mantener`: outfits (listas de
  * ids) ya elegidos, de los que los nuevos tienen que diferenciarse.
+ * `bonus`: Map id → puntos extra o de penalización (la maleta lo usa para reutilizar
+ * prendas). `minimoDiferencia`: prendas que han de distinguir a dos outfits (2 por
+ * defecto, 1 para la maleta). `descanso`: días que una prenda reposa tras usarse.
+ * `requerir`: { pies, abrigo } — huecos que el outfit debe llevar sí o sí.
  */
 export function sugerirOutfits(prendas, {
   clima, hoy, ocasion = 'cualquiera', fijadas = [], n = 3, descartar = [], mantener = [],
+  bonus = null, minimoDiferencia = 2, descanso = DIAS_DESCANSO, requerir = {},
 }) {
   const ctx = {
     hoy,
@@ -144,7 +157,7 @@ export function sugerirOutfits(prendas, {
     lluvia: Boolean(clima.lluvia),
     objetivoAbrigo: nivelAbrigoObjetivo(clima.temp),
     frio: clima.temp < 16,
-    objetivoFormalidad: OCASIONES[ocasion]?.objetivo ?? null,
+    objetivoFormalidad: (OCASIONES[ocasion] ?? OCASIONES_VIAJE[ocasion])?.objetivo ?? null,
   }
   const fijas = new Set(fijadas)
   const evitar = new Set(descartar)
@@ -158,8 +171,8 @@ export function sugerirOutfits(prendas, {
     if (!huecos[hueco]) continue
     const fijada = fijas.has(p.id)
     const dias = diasSinUsar(p, hoy)
-    if (!fijada && dias !== null && dias < DIAS_DESCANSO) continue
-    base.set(p.id, puntuarPrenda(p, ctx) + (fijada ? 100 : 0))
+    if (!fijada && descanso > 0 && dias !== null && dias < descanso) continue
+    base.set(p.id, puntuarPrenda(p, ctx) + (fijada ? 100 : 0) + (bonus?.get(p.id) ?? 0))
     huecos[hueco].push(p)
   }
 
@@ -192,6 +205,7 @@ export function sugerirOutfits(prendas, {
   const anadir = (piezas) => {
     const ids = Object.values(piezas).filter(Boolean).map((p) => p.id)
     if (evitar.has(clave(ids))) return
+    if ((requerir.pies && !piezas.pies) || (requerir.abrigo && !piezas.abrigo)) return
     candidatos.push({ ids, piezas, puntuacion: puntuarConjunto(piezas, base, ctx) })
   }
 
@@ -207,8 +221,8 @@ export function sugerirOutfits(prendas, {
   const elegidos = []
   for (const c of candidatos) {
     if (elegidos.length >= n) break
-    if (mantener.some((ids) => !sonDistintos(c.ids, ids))) continue
-    if (elegidos.some((e) => !sonDistintos(c.ids, e.ids))) continue
+    if (mantener.some((ids) => !sonDistintos(c.ids, ids, minimoDiferencia))) continue
+    if (elegidos.some((e) => !sonDistintos(c.ids, e.ids, minimoDiferencia))) continue
     elegidos.push(c)
   }
   return elegidos.map((c) => ({ ...c, clave: clave(c.ids) }))

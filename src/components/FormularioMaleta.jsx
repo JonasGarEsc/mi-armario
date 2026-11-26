@@ -17,19 +17,19 @@ export default function FormularioMaleta({ onExito, onCancelar }) {
       return setError('La fecha de vuelta no puede ser anterior a la de ida.')
     }
 
-    const { error: errInsert } = await supabase.from('maletas').insert([{
+    const { data: creada, error: errInsert } = await supabase.from('maletas').insert([{
       nombre,
       destino: destino || null,
       fecha_inicio: fechaInicio,
       fecha_fin: fechaFin,
-    }])
+    }]).select().single()
 
     if (errInsert) {
       setError(errInsert.message?.toLowerCase().includes('duplicate')
         ? 'Ya tienes una maleta con ese nombre.'
         : 'Error al crear la maleta.')
     } else {
-      onExito()
+      onExito(creada)
     }
   }
 
