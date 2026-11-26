@@ -13,6 +13,17 @@
 
 -- Fase 1 · Etiquetas de las prendas ----------------------------------------
 
+-- Una instalación antigua tiene otra columna `temporada` que no es una lista. Se aparta
+-- (no se borra) para crear la nueva; si no, «add column if not exists» la daría por buena.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'prendas'
+               and column_name = 'temporada' and data_type <> 'ARRAY') then
+    alter table public.prendas rename column temporada to temporada_antigua;
+  end if;
+end $$;
+
 alter table public.prendas add column if not exists colores text[];
 alter table public.prendas add column if not exists familia_color text;
 alter table public.prendas add column if not exists temporada text[];
