@@ -132,7 +132,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     temporizadorMaleta.current = setTimeout(() => {
       setAbriendoId(null)
       abrirMaleta(m)
-    }, 680)
+    }, 820)
   }
 
   async function guardarNombre() {
@@ -334,13 +334,14 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     maleta.conjuntos.forEach(c => {
       if (c.conjunto_prenda) {
         c.conjunto_prenda.forEach(cp => {
-          if (cp.prendas?.imagen_url && !urls.includes(cp.prendas.imagen_url) && urls.length < 4) {
+          if (cp.prendas?.imagen_url && !urls.includes(cp.prendas.imagen_url)) {
             urls.push(cp.prendas.imagen_url)
           }
         })
       }
     })
-    return urls
+    // Dentro de la maleta caben ocho fotos; el total cuenta todas las prendas.
+    return { imagenes: urls.slice(0, 8), total: urls.length }
   }
 
   const itemsFiltrados = !maletaActiva ? maletas.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase())) : conjuntos.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
@@ -378,7 +379,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
         <div role="status" aria-label="Cargando" className={maletaActiva ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'rejilla'}>
           {maletaActiva
             ? <div className="esqueleto h-114 md:h-139" />
-            : [0, 1].map(i => <div key={i}><div className="esqueleto aspect-square" /><div className="h-12 mt-2 flex flex-col justify-center gap-2"><div className="esqueleto h-3 w-2/3" /><div className="esqueleto h-3 w-1/3" /></div></div>)}
+            : [0, 1].map(i => <div key={i}><div className="esqueleto aspect-[2/3] w-[86%] max-w-52 mx-auto mt-8 mb-3" /><div className="h-12 mt-2 flex flex-col items-center justify-center gap-2"><div className="esqueleto h-3 w-2/3" /><div className="esqueleto h-3 w-1/3" /></div></div>)}
         </div>
       ) : itemsFiltrados.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -390,38 +391,110 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
       ) : !maletaActiva ? (
         <div className="rejilla mb-4">
           {itemsFiltrados.map((m) => {
-            const imagenes = extraerImagenesMaleta(m)
+            const { imagenes, total } = extraerImagenesMaleta(m)
+            const columnas = imagenes.length > 2 ? 2 : 1
+            const filas = Math.ceil(imagenes.length / columnas)
+            // Cada pieza es mayor que su hueco: así se pisan como ropa doblada.
+            // De cinco en adelante, filas ordenadas: solape leve y casi sin giro.
+            const llena = imagenes.length > 4
+            const ancho = columnas === 1 ? 100 : llena ? 52 : 62
+            const alto = filas === 1 ? 100 : 100 / filas + (llena ? 3 : 14)
             const outfits = m.conjuntos?.length || 0
             const abierta = abriendoId === m.id
             return (
-              <button key={m.id} onClick={() => entrarMaleta(m)} aria-label={`Abrir ${m.nombre}`} className="min-w-0 self-start text-left rounded-xl">
-                <span className={`maleta relative mt-3 ${abierta ? 'abierta' : ''}`}>
-                  <span className="maleta-cuerpo relative block aspect-[4/3]">
-                    {/* Interior: lo que asoma al levantar la tapa. */}
-                    <span className="maleta-interior absolute inset-0 rounded-xl bg-foto border border-linea overflow-hidden p-2 grid grid-cols-2 gap-1 place-items-center">
-                      {imagenes.length === 0
-                        ? <span className="col-span-2 text-tenue"><Icono nombre="maleta" className="w-10 h-10" /></span>
-                        : imagenes.map(url => <Miniatura key={url} url={url} alt="" className="w-full h-full min-w-0 min-h-0 object-contain" />)}
+              <button key={m.id} onClick={() => entrarMaleta(m)} aria-label={`Abrir ${m.nombre}`} className="min-w-0 self-start text-center rounded-xl">
+                <span className={`maleta relative w-[86%] max-w-52 mx-auto pt-8 pb-3 ${abierta ? 'abierta' : ''}`}>
+                  <span className="maleta-suelo absolute -inset-x-3 -bottom-0.5 h-5" aria-hidden="true" />
+                  {/* Asa telescópica, patas y ruedas: van en la carcasa trasera, no se mueven con la tapa. */}
+                  <span className="absolute left-1/2 -translate-x-1/2 top-1 w-[46%] h-8" aria-hidden="true">
+                    <span className="maleta-barra absolute left-2 top-2 bottom-0 w-1.5" />
+                    <span className="maleta-barra absolute right-2 top-2 bottom-0 w-1.5" />
+                    <span className="maleta-goma absolute left-1 bottom-0 w-3.5 h-1.5 rounded-t-sm" />
+                    <span className="maleta-goma absolute right-1 bottom-0 w-3.5 h-1.5 rounded-t-sm" />
+                    <span className="maleta-goma absolute inset-x-0 top-0 h-3.5 rounded-full" />
+                    <span className="maleta-metal absolute left-1/2 -translate-x-1/2 top-1 w-5 h-1.5 rounded-full" />
+                  </span>
+                  {['left-[11%]', 'right-[11%]'].map(lado => (
+                    <span key={lado} className={`absolute ${lado} bottom-0 w-6 h-4`} aria-hidden="true">
+                      <span className="maleta-goma absolute inset-x-1 top-0 h-2 rounded-b-sm" />
+                      <span className="maleta-rueda absolute left-0.5 bottom-0 w-2.5 h-2.5 rounded-full" />
+                      <span className="maleta-rueda absolute right-0.5 bottom-0 w-2.5 h-2.5 rounded-full" />
                     </span>
+                  ))}
 
-                    {/* Tapa: la cara de la maleta, con asa, costillas y cierres. */}
-                    <span className="maleta-tapa absolute inset-0 rounded-xl bg-lamina shadow-(--sombra)">
-                      <span className="maleta-costillas absolute inset-0 rounded-xl" aria-hidden="true" />
-                      <span className="absolute inset-0 rounded-xl border border-linea" aria-hidden="true" />
-                      <span className="absolute left-1/2 -translate-x-1/2 -top-2 w-16 h-4 rounded-t-full border-2 border-b-0 border-tenue/60" aria-hidden="true" />
-                      <span className="absolute inset-x-0 top-[57%] border-t border-linea" aria-hidden="true" />
-                      <span className="absolute left-1/2 -translate-x-1/2 top-[57%] -translate-y-1/2 flex items-center gap-4" aria-hidden="true">
-                        <span className="w-4 h-2.5 rounded-sm bg-acento" />
-                        <span className="w-7 h-3.5 rounded-sm border border-tenue/40 bg-superficie" />
-                        <span className="w-4 h-2.5 rounded-sm bg-acento" />
+                  <span className="maleta-cuerpo relative block aspect-[2/3]">
+                    {/* Tirador lateral con su etiqueta de equipaje. */}
+                    <span className="maleta-goma absolute -right-1.5 top-[27%] w-3 h-[18%] rounded-r-md" aria-hidden="true" />
+                    <span className="maleta-etiqueta absolute -right-2.5 top-[43%] w-3.5 h-[13%] rounded-[3px]" aria-hidden="true" />
+
+                    {/* Carcasa trasera y forro: la ropa doblada se ve al abrir la tapa. */}
+                    <span className="maleta-carcasa absolute inset-0 rounded-3xl p-2">
+                      <span className="maleta-interior relative block w-full h-full rounded-2xl overflow-hidden">
+                        {imagenes.length === 0 && (
+                          <>
+                            <span className="maleta-correa absolute -inset-x-4 top-1/2 h-3 -translate-y-1/2 rotate-[52deg]" />
+                            <span className="maleta-correa absolute -inset-x-4 top-1/2 h-3 -translate-y-1/2 -rotate-[52deg]" />
+                            <span className="maleta-metal absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-5 rounded" />
+                          </>
+                        )}
+                        <span className="absolute inset-1.5">
+                          {imagenes.map((url, i) => {
+                            const fila = Math.floor(i / columnas)
+                            // Si la última fila queda coja, la prenda suelta va centrada.
+                            const suelta = columnas === 2 && i === imagenes.length - 1 && i % 2 === 0
+                            return (
+                              <span key={url} className="maleta-prenda absolute" style={{
+                                left: `${suelta ? (100 - ancho) / 2 : (i % columnas) * (100 - ancho)}%`,
+                                top: `${filas > 1 ? fila * (100 - alto) / (filas - 1) : 0}%`,
+                                width: `${ancho}%`,
+                                height: `${alto}%`,
+                                '--giro': `${llena ? (i % 2 ? 1 : -1) : [-2, 1.5, 2.5, -1.5][i]}deg`,
+                                '--retardo': `${200 + fila * 80}ms`,
+                              }}>
+                                <Miniatura url={url} alt="" className="w-full h-full object-contain" />
+                              </span>
+                            )
+                          })}
+                        </span>
                       </span>
                     </span>
-                    {/* Canto inferior: le da grosor a la maleta. */}
-                    <span className="absolute inset-x-3 -bottom-1 h-2 rounded-b-lg bg-linea" aria-hidden="true" />
+
+                    {/* Tapa con bisagra a la izquierda: cara exterior y forro por detrás. */}
+                    <span className="maleta-tapa absolute inset-0" aria-hidden="true">
+                      <span className="maleta-reverso absolute inset-0 rounded-3xl">
+                        <span className="maleta-bolsillo absolute inset-x-3 bottom-3 h-[46%] rounded-xl" />
+                      </span>
+                      <span className="maleta-cara maleta-carcasa absolute inset-0 rounded-3xl overflow-hidden">
+                        <span className="maleta-costillas absolute inset-x-[15%] inset-y-[8%] rounded-xl" />
+                        <span className="maleta-banda absolute inset-x-0 top-[19%] h-[5%]" />
+                        <span className="maleta-banda absolute inset-x-0 bottom-[17%] h-[5%]" />
+                        {['top-0 left-0', 'top-0 right-0 rotate-90', 'bottom-0 right-0 rotate-180', 'bottom-0 left-0 -rotate-90'].map(esquina => (
+                          <span key={esquina} className={`maleta-esquina absolute ${esquina} w-7 h-7`} />
+                        ))}
+                        {/* Cremallera: cinta, dientes y costura. El viewBox es 2:3, como la tapa. */}
+                        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 300" fill="none">
+                          <rect className="maleta-cinta" x="9" y="9" width="182" height="282" rx="20" />
+                          <rect className="maleta-dientes" x="9" y="9" width="182" height="282" rx="20" />
+                          <rect className="maleta-costura" x="15" y="15" width="170" height="270" rx="15" />
+                        </svg>
+                        {/* Carro de la cremallera con su tirador. */}
+                        <span className="maleta-metal absolute right-[3%] top-[30%] w-2.5 h-3 rounded-sm" />
+                        <span className="maleta-metal absolute right-[4.5%] top-[35%] w-1.5 h-5 rounded-full rotate-6" />
+                        {/* Candado en el borde que se abre. */}
+                        <span className="maleta-metal absolute right-[7%] top-[53%] w-3.5 h-9 rounded-[5px]">
+                          <span className="maleta-rueda absolute left-[3px] top-1.5 w-2 h-2 rounded-full" />
+                          <span className="maleta-goma absolute inset-x-[3px] bottom-1.5 h-2.5 rounded-sm" />
+                        </span>
+                      </span>
+                    </span>
+
+                    {/* Bisagras sobre el eje de giro. */}
+                    <span className="maleta-bisagra absolute -left-1 top-[14%] w-2 h-[11%] rounded-sm" aria-hidden="true" />
+                    <span className="maleta-bisagra absolute -left-1 bottom-[14%] w-2 h-[11%] rounded-sm" aria-hidden="true" />
                   </span>
                 </span>
                 <span className="block mt-2 font-semibold leading-6 truncate">{m.nombre}</span>
-                <span className="block text-sm leading-6 text-tenue">{outfits === 1 ? '1 outfit' : `${outfits} outfits`}</span>
+                <span className="block text-sm leading-6 text-tenue truncate">{outfits === 1 ? '1 outfit' : `${outfits} outfits`}{total > 0 && `, ${total === 1 ? '1 prenda' : `${total} prendas`}`}</span>
               </button>
             )
           })}

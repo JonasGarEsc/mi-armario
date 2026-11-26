@@ -56,6 +56,24 @@
   color-scheme: dark;
 }
 
+/* La maleta es un objeto: mismos colores y misma luz en los dos temas. Solo la usan las clases .maleta*. */
+:root,
+:root.modo-oscuro {
+  --maleta-cuerpo: #55749e;
+  --maleta-sombra: #1f3052;
+  --maleta-brillo: #d6e5fa;
+  --maleta-metal: #a3aab7;
+  --maleta-metal-brillo: #f4f6f9;
+  --maleta-metal-hondo: #565d6b;
+  --maleta-goma: #22252c;
+  --maleta-goma-brillo: #666d7b;
+  --maleta-forro: #e9e3d7;
+  --maleta-forro-hondo: #c3b9a6;
+  --maleta-cuero: #b57c49;
+  --maleta-oscuridad: rgb(6 8 14 / 0.5);
+  --maleta-grano: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23g)' opacity='.16'/%3E%3C/svg%3E");
+}
+
 html,
 body {
   overflow-x: clip;
@@ -233,25 +251,135 @@ body {
 .sin-barra::-webkit-scrollbar { display: none; }
 .sin-barra { scrollbar-width: none; }
 
-/* Maleta de la lista: la tapa gira sobre su bisagra antes de entrar. */
-.maleta { display: block; }
-.maleta-cuerpo { perspective: 900px; }
+/* Maleta de cabina de la lista. Luz desde arriba a la izquierda; la tapa gira sobre su bisagra antes de entrar. */
+.maleta { display: block; z-index: 1; }
+/* Al abrirse se encoge y se desplaza para que tapa y cuerpo quepan en su propia celda, en cualquier columna.
+   Los valores van ligados al ángulo de la tapa y a la perspectiva: si cambia uno, hay que volver a medir. */
+.maleta.abierta {
+  z-index: 0;
+  translate: 11% 0;
+  scale: 0.8;
+  transition: translate 760ms var(--ease-suave), scale 760ms var(--ease-suave);
+  animation: maleta-peso 760ms var(--ease-suave) forwards;
+}
+@keyframes maleta-peso {
+  30% { transform: translate(1px, 2px) rotate(0.7deg); }
+  100% { transform: translate(1px, 1px) rotate(0.2deg); }
+}
+.maleta-cuerpo { perspective: 1400px; }
+
+/* Carcasa: grano, brillo especular diagonal, sombra propia a la derecha y color base. */
+.maleta-carcasa {
+  background:
+    var(--maleta-grano),
+    linear-gradient(118deg, transparent 16%, color-mix(in oklab, var(--maleta-brillo) 55%, transparent) 29%, transparent 44%),
+    linear-gradient(90deg, transparent 58%, color-mix(in oklab, var(--maleta-sombra) 70%, transparent)),
+    radial-gradient(130% 90% at 18% 8%, color-mix(in oklab, var(--maleta-cuerpo), var(--maleta-brillo) 45%), var(--maleta-cuerpo) 52%, color-mix(in oklab, var(--maleta-cuerpo), var(--maleta-sombra) 55%));
+  box-shadow:
+    inset 2px 2px 1px color-mix(in oklab, var(--maleta-brillo) 80%, transparent),
+    inset -3px -4px 6px var(--maleta-sombra),
+    0 1px 2px var(--maleta-oscuridad),
+    4px 10px 18px -6px var(--maleta-oscuridad);
+}
+.maleta-costillas {
+  background:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--maleta-sombra) 65%, transparent),
+      transparent 22%,
+      color-mix(in oklab, var(--maleta-brillo) 55%, transparent) 48%,
+      transparent 70%,
+      color-mix(in oklab, var(--maleta-sombra) 45%, transparent)
+    ) 0 0 / 25% 100%;
+}
+.maleta-banda {
+  background:
+    radial-gradient(circle, var(--maleta-metal-brillo) 0 1px, var(--maleta-metal-hondo) 2.5px, transparent 3px) 14px 50% / 7px 7px no-repeat,
+    radial-gradient(circle, var(--maleta-metal-brillo) 0 1px, var(--maleta-metal-hondo) 2.5px, transparent 3px) calc(100% - 14px) 50% / 7px 7px no-repeat,
+    var(--maleta-grano),
+    linear-gradient(color-mix(in oklab, var(--maleta-cuerpo), var(--maleta-brillo) 35%), var(--maleta-cuerpo) 30%, var(--maleta-sombra));
+  box-shadow: 0 2px 3px var(--maleta-oscuridad);
+}
+.maleta-esquina {
+  background: radial-gradient(circle at 100% 100%, transparent 60%, var(--maleta-brillo) 63%, var(--maleta-sombra) 70%, color-mix(in oklab, var(--maleta-sombra), var(--maleta-cuerpo) 45%));
+  border-radius: 24px 0 0;
+  mask: radial-gradient(circle at 100% 100%, transparent 60%, black 61%);
+}
+.maleta-cinta { stroke: var(--maleta-goma); stroke-width: 6; }
+.maleta-dientes { stroke: var(--maleta-metal); stroke-width: 4.5; stroke-dasharray: 1.3 1.5; }
+.maleta-costura { stroke: var(--maleta-brillo); stroke-width: 0.8; stroke-dasharray: 3 2.5; opacity: 0.55; }
+
+.maleta-metal {
+  background: linear-gradient(135deg, var(--maleta-metal-brillo), var(--maleta-metal) 45%, var(--maleta-metal-hondo));
+  box-shadow: 1px 2px 3px var(--maleta-oscuridad), inset 1px 1px 0 var(--maleta-metal-brillo);
+}
+.maleta-barra { background: linear-gradient(90deg, var(--maleta-metal-hondo), var(--maleta-metal-brillo) 35%, var(--maleta-metal) 65%, var(--maleta-metal-hondo)); }
+.maleta-bisagra {
+  background:
+    repeating-linear-gradient(transparent 0 6px, var(--maleta-metal-hondo) 6px 7px),
+    linear-gradient(90deg, var(--maleta-metal-hondo), var(--maleta-metal-brillo) 40%, var(--maleta-metal-hondo));
+  box-shadow: 1px 1px 2px var(--maleta-oscuridad);
+}
+.maleta-goma {
+  background: linear-gradient(160deg, var(--maleta-goma-brillo), var(--maleta-goma) 55%);
+  box-shadow: 0 1px 2px var(--maleta-oscuridad), inset 1px 1px 0 var(--maleta-goma-brillo);
+}
+.maleta-rueda { background: radial-gradient(circle at 38% 34%, var(--maleta-metal-brillo) 0 10%, var(--maleta-goma-brillo) 28%, var(--maleta-goma) 62%); }
+.maleta-etiqueta {
+  background:
+    radial-gradient(circle, var(--maleta-metal-brillo) 0 1.5px, var(--maleta-goma) 2px, transparent 2.5px) 50% 2px / 6px 6px no-repeat,
+    linear-gradient(var(--maleta-forro), var(--maleta-forro)) 50% 68% / 70% 42% no-repeat,
+    var(--maleta-grano),
+    linear-gradient(135deg, color-mix(in oklab, var(--maleta-cuero), var(--maleta-forro) 35%), var(--maleta-cuero));
+  box-shadow: 1px 2px 3px var(--maleta-oscuridad);
+  rotate: -7deg;
+  z-index: 1;
+}
+.maleta-suelo {
+  background:
+    radial-gradient(50% 28% at 50% 55%, var(--maleta-oscuridad), transparent),
+    radial-gradient(closest-side, var(--maleta-oscuridad), transparent);
+  filter: blur(3px);
+}
+
+/* Interior: forro de tela. */
+.maleta-interior, .maleta-reverso {
+  background:
+    var(--maleta-grano),
+    repeating-linear-gradient(45deg, transparent 0 7px, color-mix(in oklab, var(--maleta-forro-hondo) 45%, transparent) 7px 8px),
+    var(--maleta-forro);
+}
+.maleta-interior { box-shadow: inset 0 4px 10px var(--maleta-oscuridad); }
+.maleta-reverso { border: 6px solid var(--maleta-cuerpo); transform: rotateY(180deg); }
+.maleta-bolsillo {
+  border-top: 3px solid var(--maleta-goma);
+  background: repeating-linear-gradient(-45deg, transparent 0 4px, color-mix(in oklab, var(--maleta-goma) 30%, transparent) 4px 5px);
+}
+.maleta-correa {
+  background: repeating-linear-gradient(90deg, var(--maleta-goma) 0 3px, var(--maleta-goma-brillo) 3px 4px);
+  box-shadow: 0 2px 4px var(--maleta-oscuridad);
+}
+
+/* Apertura: la tapa gira con un rebote mínimo y la ropa se asienta fila a fila. */
 .maleta-tapa {
-  transform-origin: 50% 0;
-  transition: transform 620ms var(--ease-suave);
+  transform-origin: 0 50%;
+  transform-style: preserve-3d;
+  transition: transform 760ms cubic-bezier(0.2, 0.9, 0.2, 1.05);
   will-change: transform;
 }
-.maleta.abierta .maleta-tapa { transform: rotateX(-112deg); }
-.maleta-costillas {
-  background-image: repeating-linear-gradient(90deg, transparent 0 20px, var(--linea) 20px 21px);
+.maleta.abierta .maleta-tapa { transform: rotateY(-105deg); }
+.maleta-cara, .maleta-reverso { backface-visibility: hidden; }
+.maleta-prenda {
+  transform: translateY(10px) scale(0.86) rotate(var(--giro));
+  filter: drop-shadow(0 3px 3px var(--maleta-oscuridad));
 }
-.maleta-interior img {
-  transition: transform 520ms var(--ease-suave) 90ms;
+.maleta.abierta .maleta-prenda {
+  transform: rotate(var(--giro));
+  transition: transform 360ms cubic-bezier(0.2, 0.9, 0.2, 1.05) var(--retardo);
 }
-.maleta:not(.abierta) .maleta-interior img { transform: translateY(16%); }
 
 @media (prefers-reduced-motion: reduce) {
-  .maleta-tapa, .maleta-interior img { transition: none; }
+  .maleta.abierta { animation: none; transition: none; translate: none; scale: none; }
+  .maleta-tapa, .maleta.abierta .maleta-prenda { transition: none; }
+  .maleta-prenda, .maleta.abierta .maleta-prenda { transform: rotate(var(--giro)); }
   .maleta.abierta .maleta-tapa { transform: none; opacity: 0; }
 }
-
