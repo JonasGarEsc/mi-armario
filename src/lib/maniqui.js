@@ -1,31 +1,51 @@
-// Maniquí: ranuras donde imantar cada prenda.
-// Las coordenadas son porcentajes de un escenario cuadrado.
+// Maniquí: medidas del cuerpo, huecos donde imantar cada prenda y reglas
+// para vestirlo. Las coordenadas son porcentajes de un escenario cuadrado.
 
-// `objetivo` es la zona real del cuerpo que viste la prenda (medida sobre el
-// dibujo del maniquí: hombros y=21, cintura y=38, cadera y=49, tobillos y=88).
-// Con `ancla: 'arriba'` la prenda cuelga desde el borde superior de esa zona
-// (hombros, cintura) en vez de centrarse, como haría la ropa de verdad.
+// Medidas del maniquí, sacadas de su dibujo (LienzoOutfit).
+export const CUERPO = {
+  cuello: 17.4, // base del cuello: de aquí cuelgan camisetas y abrigos
+  hombros: { y: 19.6, ancho: 21 },
+  pecho: { y: 26, ancho: 18 },
+  cintura: { y: 34, ancho: 14.5 },
+  cadera: { y: 41.5, ancho: 19.4 },
+  entrepierna: 48.5,
+  rodilla: 66,
+  tobillo: 88.5,
+  suelo: 95,
+}
+
+// Huecos donde se imanta cada prenda: sirven para soltarla y para agarrarla.
 export const RANURAS = {
-  cabeza: { x: 40, y: 2, w: 20, h: 15, capa: 6, etiqueta: 'Cabeza', objetivo: { x: 42, y: 3, w: 16, h: 14 } },
-  torso: { x: 29, y: 19, w: 42, h: 31, capa: 3, etiqueta: 'Torso', objetivo: { x: 38, y: 21, w: 24, h: 23, ancla: 'arriba' } },
-  abrigo: { x: 24, y: 19, w: 52, h: 35, capa: 4, etiqueta: 'Abrigo', objetivo: { x: 36, y: 21, w: 28, h: 29, ancla: 'arriba' } },
-  vestido: { x: 27, y: 20, w: 46, h: 56, capa: 2, etiqueta: 'Vestido', objetivo: { x: 37, y: 21, w: 26, h: 55, ancla: 'arriba' } },
-  piernas: { x: 30, y: 36, w: 40, h: 54, capa: 1, etiqueta: 'Piernas', objetivo: { x: 38.5, y: 37.5, w: 23, h: 51, ancla: 'arriba' } },
-  pies: { x: 34, y: 85, w: 32, h: 13, capa: 5, etiqueta: 'Pies', objetivo: { x: 42, y: 86, w: 16, h: 10 } },
+  cabeza: { x: 40, y: 0, w: 20, h: 15, capa: 6, etiqueta: 'Cabeza' },
+  torso: { x: 36, y: 16, w: 28, h: 26, capa: 3, etiqueta: 'Torso' },
+  abrigo: { x: 33, y: 16, w: 34, h: 34, capa: 4, etiqueta: 'Abrigo' },
+  vestido: { x: 36, y: 17, w: 28, h: 50, capa: 2, etiqueta: 'Vestido' },
+  piernas: { x: 38, y: 35, w: 24, h: 55, capa: 1, etiqueta: 'Piernas' },
+  pies: { x: 38, y: 85, w: 24, h: 12, capa: 5, etiqueta: 'Pies' },
   accesorio: { x: 76, y: 40, w: 18, h: 18, capa: 7, etiqueta: 'Accesorio' },
 }
 
-/** Zona del cuerpo que debe vestir una prenda, relativa a su hueco. */
-export function objetivoDeRanura(clave) {
-  const r = RANURAS[clave]
-  if (!r?.objetivo) return null
-  return {
-    x: (r.objetivo.x - r.x) / r.w,
-    y: (r.objetivo.y - r.y) / r.h,
-    w: r.objetivo.w / r.w,
-    h: r.objetivo.h / r.h,
-    ancla: r.objetivo.ancla || 'centro',
-  }
+// Cómo se viste cada prenda. En vez de estirarla para llenar un hueco, se
+// mide una parte de la foto cuyo tamaño real se conoce (el cuerpo de una
+// camiseta, la cinturilla de un pantalón) y se escala para que coincida con
+// esa misma parte del maniquí. El resto (largo, mangas, vuelo) sale solo,
+// con las proporciones reales de la prenda.
+//  - filas: tramo de la altura de la prenda donde se mide su anchura
+//  - percentil: qué anchura de ese tramo cuenta (bajo = la más estrecha,
+//    para no medir las mangas; 0.5 = la mediana)
+//  - ancho: anchura que debe tener esa parte sobre el maniquí (con holgura)
+//  - arriba: altura a la que queda el borde superior de la prenda
+//  - alto: largo mínimo y máximo razonables, por si la medida falla
+//  - envoltura: una prenda puesta rodea el cuerpo, así que de frente se ve
+//    más estrecha que en la foto plana (≈ 0,8), pero conserva su largo
+//  - zona + ancla: calzado y gorros caben en una zona sin deformarse
+export const VESTIR = {
+  torso: { filas: [0.45, 0.85], percentil: 0.2, ancho: 19.6, envoltura: 0.82, arriba: CUERPO.cuello, alto: [12, 40], anchoMax: 42 },
+  abrigo: { filas: [0.4, 0.8], percentil: 0.2, ancho: 22.4, envoltura: 0.85, arriba: CUERPO.cuello - 0.6, alto: [16, 74], anchoMax: 48 },
+  vestido: { filas: [0.2, 0.5], percentil: 0.1, ancho: 15.6, envoltura: 0.85, arriba: CUERPO.cuello + 0.4, alto: [18, 76], anchoMax: 46 },
+  piernas: { filas: [0, 0.06], percentil: 0.5, ancho: 16.4, envoltura: 0.8, arriba: 36, alto: [9, 59], anchoMax: 36 },
+  pies: { zona: { x: 40.5, y: 85.5, w: 19, h: 10 }, ancla: 'abajo' },
+  cabeza: { zona: { x: 44, y: 1, w: 12, h: 8.6 }, ancla: 'abajo' },
 }
 
 // El orden importa: lo más específico va antes que lo genérico.

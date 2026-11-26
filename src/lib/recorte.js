@@ -1,7 +1,9 @@
-// Caja visible de una foto con transparencia y encaje en un hueco.
-// Sirve para que la ropa tape el cuerpo aunque la foto tenga aire alrededor.
+// Caja visible de una foto con transparencia y perfil de anchuras.
+// Sirve para vestir el maniquí aunque la foto tenga aire alrededor.
 
-const PREFIJO = 'armario_caja_v1_'
+const PREFIJO = 'armario_caja_v2_'
+const OPACO = 64 // alfa mínimo para contar un píxel (ignora sombras suaves)
+const FILAS_PERFIL = 40
 const memoria = new Map()
 const pendientes = new Map()
 
@@ -30,6 +32,44 @@ function guardar(clave, caja) {
   }
 }
 
+/**
+ * Para FILAS_PERFIL alturas de la prenda, la anchura del tramo opaco que pasa
+ * por su centro (fracción del ancho de la foto). Así se distingue el cuerpo
+ * de una camiseta de sus mangas, o la cinturilla de un pantalón de su vuelo.
+ */
+function perfilDeAnchuras(datos, w, minX, maxX, minY, maxY) {
+  const opaco = (fila, x) => datos[fila + x * 4 + 3] > OPACO
+  const centro = Math.round((minX + maxX) / 2)
+  const busqueda = Math.max(1, Math.round(w * 0.06))
+  const altura = maxY - minY + 1
+  const perfil = []
+
+  for (let i = 0; i < FILAS_PERFIL; i++) {
+    const y = minY + Math.min(altura - 1, Math.floor(((i + 0.5) / FILAS_PERFIL) * altura))
+    const fila = y * w * 4
+
+    // El centro puede caer en un escote o entre las perneras: busca cerca.
+    let semilla = -1
+    for (let d = 0; d <= busqueda && semilla < 0; d++) {
+      if (centro - d >= 0 && opaco(fila, centro - d)) semilla = centro - d
+      else if (centro + d < w && opaco(fila, centro + d)) semilla = centro + d
+    }
+    if (semilla < 0) {
+      perfil.push(0)
+      continue
+    }
+
+    // Se toleran huecos de 1-2 píxeles (costuras, ruido del recorte).
+    let a = semilla
+    let b = semilla
+    while (a > 0 && (opaco(fila, a - 1) || (a > 1 && opaco(fila, a - 2)))) a--
+    while (b < w - 1 && (opaco(fila, b + 1) || (b < w - 2 && opaco(fila, b + 2)))) b++
+    perfil.push(Number(((b - a + 1) / w).toFixed(4)))
+  }
+
+  return perfil
+}
+
 function medir(src) {
   return new Promise((resolve) => {
     if (typeof Image === 'undefined' || typeof document === 'undefined') {
@@ -52,7 +92,7 @@ function medir(src) {
 
     img.onload = () => {
       try {
-        const MAX = 240
+        const MAX = 320
         const anchoNatural = img.naturalWidth || 1
         const altoNatural = img.naturalHeight || 1
         const escala = Math.min(1, MAX / Math.max(anchoNatural, altoNatural))
@@ -74,11 +114,14 @@ function medir(src) {
         let minY = h
         let maxX = -1
         let maxY = -1
+        let transparentes = 0
 
         for (let y = 0; y < h; y++) {
           const fila = y * w * 4
           for (let x = 0; x < w; x++) {
-            if (datos[fila + x * 4 + 3] > 16) {
+            if (datos[fila + x * 4 + 3] <= OPACO) {
+              transparentes++
+            } else {
               if (x < minX) minX = x
               if (x > maxX) maxX = x
               if (y < minY) minY = y
@@ -98,10 +141,11 @@ function medir(src) {
           w: (maxX - minX + 1) / w,
           h: (maxY - minY + 1) / h,
           relacion: anchoNatural / altoNatural,
+          perfil: perfilDeAnchuras(datos, w, minX, maxX, minY, maxY),
         }
 
-        // Si no hay márgenes que recortar, no merece la pena.
-        acabar(caja.w > 0.985 && caja.h > 0.985 ? null : caja)
+        // Una foto sin transparencia (fondo sin quitar) no se puede medir.
+        acabar(transparentes < w * h * 0.01 ? null : caja)
       } catch {
         // Canvas contaminado por CORS o sin soporte: se usa el modo de respaldo.
         acabar(null)
@@ -132,48 +176,4 @@ export async function cajaVisible(src, clave) {
 
   pendientes.set(llave, tarea)
   return tarea
-}
-
-/**
- * Coloca la imagen para que su caja visible quepa en el objetivo sin
- * deformarse ni agrandarse de más: la prenda mantiene sus proporciones reales.
- * `aspecto` es ancho/alto del contenedor y `objetivo` es la zona del
- * contenedor a vestir (fracciones de 0 a 1, relativa al hueco).
- * `holgura` permite sobrepasar un poco el objetivo en la dimensión sobrante
- * (1 = encaje exacto, sin salirse). Con `objetivo.ancla === 'arriba'` la
- * prenda cuelga del borde superior de la zona en lugar de centrarse. Devuelve porcentajes del contenedor.
- */
-export function encajarCaja(caja, aspecto = 1, objetivo = null, holgura = 1.03) {
-  if (!caja || !(caja.w > 0) || !(caja.h > 0) || !(aspecto > 0)) return null
-
-  const relacion = caja.relacion > 0 ? caja.relacion : 1
-  const altoContenedor = 1 / aspecto // con ancho de contenedor = 1
-  const zona = objetivo && objetivo.w > 0 && objetivo.h > 0
-    ? objetivo
-    : { x: 0, y: 0, w: 1, h: 1 }
-
-  const anchoObjetivo = zona.w
-  const altoObjetivo = zona.h * altoContenedor
-  const centroX = zona.x + zona.w / 2
-  const centroY = (zona.y + zona.h / 2) * altoContenedor
-
-  // Ancho de la imagen completa para que la caja visible quepa en el objetivo
-  // (la dimensión más restrictiva manda, así no se agranda ni se deforma).
-  const anchoImagen = Math.min(
-    anchoObjetivo / caja.w,
-    (altoObjetivo * relacion) / caja.h,
-  ) * holgura
-  const altoImagen = anchoImagen / relacion
-
-  const izquierda = centroX - (caja.w * anchoImagen) / 2 - caja.x * anchoImagen
-  const arriba = zona.ancla === 'arriba'
-    ? zona.y * altoContenedor - caja.y * altoImagen
-    : centroY - (caja.h * altoImagen) / 2 - caja.y * altoImagen
-
-  return {
-    ancho: anchoImagen * 100,
-    alto: (altoImagen / altoContenedor) * 100,
-    izquierda: izquierda * 100,
-    arriba: (arriba / altoContenedor) * 100,
-  }
 }

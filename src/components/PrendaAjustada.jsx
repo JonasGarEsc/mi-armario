@@ -1,27 +1,22 @@
 import { useEffect, useState } from 'react'
 import { rutaImagen } from '../lib/imagenes'
-import { cajaVisible, encajarCaja } from '../lib/recorte'
+import { RANURAS } from '../lib/maniqui'
+import { cajaVisible } from '../lib/recorte'
 import { useImagenFirmada } from '../lib/useImagenFirmada'
+import { vestirPrenda } from '../lib/vestir'
 
 /**
- * Foto de una prenda. Si `ajustar` está activo, recorta los márgenes
- * transparentes y escala la parte visible para cubrir el hueco del maniquí.
+ * Foto de una prenda. Con `ranura`, la viste sobre el maniquí a escala real
+ * (ver lib/vestir); la foto puede salirse del hueco, que solo sirve de asa.
  */
-export default function PrendaAjustada({
-  url,
-  ancho = 720,
-  aspecto = 1,
-  objetivo = null,
-  ajustar = true,
-  alt = '',
-}) {
+export default function PrendaAjustada({ url, ancho = 720, ranura = null, alt = '' }) {
   const { src, fallar } = useImagenFirmada(url, ancho)
   const [caja, setCaja] = useState(undefined)
 
   useEffect(() => {
     let vivo = true
     setCaja(undefined)
-    if (!src || !ajustar) return () => { vivo = false }
+    if (!src || !ranura) return () => { vivo = false }
 
     cajaVisible(src, rutaImagen(url)).then((resultado) => {
       if (vivo) setCaja(resultado)
@@ -30,22 +25,24 @@ export default function PrendaAjustada({
     return () => {
       vivo = false
     }
-  }, [src, url, ajustar])
+  }, [src, url, ranura])
 
   if (!src) return <span className="block h-full w-full" aria-hidden="true" />
 
-  const encaje = ajustar && caja ? encajarCaja(caja, aspecto, objetivo) : null
-  const estilo = encaje
+  const hueco = ranura ? RANURAS[ranura] : null
+  const puesta = hueco && caja ? vestirPrenda(caja, ranura) : null
+  // Del escenario (0-100) a porcentajes del hueco que contiene la foto.
+  const estilo = puesta
     ? {
-        width: `${encaje.ancho}%`,
-        height: `${encaje.alto}%`,
-        left: `${encaje.izquierda}%`,
-        top: `${encaje.arriba}%`,
+        left: `${((puesta.x - hueco.x) / hueco.w) * 100}%`,
+        top: `${((puesta.y - hueco.y) / hueco.h) * 100}%`,
+        width: `${(puesta.w / hueco.w) * 100}%`,
+        height: `${(puesta.h / hueco.h) * 100}%`,
       }
     : undefined
 
   return (
-    <span className="relative block h-full w-full overflow-hidden">
+    <span className={`relative block h-full w-full ${puesta ? '' : 'overflow-hidden'}`}>
       <img
         src={src}
         onError={fallar}
@@ -55,11 +52,9 @@ export default function PrendaAjustada({
         decoding="async"
         style={estilo}
         className={
-          encaje
+          puesta
             ? 'pointer-events-none absolute max-w-none select-none drop-shadow-sm'
-            : `pointer-events-none h-full w-full select-none drop-shadow-sm ${
-                ajustar ? 'object-cover' : 'object-contain'
-              }`
+            : 'pointer-events-none h-full w-full select-none object-contain drop-shadow-sm'
         }
       />
     </span>
