@@ -8,35 +8,58 @@ const MENSAJES = {
   'Email rate limit exceeded': 'Demasiados intentos. Espera un minuto.',
   'Email logins are disabled': 'El acceso por correo está desactivado en Supabase.',
   'Invalid API key': 'La clave de Supabase no vale para este proyecto.',
+  'User already registered': 'Ese correo ya tiene cuenta. Entra directamente.',
+  'Password should be at least 6 characters': 'La contraseña necesita 6 caracteres como mínimo.',
 }
 
 export default function Acceso() {
+  const [modo, setModo] = useState('entrar')
   const [error, setError] = useState('')
+  const [aviso, setAviso] = useState('')
   const [enviando, setEnviando] = useState(false)
 
-  async function entrar(e) {
+  async function enviar(e) {
     e.preventDefault()
     if (enviando) return
     setEnviando(true)
     setError('')
-    const { error: fallo } = await supabase.auth.signInWithPassword({
-      email: e.target.email.value.trim(),
-      password: e.target.password.value,
-    })
-    // Si sale bien, App cambia de pantalla sola con el aviso de sesión.
-    if (fallo) {
-      setError(MENSAJES[fallo.message] || 'No se pudo entrar. Inténtalo otra vez.')
+    setAviso('')
+
+    const email = e.target.email.value.trim()
+    const password = e.target.password.value
+
+    if (modo === 'entrar') {
+      const { error: fallo } = await supabase.auth.signInWithPassword({ email, password })
+      // Si sale bien, App cambia de pantalla sola con el aviso de sesión.
+      if (fallo) setError(MENSAJES[fallo.message] || 'No se pudo entrar. Inténtalo otra vez.')
       setEnviando(false)
+      return
     }
+
+    const { data, error: fallo } = await supabase.auth.signUp({ email, password })
+    if (fallo) setError(MENSAJES[fallo.message] || 'No se pudo crear la cuenta. Inténtalo otra vez.')
+    // Con la confirmación por correo activa no hay sesión hasta que se confirme.
+    else if (!data.session) setAviso('Cuenta creada. Revisa tu correo para confirmarla y luego entra.')
+    setEnviando(false)
   }
+
+  function cambiarModo() {
+    setModo(modo === 'entrar' ? 'crear' : 'entrar')
+    setError('')
+    setAviso('')
+  }
+
+  const creando = modo === 'crear'
 
   return (
     <div className="min-h-dvh flex flex-col justify-center bg-papel text-tinta font-sans px-6 py-10 pt-safe pb-safe">
       <div className="w-full max-w-sm mx-auto">
         <p className="text-xs font-semibold tracking-[0.18em] uppercase text-tenue">Perletta</p>
-        <h1 className="text-3xl font-bold tracking-tight mt-2 mb-8">Tu armario, solo tuyo.</h1>
+        <h1 className="text-3xl font-bold tracking-tight mt-2 mb-8">
+          {creando ? 'Tu armario, desde cero.' : 'Tu armario, solo tuyo.'}
+        </h1>
 
-        <form onSubmit={entrar} className="flex flex-col gap-4">
+        <form onSubmit={enviar} className="flex flex-col gap-4">
           <div>
             <label htmlFor="email" className="etiqueta">Correo</label>
             <input
@@ -58,21 +81,23 @@ export default function Acceso() {
               name="password"
               type="password"
               required
-              autoComplete="current-password"
+              minLength={6}
+              autoComplete={creando ? 'new-password' : 'current-password'}
               className="campo"
             />
           </div>
 
           {error && <p role="alert" className="aviso-error text-sm">{error}</p>}
+          {aviso && <p role="status" className="text-sm text-tenue">{aviso}</p>}
 
           <button type="submit" disabled={enviando} className="boton boton-primario mt-2">
-            {enviando ? 'Entrando…' : 'Entrar'}
+            {enviando ? (creando ? 'Creando…' : 'Entrando…') : (creando ? 'Crear cuenta' : 'Entrar')}
           </button>
         </form>
 
-        <p className="text-sm text-tenue mt-6">
-          Solo hay una cuenta. Si todavía no existe, se crea desde Supabase; los pasos están en el README.
-        </p>
+        <button onClick={cambiarModo} className="text-sm text-tenue mt-6 mx-auto underline hover:text-tinta">
+          {creando ? '¿Ya tienes cuenta? Entrar' : '¿No tienes cuenta? Crear una'}
+        </button>
       </div>
     </div>
   )

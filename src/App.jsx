@@ -9,6 +9,7 @@ import Icono from './components/Icono'
 import Acceso from './components/Acceso'
 import { supabase } from './supabase'
 import { esDuplicado } from './lib/outfits'
+import { fijarEspacio } from './lib/cache'
 
 // El motor de recorte pesa cientos de kB: solo se descarga al abrir el formulario.
 const FormularioPrenda = lazy(() => import('./components/FormularioPrenda'))
@@ -26,31 +27,21 @@ const SECCIONES = [
 // antes de que Supabase sepa quién eres (y RLS no devuelva vacío).
 export default function App() {
   const [sesion, setSesion] = useState(undefined)
-  const [sinAcceso, setSinAcceso] = useState(false)
 
   useEffect(() => {
     let activo = true
 
-    async function aplicar(nueva) {
-      if (!nueva) {
-        if (activo) { setSesion(null); setSinAcceso(false) }
-        return
-      }
-      // La lista de miembros decide quién entra. Si la migración aún no está puesta
-      // la tabla no existe: se deja pasar para no romper la app de antes.
-      const { data, error } = await supabase.from('miembros').select('user_id').maybeSingle()
+    // La caché va por cuenta: en un móvil compartido no se cuela la ropa ajena.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evento, nueva) => {
       if (!activo) return
-      setSinAcceso(!error && !data)
-      setSesion(nueva)
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (activo) aplicar(data.session ?? null)
+      fijarEspacio(nueva?.user?.id)
+      setSesion(nueva ?? null)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evento, nueva) => {
-      // Fuera del callback: dentro de él supabase-js tiene el candado de auth.
-      setTimeout(() => { if (activo) aplicar(nueva ?? null) }, 0)
+    supabase.auth.getSession().then(({ data }) => {
+      if (!activo) return
+      fijarEspacio(data.session?.user?.id)
+      setSesion(actual => (actual === undefined ? (data.session ?? null) : actual))
     })
 
     return () => { activo = false; subscription.unsubscribe() }
@@ -58,7 +49,6 @@ export default function App() {
 
   if (sesion === undefined) return <PantallaCarga />
   if (!sesion) return <Acceso />
-  if (sinAcceso) return <SinAcceso email={sesion.user?.email} />
   return <Armario sesion={sesion} />
 }
 
@@ -70,25 +60,7 @@ function PantallaCarga() {
   )
 }
 
-function SinAcceso({ email }) {
-  return (
-    <div className="min-h-dvh flex flex-col justify-center bg-papel text-tinta font-sans px-6 py-10 pt-safe pb-safe">
-      <div className="w-full max-w-sm mx-auto">
-        <h1 className="text-2xl font-bold tracking-tight mb-3">Esta cuenta no tiene acceso</h1>
-        <p className="text-tenue mb-2">
-          Has entrado como <strong className="text-tinta wrap-break-word">{email}</strong>, pero no está en la lista de
-          miembros de la base de datos.
-        </p>
-        <p className="text-sm text-tenue mb-6">
-          Añádela desde el SQL Editor de Supabase (está en <code>supabase/rls.sql</code>) y vuelve a entrar.
-        </p>
-        <button onClick={() => supabase.auth.signOut()} className="boton boton-secundario w-full">
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
-  )
-}
+// El armario se monta ya con sesión: cada consulta va filtrada por RLS al usuario.
 
 function Armario({ sesion }) {
   const [pestañaActiva, setPestañaActiva] = useState('ropa')

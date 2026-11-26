@@ -64,7 +64,10 @@ export default function FormularioPrenda({ onExito }) {
       }
 
       const extension = archivoProcesado.type === 'image/png' ? 'png' : 'webp'
-      const nombreArchivo = `prenda-${Date.now()}.${extension}`
+      // Carpeta por usuario: así cada cuenta solo puede escribir (y borrar) lo suyo.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Sesión caducada. Vuelve a entrar.')
+      const nombreArchivo = `${user.id}/prenda-${Date.now()}.${extension}`
 
       setEstadoProceso('Subiendo al servidor…')
       const { error: errImg } = await supabase.storage.from('prendas').upload(nombreArchivo, archivoProcesado)

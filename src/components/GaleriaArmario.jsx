@@ -73,7 +73,8 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
         vibrar([50, 50])
 
         // La foto se borra 7 s después. Mientras el aviso siga en pantalla, se puede deshacer.
-        const archivo = prenda.imagen_url.split('/').pop()
+        // La ruta lleva la carpeta del usuario delante: se recorta desde el bucket, no solo el nombre.
+        const archivo = decodeURIComponent(prenda.imagen_url.split('/prendas/').pop())
         let deshecho = false
         mostrarToast('Prenda eliminada', 'info', {
           texto: 'Deshacer',
