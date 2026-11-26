@@ -1,5 +1,5 @@
 // Estado de una prenda dentro de un outfit: posición, capa, hueco del maniquí, escala
-// (pellizco) y si la camiseta va por dentro. Lógica pura y guardado.
+// (pellizco o doble toque) y si la camiseta va por dentro. Lógica pura y guardado.
 
 export const ESCALA_MIN = 0.8
 export const ESCALA_MAX = 1.2
@@ -8,6 +8,14 @@ export const ESCALA_MAX = 1.2
 export const limitarEscala = (e) => {
   const n = Number(e)
   return Number.isFinite(n) ? Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, n)) : 1
+}
+
+/** Siguiente tamaño al hacer doble toque: mediano (1) → grande (1,2) → pequeño (0,8). */
+export function siguienteTamano(escala) {
+  const actual = limitarEscala(escala)
+  if (actual < 1) return 1
+  if (actual < ESCALA_MAX) return ESCALA_MAX
+  return ESCALA_MIN
 }
 
 /** Escala tras un pellizco: la de partida por lo que ha crecido la distancia entre dedos. */

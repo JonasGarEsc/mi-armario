@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { aFraccion, esPosicionEnPixeles } from '../lib/outfits'
-import { distancia, escalaDePellizco, limitarEscala } from '../lib/estadoPrenda'
+import { distancia, escalaDePellizco, limitarEscala, siguienteTamano } from '../lib/estadoPrenda'
 import { RANURAS, dentroDelManiqui, inferirRanura, ranuraMasCercana } from '../lib/maniqui'
 import { vibrar } from '../lib/vibrar'
 import PrendaAjustada from './PrendaAjustada'
@@ -95,7 +95,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   const modo = useRef(null) // null | 'pendiente' | 'arrastre' | 'pellizco' | 'esperando'
   const previa = useRef(null)
   const pellizco = useRef(null)
-  const ultimoToque = useRef(0)
+  const ultimoToque = useRef(null)
 
   // Posición antigua en píxeles: se pasa a fracción del lienzo al abrirla.
   useLayoutEffect(() => {
@@ -119,8 +119,8 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
 
   const extra = (sobre = {}) => ({ escala: escalaRef.current, por_dentro: porDentro, ...sobre })
 
-  // Una prenda puesta no se despega al tocarla: espera a que el dedo se mueva de verdad.
-  // Así un toque, un doble toque o un pellizco no la sacan del maniquí.
+  // Una prenda no se mueve al tocarla: espera a que el puntero se desplace de verdad.
+  // Así un toque, un doble toque o un pellizco no la mueven ni la sacan del maniquí.
   const alBajar = (e) => {
     if (e.button !== undefined && e.button !== 0) return
     punteros.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -128,6 +128,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
 
     if (punteros.current.size >= 2 && ranura) {
       // Segundo dedo sobre una prenda puesta: pellizco (si ya se había empezado a arrastrar, se deshace).
+      ultimoToque.current = null
       if (modo.current === 'arrastre' && previa.current) {
         const p = previa.current
         setRanura(p.ranura); setZIndex(p.zIndex); zRef.current = p.zIndex
@@ -138,27 +139,30 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
       modo.current = 'pellizco'
       return
     }
-    if (punteros.current.size >= 2) return
-
-    previa.current = { ranura, zIndex, pos: posRef.current }
-    if (ranura) {
-      modo.current = 'pendiente'
-      pellizco.current = { x: e.clientX, y: e.clientY, t: e.timeStamp }
+    if (punteros.current.size >= 2) {
+      ultimoToque.current = null
+      if (modo.current === 'pendiente') modo.current = 'esperando'
       return
     }
-    empezarArrastre(e)
+
+    previa.current = { ranura, zIndex, pos: posRef.current }
+    modo.current = 'pendiente'
+    pellizco.current = { x: e.clientX, y: e.clientY }
   }
 
   const empezarArrastre = (e) => {
+    ultimoToque.current = null
     modo.current = 'arrastre'
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
-    const rect = e.currentTarget.getBoundingClientRect()
     const tam = cont.width * TAMANO_LIBRE
 
     // Una prenda puesta ocupa su hueco; al cogerla pasa a tamaño suelto,
     // centrada bajo el dedo para que no pegue un salto.
     if (ranura) offset.current = { x: tam / 2, y: tam / 2 }
-    else offset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    else offset.current = {
+      x: e.clientX - cont.left - e.currentTarget.offsetLeft,
+      y: e.clientY - cont.top - e.currentTarget.offsetTop,
+    }
     const nueva = posicionDesde(e, cont)
     posRef.current = nueva
     setPos(nueva)
@@ -189,7 +193,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
       empezarArrastre(e)
       return
     }
-    if (!arrastrando) return
+    if (modo.current !== 'arrastre') return
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
     const nueva = posicionDesde(e, cont)
     posRef.current = nueva
@@ -205,8 +209,12 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
     )
 
   const alSoltar = (e) => {
+    if (!punteros.current.has(e.pointerId)) return
     punteros.current.delete(e.pointerId)
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ya no estaba */ }
+
+    const cancelado = e.type === 'pointercancel'
+    if (cancelado) ultimoToque.current = null
 
     if (modo.current === 'pellizco') {
       // Al soltar un dedo se guarda la escala; el que queda no mueve nada.
@@ -222,25 +230,39 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
       return
     }
     if (modo.current === 'pendiente') {
-      // Un toque sin mover. Dos seguidos restablecen el tamaño.
+      // Un toque sin mover. Dos seguidos cambian el tamaño entre pequeño, mediano y grande.
       modo.current = null
-      if (e.timeStamp - ultimoToque.current < 320) {
-        ultimoToque.current = 0
-        if (escalaRef.current !== 1) {
-          escalaRef.current = 1
-          setEscala(1)
-          onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, RANURAS[ranura].capa, ranura, extra({ escala: 1 }))
-          vibrar(12)
+      if (cancelado) return
+      if (ultimoToque.current !== null && e.timeStamp - ultimoToque.current < 320) {
+        ultimoToque.current = null
+        const nueva = siguienteTamano(escalaRef.current)
+        escalaRef.current = nueva
+        setEscala(nueva)
+        if (ranura) {
+          onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, RANURAS[ranura].capa, ranura, extra({ escala: nueva }))
+        } else {
+          onGuardarEstado(cp.conjunto_id, cp.prenda_id, posRef.current.x, posRef.current.y, zRef.current, null, extra({ escala: nueva }))
         }
+        vibrar(12)
       } else {
         ultimoToque.current = e.timeStamp
       }
       return
     }
-    if (!arrastrando) return
-    modo.current = null
+    if (modo.current !== 'arrastre') return
+    if (punteros.current.size > 0 && !cancelado) return
+    modo.current = cancelado && punteros.current.size ? 'esperando' : null
     setArrastrando(false)
     onSobreCuerpo?.(false)
+
+    if (cancelado) {
+      const p = previa.current
+      if (p) {
+        setRanura(p.ranura); setZIndex(p.zIndex); zRef.current = p.zIndex
+        posRef.current = p.pos; setPos(p.pos)
+      }
+      return
+    }
 
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
     const dedoX = ((e.clientX - cont.left) / cont.width) * 100
@@ -270,6 +292,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   }
 
   function alternarPorDentro() {
+    ultimoToque.current = null
     const nuevo = !porDentro
     setPorDentro(nuevo)
     onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, RANURAS.torso.capa, ranura, extra({ por_dentro: nuevo }))
@@ -286,6 +309,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         width: `${RANURAS[ranura].w}%`,
         height: `${RANURAS[ranura].h}%`,
         zIndex: capaVisible + 20,
+        ...(ranura === 'accesorio' && escala !== 1 && { transform: `scale(${escala})` }),
       }
     : {
         // Hasta medir el lienzo, una posición antigua se pinta en píxeles.
@@ -295,6 +319,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         width: `${TAMANO_LIBRE * 100}%`,
         height: `${TAMANO_LIBRE * 100}%`,
         zIndex: zIndex + 20,
+        ...(escala !== 1 && { transform: `scale(${escala})` }),
       }
 
   return (
@@ -316,7 +341,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         ranura={ranura}
         textos={[cp.prendas.nombre, cp.prendas.categorias?.nombre, cp.prendas.categorias?.tipos?.nombre]}
         largo={cp.prendas.largo}
-        escala={ranura ? escala : 1}
+        escala={escala}
         porDentro={ranura === 'torso' && porDentro}
       />
       {ranura === 'torso' && !soloLectura && !arrastrando && (

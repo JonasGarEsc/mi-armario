@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  distancia, escalaDePellizco, escalaParaGuardar, guardarEstadoPrenda, limitarEscala,
+  ESCALA_MAX, ESCALA_MIN, distancia, escalaDePellizco, escalaParaGuardar, guardarEstadoPrenda, limitarEscala, siguienteTamano,
 } from '../src/lib/estadoPrenda.js'
 
 test('la escala se queda entre 0,8 y 1,2', () => {
@@ -10,6 +10,23 @@ test('la escala se queda entre 0,8 y 1,2', () => {
   assert.equal(limitarEscala(1.05), 1.05)
   assert.equal(limitarEscala('x'), 1)
   assert.equal(limitarEscala(undefined), 1)
+})
+
+test('doble toque alterna entre mediano, grande y pequeño', () => {
+  assert.equal(siguienteTamano(1), ESCALA_MAX)
+  assert.equal(siguienteTamano(ESCALA_MAX), ESCALA_MIN)
+  assert.equal(siguienteTamano(ESCALA_MIN), 1)
+
+  // Valores intermedios de un pellizco
+  assert.equal(siguienteTamano(0.85), 1)
+  assert.equal(siguienteTamano(0.99), 1)
+  assert.equal(siguienteTamano(1.05), ESCALA_MAX)
+  assert.equal(siguienteTamano(1.19), ESCALA_MAX)
+
+  // Fuera de rango o sin valor
+  assert.equal(siguienteTamano(0.5), 1)
+  assert.equal(siguienteTamano(2), ESCALA_MIN)
+  assert.equal(siguienteTamano(undefined), ESCALA_MAX)
 })
 
 test('pellizcar escala por lo que se abren o cierran los dedos', () => {
