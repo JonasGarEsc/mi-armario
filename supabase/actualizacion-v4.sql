@@ -8,6 +8,7 @@
 --           estampado, precio, etiquetas automáticas y archivada.
 --   Fase 3. Lista de la maleta en la base de datos (tabla maleta_extras).
 --   Fase 4. Marcar prendas para donar o vender (columna salida).
+--   Fase 5. Escala y «por dentro» de cada prenda en el maniquí.
 
 -- Fase 1 · Etiquetas de las prendas ----------------------------------------
 
@@ -73,5 +74,18 @@ do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'prendas_salida_valida') then
     alter table public.prendas add constraint prendas_salida_valida check (salida is null or salida in ('donar', 'vender'));
+  end if;
+end $$;
+
+-- Fase 5 · Pulido del maniquí --------------------------------------------------
+-- escala: pellizcar una prenda del maniquí la agranda o encoge hasta un 20 %.
+-- por_dentro: la camiseta metida por dentro del pantalón.
+
+alter table public.conjunto_prenda add column if not exists escala real not null default 1;
+alter table public.conjunto_prenda add column if not exists por_dentro boolean not null default false;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'conjunto_prenda_escala_rango') then
+    alter table public.conjunto_prenda add constraint conjunto_prenda_escala_rango check (escala between 0.5 and 1.5);
   end if;
 end $$;

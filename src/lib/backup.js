@@ -1,5 +1,6 @@
 import { nombreLibre } from './nombres.js'
 import { CAMPOS_ETIQUETA, normalizarEtiquetas } from './etiquetas.js'
+import { intentosDeGuardado, limitarEscala } from './estadoPrenda.js'
 
 // Restaurar una copia: se añade a lo que ya hay, sin borrar nada.
 // Los ids se regeneran y las relaciones se vuelven a atar por nombre o por id
@@ -250,6 +251,9 @@ export async function importarCopia(supabase, crudo) {
           z_index: cp.z_index ?? 1,
         }
         if (cp.ranura) fila.ranura = cp.ranura
+        // Copias antiguas: sin escala ni «por dentro».
+        if (typeof cp.escala === 'number' && cp.escala !== 1) fila.escala = limitarEscala(cp.escala)
+        if (cp.por_dentro === true) fila.por_dentro = true
         return fila
       })
       .filter(Boolean)
@@ -268,15 +272,14 @@ export async function importarCopia(supabase, crudo) {
       conjunto_prenda: prendasDelConjunto,
     }
 
-    let { error } = await supabase.from('conjuntos').insert([fila])
-    if (error && prendasDelConjunto.some((cp) => cp.ranura)) {
-      // Base de datos sin la columna ranura: se guarda igual, sin imantación.
-      fila.conjunto_prenda = prendasDelConjunto.map((cp) => {
-        const copia = { ...cp }
-        delete copia.ranura
-        return copia
-      })
+    // Base de datos sin las columnas nuevas o sin `ranura`: se guarda igual, con menos detalle.
+    let error = null
+    const variantes = prendasDelConjunto.map((cp) => intentosDeGuardado(cp))
+    const pasos = Math.max(...variantes.map((v) => v.length))
+    for (let paso = 0; paso < pasos; paso++) {
+      fila.conjunto_prenda = variantes.map((v) => v[Math.min(paso, v.length - 1)])
       ;({ error } = await supabase.from('conjuntos').insert([fila]))
+      if (!error) break
     }
     if (error) {
       resumen.omitidos++

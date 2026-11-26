@@ -4,11 +4,11 @@ import { borrarArchivo } from '../lib/imagenes'
 import { prepararFoto, subirFoto } from '../lib/imagen'
 import { colorDeImagen } from '../lib/colores'
 import {
-  etiquetasDeFormulario, etiquetasParaGuardar, hayEtiquetas, insertarPrenda, origenEtiquetas, pedirEtiquetas, sinAcentos,
+  clasificarSugerencia, etiquetasDeFormulario, etiquetasParaGuardar, hayEtiquetas, insertarPrenda, origenEtiquetas, pedirEtiquetas,
 } from '../lib/etiquetas'
 import CamposEtiquetas from './CamposEtiquetas'
 
-export default function FormularioPrenda({ onExito }) {
+export default function FormularioPrenda({ onExito, onVarias }) {
   const [tipos, setTipos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [archivo, setArchivo] = useState(null)
@@ -67,13 +67,12 @@ export default function FormularioPrenda({ onExito }) {
         if (!tocado.current.nombre && sugerencia.nombre) setNombre((actual) => actual || sugerencia.nombre)
 
         // Se clasifica solo con tipos y categorías que ya existen.
-        if (tocado.current.clasificacion || !sugerencia.tipo) return
+        if (tocado.current.clasificacion) return
         const { tipos: ts, categorias: cs } = listas.current
-        const tipo = ts.find((t) => sinAcentos(t.nombre) === sinAcentos(sugerencia.tipo))
-        const categoria = tipo && cs.find((c) => c.tipo_id === tipo.id && sinAcentos(c.nombre) === sinAcentos(sugerencia.categoria))
-        if (tipo) setTipoSeleccionado(tipo.id)
-        if (categoria) setCategoriaId(categoria.id)
-        else setPista(`La IA sugiere ${sugerencia.tipo}${sugerencia.categoria ? ` › ${sugerencia.categoria}` : ''}${tipo ? '' : ', que aún no existe en tus listas'}.`)
+        const c = clasificarSugerencia(sugerencia, ts, cs)
+        if (c.tipoId) setTipoSeleccionado(c.tipoId)
+        if (c.categoriaId) setCategoriaId(c.categoriaId)
+        setPista(c.pista)
       })
       .catch(() => { /* el error se enseña al guardar */ })
       .finally(() => { if (vivo) setAnalizando(false) })
@@ -133,6 +132,9 @@ export default function FormularioPrenda({ onExito }) {
   return (
     <form onSubmit={manejarEnvio} className="flex flex-col gap-4 text-left">
       <h2 className="titulo-hoja">Añadir prenda</h2>
+      {onVarias && (
+        <button type="button" onClick={onVarias} className="boton boton-secundario w-full -mt-1">Subir varias fotos a la vez</button>
+      )}
 
       {errorFormulario && (
         <div role="alert" className="aviso-error">{errorFormulario}</div>

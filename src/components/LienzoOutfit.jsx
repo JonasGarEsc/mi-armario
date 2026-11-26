@@ -1,5 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { aFraccion, esPosicionEnPixeles } from '../lib/outfits'
+import { distancia, escalaDePellizco, limitarEscala } from '../lib/estadoPrenda'
 import { RANURAS, dentroDelManiqui, inferirRanura, ranuraMasCercana } from '../lib/maniqui'
 import { vibrar } from '../lib/vibrar'
 import PrendaAjustada from './PrendaAjustada'
@@ -86,6 +87,15 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   const zRef = useRef(zIndex)
   const offset = useRef({ x: 0, y: 0 })
   const nodo = useRef(null)
+  const [escala, setEscala] = useState(limitarEscala(cp.escala ?? 1))
+  const [porDentro, setPorDentro] = useState(Boolean(cp.por_dentro))
+  const escalaRef = useRef(escala)
+  // Gestos: dedos apoyados, pellizco en curso y estado previo por si un segundo dedo cancela el arrastre.
+  const punteros = useRef(new Map())
+  const modo = useRef(null) // null | 'pendiente' | 'arrastre' | 'pellizco' | 'esperando'
+  const previa = useRef(null)
+  const pellizco = useRef(null)
+  const ultimoToque = useRef(0)
 
   // Posición antigua en píxeles: se pasa a fracción del lienzo al abrirla.
   useLayoutEffect(() => {
@@ -107,8 +117,40 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
       cont.width * TAMANO_LIBRE,
     )
 
+  const extra = (sobre = {}) => ({ escala: escalaRef.current, por_dentro: porDentro, ...sobre })
+
+  // Una prenda puesta no se despega al tocarla: espera a que el dedo se mueva de verdad.
+  // Así un toque, un doble toque o un pellizco no la sacan del maniquí.
   const alBajar = (e) => {
     if (e.button !== undefined && e.button !== 0) return
+    punteros.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* sin captura, va igual */ }
+
+    if (punteros.current.size >= 2 && ranura) {
+      // Segundo dedo sobre una prenda puesta: pellizco (si ya se había empezado a arrastrar, se deshace).
+      if (modo.current === 'arrastre' && previa.current) {
+        const p = previa.current
+        setRanura(p.ranura); setZIndex(p.zIndex); zRef.current = p.zIndex
+        posRef.current = p.pos; setPos(p.pos); setArrastrando(false); onSobreCuerpo?.(false)
+      }
+      const [a, b] = [...punteros.current.values()]
+      pellizco.current = { distancia: distancia(a, b), escala: escalaRef.current }
+      modo.current = 'pellizco'
+      return
+    }
+    if (punteros.current.size >= 2) return
+
+    previa.current = { ranura, zIndex, pos: posRef.current }
+    if (ranura) {
+      modo.current = 'pendiente'
+      pellizco.current = { x: e.clientX, y: e.clientY, t: e.timeStamp }
+      return
+    }
+    empezarArrastre(e)
+  }
+
+  const empezarArrastre = (e) => {
+    modo.current = 'arrastre'
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
     const rect = e.currentTarget.getBoundingClientRect()
     const tam = cont.width * TAMANO_LIBRE
@@ -127,12 +169,26 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
     setZIndex(nuevoZ)
     setMaxZ(nuevoZ)
     setArrastrando(true)
-
-    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* sin captura, va igual */ }
     vibrar(12)
   }
 
   const alMover = (e) => {
+    if (punteros.current.has(e.pointerId)) punteros.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (modo.current === 'pellizco') {
+      if (punteros.current.size < 2) return
+      const [a, b] = [...punteros.current.values()]
+      const nueva = escalaDePellizco(pellizco.current.escala, pellizco.current.distancia, distancia(a, b))
+      escalaRef.current = nueva
+      setEscala(nueva)
+      return
+    }
+    if (modo.current === 'pendiente') {
+      const inicio = pellizco.current
+      if (Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) < 8) return
+      empezarArrastre(e)
+      return
+    }
     if (!arrastrando) return
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
     const nueva = posicionDesde(e, cont)
@@ -149,10 +205,42 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
     )
 
   const alSoltar = (e) => {
+    punteros.current.delete(e.pointerId)
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ya no estaba */ }
+
+    if (modo.current === 'pellizco') {
+      // Al soltar un dedo se guarda la escala; el que queda no mueve nada.
+      if (punteros.current.size < 2) {
+        const capa = RANURAS[ranura]?.capa ?? zRef.current
+        onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, capa, ranura, extra())
+        modo.current = punteros.current.size ? 'esperando' : null
+      }
+      return
+    }
+    if (modo.current === 'esperando') {
+      if (punteros.current.size === 0) modo.current = null
+      return
+    }
+    if (modo.current === 'pendiente') {
+      // Un toque sin mover. Dos seguidos restablecen el tamaño.
+      modo.current = null
+      if (e.timeStamp - ultimoToque.current < 320) {
+        ultimoToque.current = 0
+        if (escalaRef.current !== 1) {
+          escalaRef.current = 1
+          setEscala(1)
+          onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, RANURAS[ranura].capa, ranura, extra({ escala: 1 }))
+          vibrar(12)
+        }
+      } else {
+        ultimoToque.current = e.timeStamp
+      }
+      return
+    }
     if (!arrastrando) return
+    modo.current = null
     setArrastrando(false)
     onSobreCuerpo?.(false)
-    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ya no estaba */ }
 
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
     const dedoX = ((e.clientX - cont.left) / cont.width) * 100
@@ -173,13 +261,23 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
       zRef.current = capa
       setRanura(elegida)
       setZIndex(capa)
-      onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, capa, elegida)
+      onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, capa, elegida, extra())
       vibrar(8)
       return
     }
 
-    onGuardarEstado(cp.conjunto_id, cp.prenda_id, posRef.current.x, posRef.current.y, zRef.current, null)
+    onGuardarEstado(cp.conjunto_id, cp.prenda_id, posRef.current.x, posRef.current.y, zRef.current, null, extra())
   }
+
+  function alternarPorDentro() {
+    const nuevo = !porDentro
+    setPorDentro(nuevo)
+    onGuardarEstado(cp.conjunto_id, cp.prenda_id, 0, 0, RANURAS.torso.capa, ranura, extra({ por_dentro: nuevo }))
+    vibrar(12)
+  }
+
+  // Por dentro, la camiseta pasa por detrás del pantalón: él tapa lo que sobra por abajo.
+  const capaVisible = ranura === 'torso' && porDentro ? 0 : zIndex
 
   const estilo = ranura
     ? {
@@ -187,7 +285,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         top: `${RANURAS[ranura].y}%`,
         width: `${RANURAS[ranura].w}%`,
         height: `${RANURAS[ranura].h}%`,
-        zIndex: zIndex + 20,
+        zIndex: capaVisible + 20,
       }
     : {
         // Hasta medir el lienzo, una posición antigua se pinta en píxeles.
@@ -218,7 +316,24 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         ranura={ranura}
         textos={[cp.prendas.nombre, cp.prendas.categorias?.nombre, cp.prendas.categorias?.tipos?.nombre]}
         largo={cp.prendas.largo}
+        escala={ranura ? escala : 1}
+        porDentro={ranura === 'torso' && porDentro}
       />
+      {ranura === 'torso' && !soloLectura && !arrastrando && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={alternarPorDentro}
+          aria-pressed={porDentro}
+          aria-label={porDentro ? 'Sacar la camiseta por fuera' : 'Meter la camiseta por dentro del pantalón'}
+          className="absolute -right-1 -bottom-1 z-10 min-w-11 h-11 flex items-center justify-center"
+        >
+          <span className="px-2 py-0.5 rounded-full border border-linea bg-superficie/90 text-tinta text-[11px] font-semibold leading-4">
+            {porDentro ? 'Por dentro' : 'Por fuera'}
+          </span>
+        </button>
+      )}
     </div>
   )
 }

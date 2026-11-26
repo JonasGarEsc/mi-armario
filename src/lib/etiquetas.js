@@ -197,3 +197,19 @@ export function origenEtiquetas({ sugeridaPorIA, editadas }) {
 }
 
 export { sinAcentos }
+
+/**
+ * Encaja lo que dice la IA (tipo y categoría) con los tipos y categorías que ya tienes.
+ * Devuelve { tipoId, categoriaId, pista }: `pista` explica lo que no ha podido encajar.
+ */
+export function clasificarSugerencia(sugerencia, tipos, categorias) {
+  const vacio = { tipoId: '', categoriaId: '', pista: '' }
+  if (!sugerencia?.tipo) return vacio
+  const tipo = tipos.find((t) => sinAcentos(t.nombre) === sinAcentos(sugerencia.tipo))
+  const categoria = tipo && sugerencia.categoria
+    ? categorias.find((c) => c.tipo_id === tipo.id && sinAcentos(c.nombre) === sinAcentos(sugerencia.categoria))
+    : null
+  if (tipo && categoria) return { tipoId: tipo.id, categoriaId: categoria.id, pista: '' }
+  const nombre = `${sugerencia.tipo}${sugerencia.categoria ? ` › ${sugerencia.categoria}` : ''}`
+  return { tipoId: tipo?.id || '', categoriaId: '', pista: `La IA sugiere ${nombre}, que aún no existe en tus listas.` }
+}

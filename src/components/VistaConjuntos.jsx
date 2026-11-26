@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../lib/vibrar'
+import { guardarEstadoPrenda } from '../lib/estadoPrenda'
 import { useChecklistMaleta } from '../lib/useChecklistMaleta'
 import { leerCache, guardarCache } from '../lib/cache'
 import { desdeISO, etiquetaFechaCorta, isoLocal } from '../lib/fechas'
 import { nombreLibre } from '../lib/nombres'
-import { compartirArchivo, descargar, generarPng } from '../lib/exportar'
+import { esperarImagenes, generarPng, generarPngDeElemento } from '../lib/exportar'
+import { compartirConAviso } from '../lib/compartirUi'
 import Icono from './Icono'
+import ResumenMaleta from './ResumenMaleta'
 import Miniatura from './Miniatura'
 import LienzoOutfit from './LienzoOutfit'
 
-const CONSULTA_CONJUNTOS = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(*, categorias(nombre, tipos(nombre))))'
+const CONSULTA_CONJUNTOS = 'id, nombre, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre))))'
 const CONSULTA_SIN_RANURA = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
 function resumenMaleta(maleta) {
@@ -134,6 +137,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
   const [abriendoId, setAbriendoId] = useState(null)
   const [checklistAbierta, setChecklistAbierta] = useState(false)
   const [nuevaCosa, setNuevaCosa] = useState('')
+  const [resumenAbierto, setResumenAbierto] = useState(false)
   const lista = useChecklistMaleta(maletaActiva?.id, refresco)
   const temporizadorMaleta = useRef(null)
 
@@ -347,24 +351,28 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
     })
   }
 
-  async function exportarOutfit(id, nombre) {
-    vibrar(30)
-    try {
-      const { dataUrl, file } = await generarPng(id, nombre)
-      descargar(dataUrl, nombre)
-      const puedeCompartir = navigator.canShare?.({ files: [file] })
-      mostrarToast('Imagen descargada', 'exito', puedeCompartir
-        ? {
-            texto: 'Compartir',
-            onClick: () => compartirArchivo(file, nombre)
-              .catch(() => mostrarToast('No se pudo compartir', 'error')),
-          }
-        : null)
-      vibrar([30, 30])
-    } catch {
-      mostrarToast("Error al exportar", "error")
-    }
+  function exportarOutfit(id, nombre) {
+    return compartirConAviso({
+      generar: () => generarPng(id, nombre),
+      nombre,
+      titulo: `Outfit: ${nombre}`,
+      mostrarToast,
+    })
   }
+
+
+  // La imagen resumen se pinta fuera de pantalla, se captura y se quita.
+  const resumenListo = useCallback(async (el) => {
+    const nombre = maletaActiva?.nombre || 'maleta'
+    await esperarImagenes(el)
+    await compartirConAviso({
+      generar: () => generarPngDeElemento(el, nombre, { prefijo: 'Maleta', estilo: { position: 'static', left: '0px', top: '0px' } }),
+      nombre,
+      titulo: `Maleta: ${nombre}`,
+      mostrarToast,
+    })
+    setResumenAbierto(false)
+  }, [maletaActiva?.nombre, mostrarToast])
 
   function abrirMaleta(maleta) {
     const cache = leerCache(`conjuntos_${maleta.id}`)
@@ -381,25 +389,11 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
     setMaletaActiva(null)
   }
 
-  async function actualizarEstado(conjuntoId, prendaId, x, y, z, ranura) {
-    const fila = { pos_x: x, pos_y: y, z_index: z }
-    if (ranura !== undefined) fila.ranura = ranura
-
-    let { error } = await supabase
-      .from('conjunto_prenda')
-      .update(fila)
-      .match({ conjunto_id: conjuntoId, prenda_id: prendaId })
-
-    if (error && 'ranura' in fila) {
-      // Base de datos sin la columna ranura: se guarda la posición igual.
-      delete fila.ranura
-      ;({ error } = await supabase
-        .from('conjunto_prenda')
-        .update(fila)
-        .match({ conjunto_id: conjuntoId, prenda_id: prendaId }))
-    }
-    if (error) mostrarToast('No se pudo guardar la posición', 'error')
+  async function actualizarEstado(conjuntoId, prendaId, x, y, z, ranura, extra) {
+    const ok = await guardarEstadoPrenda(supabase, { conjuntoId, prendaId, x, y, z, ranura, extra })
+    if (!ok) mostrarToast('No se pudo guardar la posición', 'error')
   }
+
 
   const extraerImagenesMaleta = (maleta) => {
     // La caché guarda un resumen (hasta 8 fotos y el total), no el árbol entero.
@@ -462,6 +456,9 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
             <h2 className="flex-1 min-w-0 flex">
               {nombreEditable('maleta', maletaActiva.id, maletaActiva.nombre, 'min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
             </h2>
+            <button onClick={() => { vibrar(20); setResumenAbierto(true) }} disabled={resumenAbierto || conjuntos.length === 0} aria-label={`Compartir imagen resumen de ${maletaActiva.nombre}`} className="boton-icono disabled:opacity-40">
+              <Icono nombre="compartir" />
+            </button>
             <button onClick={(e) => solicitarClonar('maleta', maletaActiva, e)} aria-label={`Duplicar ${maletaActiva.nombre}`} className="boton-icono">
               <Icono nombre="duplicar" />
             </button>
@@ -661,8 +658,8 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
                 <h3 className="flex-1 min-w-0 flex">
                   {nombreEditable('outfit', conj.id, conj.nombre, 'min-h-11 max-w-full text-lg font-semibold')}
                 </h3>
-                <button onClick={() => exportarOutfit(conj.id, conj.nombre)} aria-label={`Descargar imagen de ${conj.nombre}`} className="boton-icono">
-                  <Icono nombre="descargar" className="w-5 h-5" />
+                <button onClick={() => exportarOutfit(conj.id, conj.nombre)} aria-label={`Compartir imagen de ${conj.nombre}`} className="boton-icono">
+                  <Icono nombre="compartir" className="w-5 h-5" />
                 </button>
                 <button onClick={(e) => solicitarClonar('outfit', conj, e)} aria-label={`Duplicar ${conj.nombre}`} className="boton-icono">
                   <Icono nombre="duplicar" className="w-5 h-5" />
@@ -677,6 +674,8 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
           ))}
         </div>
       )}
+
+      {resumenAbierto && maletaActiva && <ResumenMaleta maleta={maletaActiva} conjuntos={conjuntos} onListo={resumenListo} />}
 
       {!maletaActiva && !cargando && maletas.length > 0 && (
         <button onClick={onCrearMaleta} className="accion boton boton-primario">

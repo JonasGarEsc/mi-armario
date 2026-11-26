@@ -14,6 +14,9 @@ import QueMePongo from './components/QueMePongo'
 import AsistenteMaleta from './components/AsistenteMaleta'
 import AvisoUso from './components/AvisoUso'
 import Estadisticas from './components/Estadisticas'
+import CargaMasiva from './components/CargaMasiva'
+import { resumenCarga } from './lib/cargaMasiva'
+import { useCargaMasiva } from './lib/cargaMasivaApp'
 import ConfirmarUso from './components/ConfirmarUso'
 import { ciudadGuardada, guardarCiudad } from './lib/clima'
 import Gestores from './components/Gestores'
@@ -90,6 +93,25 @@ function BarraSecciones({ respaldo, onIr }) {
         ))}
       </div>
     </nav>
+  )
+}
+
+// Pastilla flotante mientras hay fotos preparándose o por revisar: abre la hoja de subida masiva.
+function IndicadorCarga({ oculto, onAbrir }) {
+  const items = useCargaMasiva()
+  useEffect(() => {
+    // Con fotos sin guardar, el navegador avisa antes de cerrar la pestaña.
+    if (items.length === 0) return undefined
+    const avisar = (e) => { e.preventDefault() }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [items.length])
+  if (items.length === 0 || oculto) return null
+  const r = resumenCarga(items)
+  return (
+    <button onClick={onAbrir} className="aparece fixed z-40 left-1/2 -translate-x-1/2 bottom-24 md:bottom-6 min-h-11 px-4 rounded-full bg-tinta text-papel text-sm font-semibold shadow-(--sombra)">
+      {r.activas > 0 ? `Preparando fotos · ${r.terminadas}/${r.total}` : `${r.listas} ${r.listas === 1 ? 'prenda' : 'prendas'} por revisar`}
+    </button>
   )
 }
 
@@ -454,6 +476,7 @@ function Armario({ sesion }) {
         </main>
 
         <BarraSecciones respaldo={pestañaActiva} onIr={irA} />
+        <IndicadorCarga oculto={modalActivo === 'carga_masiva'} onAbrir={() => { abrirModal('carga_masiva'); vibrar(20) }} />
       </div>
 
       {modalActivo && (
@@ -470,7 +493,7 @@ function Armario({ sesion }) {
             <div className="min-h-0 overflow-y-auto overscroll-contain px-5 md:px-7 pt-1 pb-6">
               {modalActivo === 'formulario' && (
                 <Suspense fallback={<div role="status" aria-label="Cargando editor" className="flex flex-col gap-4"><div className="esqueleto h-8 w-48" />{[0, 1, 2, 3].map(i => <div key={i} className="esqueleto h-18" />)}</div>}>
-                  <FormularioPrenda onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda añadida", "exito") }} />
+                  <FormularioPrenda onVarias={() => abrirModal('carga_masiva')} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda añadida", "exito") }} />
                 </Suspense>
               )}
               {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
@@ -544,6 +567,13 @@ function Armario({ sesion }) {
                   prendaInicial={prendaFijada}
                   mostrarToast={mostrarToast}
                   onHecho={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana') }}
+                />
+              )}
+
+              {modalActivo === 'carga_masiva' && (
+                <CargaMasiva
+                  mostrarToast={mostrarToast}
+                  onGuardadas={(vacia) => { recargarVistas(); if (vacia) cerrarModal() }}
                 />
               )}
 

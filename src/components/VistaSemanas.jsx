@@ -5,13 +5,15 @@ import {
   DIAS, desdeISO, diasDeSemana, etiquetaDia, etiquetaRango, isoLocal, mismoDia,
 } from '../lib/fechas'
 import { nombreLibre } from '../lib/nombres'
-import { compartirArchivo, descargar, generarPng } from '../lib/exportar'
+import { generarPng } from '../lib/exportar'
+import { compartirConAviso } from '../lib/compartirUi'
 import { vibrar } from '../lib/vibrar'
+import { guardarEstadoPrenda } from '../lib/estadoPrenda'
 import BotonQueMePongo from './BotonQueMePongo'
 import Icono from './Icono'
 import LienzoOutfit from './LienzoOutfit'
 
-const CONSULTA_CONJUNTOS = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(*, categorias(nombre, tipos(nombre))))'
+const CONSULTA_CONJUNTOS = 'id, nombre, fecha, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre))))'
 const CONSULTA_SIN_RANURA = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
 export default function VistaSemanas({ activa = false, recarga = 0, onCrearSemana, onQueMePongo, onAnadirOutfit, mostrarToast, setDialogoGlobal }) {
@@ -260,42 +262,21 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
     setRefresco((n) => n + 1)
   }
 
-  async function actualizarEstado(conjuntoId, prendaId, x, y, z, ranura) {
-    const fila = { pos_x: x, pos_y: y, z_index: z }
-    if (ranura !== undefined) fila.ranura = ranura
-    let { error } = await supabase
-      .from('conjunto_prenda')
-      .update(fila)
-      .match({ conjunto_id: conjuntoId, prenda_id: prendaId })
-
-    if (error && 'ranura' in fila) {
-      delete fila.ranura
-      ;({ error } = await supabase
-        .from('conjunto_prenda')
-        .update(fila)
-        .match({ conjunto_id: conjuntoId, prenda_id: prendaId }))
-    }
-    if (error) mostrarToast('No se pudo guardar la posición', 'error')
+  async function actualizarEstado(conjuntoId, prendaId, x, y, z, ranura, extra) {
+    const ok = await guardarEstadoPrenda(supabase, { conjuntoId, prendaId, x, y, z, ranura, extra })
+    if (!ok) mostrarToast('No se pudo guardar la posición', 'error')
   }
 
-  async function exportarOutfit(conjunto) {
-    vibrar(30)
-    try {
-      const { dataUrl, file } = await generarPng(conjunto.id, conjunto.nombre)
-      descargar(dataUrl, conjunto.nombre)
-      const puedeCompartir = navigator.canShare?.({ files: [file] })
-      mostrarToast('Imagen descargada', 'exito', puedeCompartir
-        ? {
-            texto: 'Compartir',
-            onClick: () => compartirArchivo(file, conjunto.nombre)
-              .catch(() => mostrarToast('No se pudo compartir', 'error')),
-          }
-        : null)
-      vibrar([30, 30])
-    } catch {
-      mostrarToast('Error al exportar', 'error')
-    }
+
+  function exportarOutfit(conjunto) {
+    return compartirConAviso({
+      generar: () => generarPng(conjunto.id, conjunto.nombre),
+      nombre: conjunto.nombre,
+      titulo: `Outfit: ${conjunto.nombre}`,
+      mostrarToast,
+    })
   }
+
 
   const dias = semanaActiva ? diasDeSemana(desdeISO(semanaActiva.fecha_inicio)) : []
   const diaElegido = diaActivo || (dias[0] ? isoLocal(dias[0]) : null)
@@ -434,8 +415,8 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
                 <h3 className="flex-1 min-w-0 flex">
                   {nombreEditable('outfit', conjunto.id, conjunto.nombre, 'min-h-11 max-w-full text-lg font-semibold')}
                 </h3>
-                <button onClick={() => exportarOutfit(conjunto)} aria-label={`Descargar imagen de ${conjunto.nombre}`} className="boton-icono">
-                  <Icono nombre="descargar" className="w-5 h-5" />
+                <button onClick={() => exportarOutfit(conjunto)} aria-label={`Compartir imagen de ${conjunto.nombre}`} className="boton-icono">
+                  <Icono nombre="compartir" className="w-5 h-5" />
                 </button>
                 <button onClick={() => clonarOutfit(conjunto)} aria-label={`Duplicar ${conjunto.nombre}`} className="boton-icono">
                   <Icono nombre="duplicar" className="w-5 h-5" />

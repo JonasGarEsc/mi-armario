@@ -87,6 +87,8 @@ create table if not exists public.conjunto_prenda (
   pos_y real not null default 20,
   z_index integer not null default 1,
   ranura text,
+  escala real not null default 1 check (escala between 0.5 and 1.5),
+  por_dentro boolean not null default false,
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   primary key (conjunto_id, prenda_id)
 );
