@@ -232,3 +232,26 @@ body {
 .entra { animation: entrar 220ms var(--ease-suave); }
 .sin-barra::-webkit-scrollbar { display: none; }
 .sin-barra { scrollbar-width: none; }
+
+/* Maleta de la lista: la tapa gira sobre su bisagra antes de entrar. */
+.maleta { display: block; }
+.maleta-cuerpo { perspective: 900px; }
+.maleta-tapa {
+  transform-origin: 50% 0;
+  transition: transform 620ms var(--ease-suave);
+  will-change: transform;
+}
+.maleta.abierta .maleta-tapa { transform: rotateX(-112deg); }
+.maleta-costillas {
+  background-image: repeating-linear-gradient(90deg, transparent 0 20px, var(--linea) 20px 21px);
+}
+.maleta-interior img {
+  transition: transform 520ms var(--ease-suave) 90ms;
+}
+.maleta:not(.abierta) .maleta-interior img { transform: translateY(16%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .maleta-tapa, .maleta-interior img { transition: none; }
+  .maleta.abierta .maleta-tapa { transform: none; opacity: 0; }
+}
+

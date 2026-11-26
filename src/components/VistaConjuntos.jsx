@@ -115,6 +115,25 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
   const [maletaActiva, setMaletaActiva] = useState(null)
   const [maxZ, setMaxZ] = useState(10)
   const [editandoNombre, setEditandoNombre] = useState(null)
+  const [abriendoId, setAbriendoId] = useState(null)
+  const temporizadorMaleta = useRef(null)
+
+  useEffect(() => () => clearTimeout(temporizadorMaleta.current), [])
+
+  // La tapa se abre y, al terminar el giro, se entra. Con movimiento reducido, directo.
+  function entrarMaleta(m) {
+    if (abriendoId) return
+    vibrar(20)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      abrirMaleta(m)
+      return
+    }
+    setAbriendoId(m.id)
+    temporizadorMaleta.current = setTimeout(() => {
+      setAbriendoId(null)
+      abrirMaleta(m)
+    }, 680)
+  }
 
   async function guardarNombre() {
     if (!editandoNombre) return
@@ -291,7 +310,6 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
   }
 
   function abrirMaleta(maleta) {
-    vibrar(20)
     const cache = leerCache(`conjuntos_${maleta.id}`)
     setConjuntos(cache || [])
     setCargando(!cache)
@@ -374,12 +392,33 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
           {itemsFiltrados.map((m) => {
             const imagenes = extraerImagenesMaleta(m)
             const outfits = m.conjuntos?.length || 0
+            const abierta = abriendoId === m.id
             return (
-              <button key={m.id} onClick={() => abrirMaleta(m)} className="min-w-0 self-start text-left rounded-xl">
-                <span className={`aspect-square rounded-xl bg-foto p-3 grid gap-2 ${imagenes.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} ${imagenes.length > 2 ? 'grid-rows-2' : 'grid-rows-1'}`}>
-                  {imagenes.length === 0
-                    ? <span className="place-self-center text-tenue"><Icono nombre="maleta" className="w-12 h-12" /></span>
-                    : imagenes.map(url => <Miniatura key={url} url={url} alt="" className="w-full h-full min-w-0 min-h-0 object-contain" />)}
+              <button key={m.id} onClick={() => entrarMaleta(m)} aria-label={`Abrir ${m.nombre}`} className="min-w-0 self-start text-left rounded-xl">
+                <span className={`maleta relative mt-3 ${abierta ? 'abierta' : ''}`}>
+                  <span className="maleta-cuerpo relative block aspect-[4/3]">
+                    {/* Interior: lo que asoma al levantar la tapa. */}
+                    <span className="maleta-interior absolute inset-0 rounded-xl bg-foto border border-linea overflow-hidden p-2 grid grid-cols-2 gap-1 place-items-center">
+                      {imagenes.length === 0
+                        ? <span className="col-span-2 text-tenue"><Icono nombre="maleta" className="w-10 h-10" /></span>
+                        : imagenes.map(url => <Miniatura key={url} url={url} alt="" className="w-full h-full min-w-0 min-h-0 object-contain" />)}
+                    </span>
+
+                    {/* Tapa: la cara de la maleta, con asa, costillas y cierres. */}
+                    <span className="maleta-tapa absolute inset-0 rounded-xl bg-lamina shadow-(--sombra)">
+                      <span className="maleta-costillas absolute inset-0 rounded-xl" aria-hidden="true" />
+                      <span className="absolute inset-0 rounded-xl border border-linea" aria-hidden="true" />
+                      <span className="absolute left-1/2 -translate-x-1/2 -top-2 w-16 h-4 rounded-t-full border-2 border-b-0 border-tenue/60" aria-hidden="true" />
+                      <span className="absolute inset-x-0 top-[57%] border-t border-linea" aria-hidden="true" />
+                      <span className="absolute left-1/2 -translate-x-1/2 top-[57%] -translate-y-1/2 flex items-center gap-4" aria-hidden="true">
+                        <span className="w-4 h-2.5 rounded-sm bg-acento" />
+                        <span className="w-7 h-3.5 rounded-sm border border-tenue/40 bg-superficie" />
+                        <span className="w-4 h-2.5 rounded-sm bg-acento" />
+                      </span>
+                    </span>
+                    {/* Canto inferior: le da grosor a la maleta. */}
+                    <span className="absolute inset-x-3 -bottom-1 h-2 rounded-b-lg bg-linea" aria-hidden="true" />
+                  </span>
                 </span>
                 <span className="block mt-2 font-semibold leading-6 truncate">{m.nombre}</span>
                 <span className="block text-sm leading-6 text-tenue">{outfits === 1 ? '1 outfit' : `${outfits} outfits`}</span>
