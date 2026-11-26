@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react'
 import { useArrastrarHoja } from './lib/useArrastrarHoja'
 import { useDeslizarPaneles } from './lib/useDeslizarPaneles'
+import { fijarSeccionVisual, useSeccionVisual } from './lib/seccionVisual'
 import FormularioEdicion from './components/FormularioEdicion'
 import FormularioMaleta from './components/FormularioMaleta'
 import FormularioSemana from './components/FormularioSemana'
@@ -60,6 +61,29 @@ export default function App() {
   if (sesion && recuperando) return <NuevaContrasena onListo={() => setRecuperando(false)} />
   if (!sesion) return <Acceso />
   return <Armario sesion={sesion} />
+}
+
+// La barra de pestañas y el título leen la sección visible por su cuenta:
+// al deslizar se actualizan solos, sin re-renderizar el armario entero.
+function TituloSeccion({ respaldo }) {
+  const activa = useSeccionVisual(respaldo)
+  return SECCIONES.find(s => s.id === activa)?.nombre ?? null
+}
+
+function BarraSecciones({ respaldo, onIr }) {
+  const activa = useSeccionVisual(respaldo)
+  return (
+    <nav aria-label="Secciones" className="md:hidden shrink-0 bg-superficie border-t border-linea pb-safe">
+      <div className="grid grid-cols-3">
+        {SECCIONES.map(s => (
+          <button key={s.id} onClick={() => onIr(s.id)} aria-current={activa === s.id ? 'page' : undefined} className={`h-16 flex flex-col items-center justify-center gap-0.5 text-sm ${activa === s.id ? 'text-acento font-semibold' : 'text-tenue'}`}>
+            <Icono nombre={s.icono} />
+            {s.nombre}
+          </button>
+        ))}
+      </div>
+    </nav>
+  )
 }
 
 function PantallaCarga() {
@@ -235,7 +259,9 @@ function Armario({ sesion }) {
     setDialogoGlobal(config)
   }
 
-  const irA = (seccion) => { setPestañaActiva(seccion); vibrar(30) }
+  const irA = (seccion) => { fijarSeccionVisual(seccion); setPestañaActiva(seccion); vibrar(30) }
+  // La barra y el título siguen a la sección activa, venga el cambio de donde venga.
+  useLayoutEffect(() => { fijarSeccionVisual(pestañaActiva) }, [pestañaActiva])
 
   // Los paneles siguen al dedo; arrastrar una prenda dentro de un outfit
   // (data-sin-swipe) no cambia de sección.
@@ -243,7 +269,9 @@ function Armario({ sesion }) {
   const pistaRef = useDeslizarPaneles({
     indice: indiceSeccion,
     total: SECCIONES.length,
-    onCambiar: (i) => irA(SECCIONES[i].id),
+    // Al soltar: solo la barra y el título (baratos). Al acabar la animación: la app.
+    onPrevisualizar: (i) => { fijarSeccionVisual(SECCIONES[i].id); vibrar(30) },
+    onCambiar: (i) => setPestañaActiva(SECCIONES[i].id),
   })
   const asaRef = useArrastrarHoja(hojaRef, () => cerrarModal(), !!modalActivo)
 
@@ -335,7 +363,6 @@ function Armario({ sesion }) {
   }
 
   const chip = (activo) => `min-h-11 px-4 rounded-full ${activo ? 'bg-acento text-sobre-acento font-semibold' : 'bg-lamina text-tinta'}`
-  const seccion = SECCIONES.find(s => s.id === pestañaActiva)
   const panel = 'relative w-1/3 min-w-0 h-full flex flex-col overflow-y-auto overscroll-y-contain sin-barra px-4 md:px-8 pt-2 md:pt-8 pb-4 md:pb-8 touch-pan-y'
 
   return (
@@ -361,7 +388,7 @@ function Armario({ sesion }) {
         <header className="shrink-0 pt-safe md:border-b md:border-linea md:bg-superficie">
           <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
             <h1 className="min-w-0 text-[1.75rem] md:text-xl font-bold tracking-tight">
-              <span className="md:hidden">{seccion.nombre}</span>
+              <span className="md:hidden"><TituloSeccion respaldo={pestañaActiva} /></span>
               <span className="hidden md:inline">Perletta</span>
             </h1>
 
@@ -401,16 +428,7 @@ function Armario({ sesion }) {
           </div>
         </main>
 
-        <nav aria-label="Secciones" className="md:hidden shrink-0 bg-superficie border-t border-linea pb-safe">
-          <div className="grid grid-cols-3">
-            {SECCIONES.map(s => (
-              <button key={s.id} onClick={() => irA(s.id)} aria-current={pestañaActiva === s.id ? 'page' : undefined} className={`h-16 flex flex-col items-center justify-center gap-0.5 text-sm ${pestañaActiva === s.id ? 'text-acento font-semibold' : 'text-tenue'}`}>
-                <Icono nombre={s.icono} />
-                {s.nombre}
-              </button>
-            ))}
-          </div>
-        </nav>
+        <BarraSecciones respaldo={pestañaActiva} onIr={irA} />
       </div>
 
       {modalActivo && (

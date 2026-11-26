@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { cerrarHoja } from './gestos'
-import { CURVA_IOS } from './useDeslizarPaneles'
+import { cerrarHoja, curvaAsentamiento } from './gestos'
 
 /**
  * La hoja inferior sigue al dedo cuando se arrastra desde su asa. Al soltar,
@@ -16,6 +15,8 @@ export function useArrastrarHoja(hoja, onCerrar, activa) {
     const zona = asa.current
     if (!zona || !activa) return
     let gesto = null
+    // Hoja recién abierta: sin restos de un cierre anterior con el dedo.
+    if (hoja.current) Object.assign(hoja.current.style, { transform: '', translate: '', transition: '' })
 
     const bajar = (e) => {
       if (!e.isPrimary || !hoja.current) return
@@ -44,14 +45,17 @@ export function useArrastrarHoja(hoja, onCerrar, activa) {
       const [t1, y1] = g.muestras[g.muestras.length - 1]
       const velocidad = (y1 - y0) / Math.max(1, t1 - t0)
       el.style.willChange = ''
-      if (cerrarHoja(g.dy, velocidad, el.offsetHeight)) {
-        // Termina de bajar desde donde está el dedo.
-        el.style.transition = `transform 260ms ${CURVA_IOS}`
-        el.style.transform = `translate3d(0, ${el.offsetHeight + 40}px, 0)`
+      // Sigue desde donde está el dedo y a su misma velocidad, sin tirón.
+      const cierra = cerrarHoja(g.dy, velocidad, el.offsetHeight)
+      const destino = cierra ? el.offsetHeight + 40 : 0
+      const { duracion, curva } = curvaAsentamiento(destino - g.dy, velocidad)
+      el.style.transition = `transform ${duracion}ms ${curva}, opacity 300ms`
+      el.style.transform = cierra ? `translate3d(0, ${destino}px, 0)` : ''
+      // Al cerrar la mueve solo esta animación: que la clase de cierre no
+      // la mande abajo de golpe a la vez.
+      if (cierra) {
+        el.style.translate = '0px'
         cerrar.current()
-      } else {
-        el.style.transition = `transform 320ms ${CURVA_IOS}`
-        el.style.transform = ''
       }
     }
 
