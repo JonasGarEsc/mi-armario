@@ -1,14 +1,16 @@
 import { nombreLibre } from './nombres.js'
 import { CAMPOS_ETIQUETA, normalizarEtiquetas } from './etiquetas.js'
 import { intentosDeGuardado, limitarEscala } from './estadoPrenda.js'
+import { claveCombinacion } from './outfits.js'
 import { insertarUsos } from './uso.js'
+import { esTablaAusente } from './valoraciones.js'
 
 // Restaurar una copia: se añade a lo que ya hay, sin borrar nada.
 // Los ids se regeneran y las relaciones se vuelven a atar por nombre o por id
 // antiguo. La copia solo guarda la dirección de cada foto, no el archivo, y las
 // fotos son privadas de cada cuenta: fuera de la cuenta original se restauran sin foto.
 
-export const TABLAS_COPIA = ['tipos', 'categorias', 'maletas', 'semanas', 'prendas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras']
+export const TABLAS_COPIA = ['tipos', 'categorias', 'maletas', 'semanas', 'prendas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras', 'valoraciones']
 
 const CAMPOS_EXTRA = [...CAMPOS_ETIQUETA, 'etiquetas_auto', 'archivada', 'salida', 'deseada']
 
@@ -41,6 +43,41 @@ function enLotes(lista, tam = 200) {
   return lotes
 }
 
+/**
+ * Filas válidas de valoraciones de una copia: sin duplicados y con las mismas
+ * claves en todas (clave, valor). El dueño lo pone la base con auth.uid().
+ */
+export function filasDeValoraciones(valoraciones) {
+  const porClave = new Map()
+  for (const v of Array.isArray(valoraciones) ? valoraciones : []) {
+    const clave = typeof v?.clave === 'string' ? v.clave.trim() : ''
+    if (!clave || clave.length > 500) continue
+    if (v.valor !== 1 && v.valor !== -1) continue
+    porClave.set(clave, { clave, valor: v.valor })
+  }
+  return [...porClave.values()]
+}
+
+/** Valoraciones con los ids nuevos de sus prendas; si falta alguna prenda, se descarta. */
+export function remapearValoraciones(valoraciones, mapaPrendas) {
+  return (Array.isArray(valoraciones) ? valoraciones : []).flatMap((v) => {
+    const ids = String(v?.clave || '').split(',').map((id) => mapaPrendas.get(id))
+    return ids.every(Boolean) ? [{ ...v, clave: claveCombinacion(ids) }] : []
+  })
+}
+
+/** Restaura las valoraciones; en una base sin la tabla sigue sin error. */
+export async function importarValoraciones(supabase, valoraciones) {
+  let guardadas = 0
+  let omitidas = 0
+  for (const lote of enLotes(filasDeValoraciones(valoraciones))) {
+    const { error } = await supabase.from('valoraciones').upsert(lote, { onConflict: 'user_id,clave' })
+    if (!error) guardadas += lote.length
+    else if (!esTablaAusente(error)) omitidas += lote.length
+  }
+  return { guardadas, omitidas }
+}
+
 export function normalizarCopia(crudo) {
   if (!crudo || typeof crudo !== 'object' || Array.isArray(crudo)) {
     throw new Error('El archivo no parece una copia de Perletta.')
@@ -67,7 +104,7 @@ const minusculas = (texto) => String(texto || '').trim().toLowerCase()
 
 export async function importarCopia(supabase, crudo) {
   const copia = normalizarCopia(crudo)
-  const resumen = { tipos: 0, categorias: 0, maletas: 0, semanas: 0, prendas: 0, conjuntos: 0, usos: 0, maleta_extras: 0, omitidos: 0 }
+  const resumen = { tipos: 0, categorias: 0, maletas: 0, semanas: 0, prendas: 0, conjuntos: 0, usos: 0, maleta_extras: 0, valoraciones: 0, omitidos: 0 }
   const nuevoId = () => crypto.randomUUID()
 
   // --- Tipos -------------------------------------------------------------
@@ -340,12 +377,19 @@ export async function importarCopia(supabase, crudo) {
     else resumen.omitidos += lote.length
   }
 
+  // --- Valoraciones ------------------------------------------------------
+  const valoraciones = await importarValoraciones(supabase, remapearValoraciones(copia.valoraciones, mapaPrendas))
+  resumen.valoraciones += valoraciones.guardadas
+  resumen.omitidos += valoraciones.omitidas
+
   return resumen
 }
 
 /** Todas las filas de una tabla, por tramos: Supabase corta cada respuesta (1000 por defecto). */
 export async function leerTabla(supabase, tabla) {
-  const orden = tabla === 'conjunto_prenda' ? ['conjunto_id', 'prenda_id'] : ['id']
+  const orden = tabla === 'conjunto_prenda'
+    ? ['conjunto_id', 'prenda_id']
+    : tabla === 'valoraciones' ? ['clave'] : ['id']
   const filas = []
   for (;;) {
     let consulta = supabase.from(tabla).select('*')

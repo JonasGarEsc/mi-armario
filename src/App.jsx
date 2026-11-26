@@ -22,6 +22,9 @@ import { vibrar } from './lib/vibrar'
 import { nombreLibre } from './lib/nombres'
 import { etiquetaDia } from './lib/fechas'
 import { contarCopia, importarCopia, leerTabla } from './lib/backup'
+import { esTablaAusente } from './lib/valoraciones'
+import { conTiempoLimite } from './lib/conTiempo'
+import { desactivar } from './lib/push'
 
 // Todo lo que solo se ve dentro de una hoja pesa y se descarga al abrirla:
 // el motor de recorte, las estadísticas, la carga masiva, etc.
@@ -40,6 +43,10 @@ const ConfirmarUso = lazy(() => import('./components/ConfirmarUso'))
 const Gestores = lazy(() => import('./components/Gestores'))
 const ResumenUsos = lazy(() => import('./components/ResumenUsos'))
 const FichaPrenda = lazy(() => import('./components/FichaPrenda'))
+const VistaHoy = lazy(() => import('./components/VistaHoy'))
+const AvisoDiario = lazy(() => import('./components/AvisoDiario'))
+
+const LIMITE_DESACTIVAR_MS = 4000
 
 const SECCIONES = [
   { id: 'ropa', nombre: 'Armario', icono: 'percha' },
@@ -123,11 +130,15 @@ function TituloSeccion({ respaldo }) {
   return SECCIONES.find(s => s.id === activa)?.nombre ?? null
 }
 
-function BarraSecciones({ respaldo, onIr }) {
+function BarraSecciones({ respaldo, onIr, onHoy }) {
   const activa = useSeccionVisual(respaldo)
   return (
     <nav aria-label="Secciones" className="md:hidden shrink-0 bg-superficie border-t border-linea pb-safe">
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-4">
+        <button onClick={onHoy} className="h-16 flex flex-col items-center justify-center gap-0.5 text-sm text-tenue">
+          <Icono nombre="calendario" />
+          Hoy
+        </button>
         {SECCIONES.map(s => (
           <button key={s.id} onClick={() => onIr(s.id)} aria-current={activa === s.id ? 'page' : undefined} className={`h-16 flex flex-col items-center justify-center gap-0.5 text-sm ${activa === s.id ? 'text-acento font-semibold' : 'text-tenue'}`}>
             <Icono nombre={s.icono} />
@@ -282,13 +293,13 @@ function Armario({ sesion }) {
 
   // Copia de seguridad manual: todo el armario en un JSON que se descarga.
   async function exportarDatos() {
-    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras']
+    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras', 'valoraciones']
     const copia = { exportado_en: new Date().toISOString(), version: 4 }
     for (const tabla of tablas) {
       const { data, error } = await leerTabla(supabase, tabla)
       if (error) {
-        // Base de datos antigua sin la lista de la maleta: se copia el resto.
-        if (tabla === 'maleta_extras' && ['42P01', 'PGRST205'].includes(error.code)) continue
+        // Base de datos antigua sin la lista de la maleta o sin las valoraciones: se copia el resto.
+        if ((tabla === 'maleta_extras' || tabla === 'valoraciones') && esTablaAusente(error)) continue
         return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
       }
       copia[tabla] = data
@@ -387,6 +398,24 @@ function Armario({ sesion }) {
     }, 300)
   }
 
+  const abrirHoy = () => { abrirModal('hoy'); vibrar(20) }
+
+  // La notificación abre /?vista=hoy: se abre sola y el parámetro se limpia.
+  const abrirModalRef = useRef(abrirModal)
+  abrirModalRef.current = abrirModal
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('vista') !== 'hoy') return
+    params.delete('vista')
+    const resto = params.toString()
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${resto ? `?${resto}` : ''}${window.location.hash}`,
+    )
+    abrirModalRef.current('hoy', { inmediato: true })
+  }, [])
+
   // Atrás cierra la capa de arriba (diálogo u hoja) y consume su entrada.
   useEffect(() => {
     if (!modalActivo) return undefined
@@ -411,6 +440,14 @@ function Armario({ sesion }) {
   const solicitarConfirmacionGlobal = (config) => {
     vibrar(30)
     setDialogoGlobal(config)
+  }
+
+  // Primero se quita el aviso del navegador y la fila, y después se cierra la
+  // sesión. Si el aviso falla o tarda, el cierre sigue igual.
+  async function cerrarSesion() {
+    cerrarModal()
+    await conTiempoLimite(desactivar(supabase), LIMITE_DESACTIVAR_MS)
+    await supabase.auth.signOut()
   }
 
   const irA = (seccion) => { fijarSeccionVisual(seccion); setPestañaActiva(seccion); vibrar(30) }
@@ -553,6 +590,7 @@ function Armario({ sesion }) {
             </h1>
 
             <nav aria-label="Secciones" className="hidden md:flex gap-1 mr-auto ml-6">
+              <button onClick={abrirHoy} className="min-h-11 px-4 rounded-xl font-medium text-tenue hover:text-tinta">Hoy</button>
               {SECCIONES.map(s => (
                 <button key={s.id} onClick={() => irA(s.id)} aria-current={pestañaActiva === s.id ? 'page' : undefined} className={`min-h-11 px-4 rounded-xl font-medium ${pestañaActiva === s.id ? 'bg-lamina text-tinta' : 'text-tenue hover:text-tinta'}`}>
                   {s.nombre}
@@ -595,7 +633,7 @@ function Armario({ sesion }) {
           </div>
         </main>
 
-        <BarraSecciones respaldo={pestañaActiva} onIr={irA} />
+        <BarraSecciones respaldo={pestañaActiva} onIr={irA} onHoy={abrirHoy} />
         <IndicadorConexion mostrarToast={mostrarToast} />
         <IndicadorCarga oculto={modalActivo === 'carga_masiva'} onAbrir={() => { abrirModal('carga_masiva'); vibrar(20) }} />
       </div>
@@ -700,6 +738,13 @@ function Armario({ sesion }) {
                   />
                 )}
 
+                {modalActivo === 'hoy' && (
+                  <VistaHoy
+                    mostrarToast={mostrarToast}
+                    onHecho={() => { cerrarModal(); recargarVistas() }}
+                  />
+                )}
+
                 {modalActivo === 'deseo_outfits' && deseoElegido && <OutfitsConDeseo deseo={deseoElegido} />}
 
                 {modalActivo === 'carga_masiva' && (
@@ -741,6 +786,7 @@ function Armario({ sesion }) {
                       <input id="ciudadClima" type="text" autoComplete="off" placeholder="Madrid" defaultValue={ciudadGuardada()} onBlur={(e) => guardarCiudad(e.target.value)} className="campo" />
                       <p className="text-sm text-tenue mt-1">Se usa si no das permiso de ubicación.</p>
                     </div>
+                    <AvisoDiario mostrarToast={mostrarToast} />
                     <button onClick={() => abrirModal('estadisticas')} className="boton boton-secundario justify-between!">
                       Mi armario en números
                       <Icono nombre="lista" />
@@ -749,7 +795,7 @@ function Armario({ sesion }) {
                     <ResumenUsos />
                     <div className="pt-3 mt-1 border-t border-linea">
                       <p className="text-sm text-tenue mb-2 truncate">Sesión: {sesion.user?.email}</p>
-                      <button onClick={() => { cerrarModal(); supabase.auth.signOut() }} className="boton boton-secundario w-full justify-between!">
+                      <button onClick={cerrarSesion} className="boton boton-secundario w-full justify-between!">
                         Cerrar sesión
                         <Icono nombre="salir" />
                       </button>

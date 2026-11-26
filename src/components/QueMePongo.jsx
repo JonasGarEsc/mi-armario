@@ -2,14 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../supabase'
 import { ciudadGuardada, climaDeHoy, guardarCiudad } from '../lib/clima'
 import { isoLocal } from '../lib/fechas'
-import { esDuplicado } from '../lib/outfits'
-import { nombreLibre } from '../lib/nombres'
-import { RANURAS } from '../lib/maniqui'
-import { semanaNuevaPara, semanaParaFecha } from '../lib/semanas'
-import { OCASIONES, huecoDe, sugerirOutfits } from '../lib/sugerir'
-import { insertarUsos } from '../lib/uso'
+import { OCASIONES, sugerirOutfits } from '../lib/sugerir'
+import { comoConjunto, guardarOutfitDeHoy } from '../lib/propuestas'
+import { claveDeOutfit } from '../lib/valoraciones'
+import { useValoraciones } from '../lib/useValoraciones'
 import { vibrar } from '../lib/vibrar'
 import { usePrendas } from '../lib/almacen'
+import BotonesValoracion from './BotonesValoracion'
 import LienzoOutfit from './LienzoOutfit'
 import Miniatura from './Miniatura'
 
@@ -24,20 +23,9 @@ const MANUAL = [
 const chip = (activo) =>
   `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
-/** Outfit propuesto → el formato que entiende el lienzo del maniquí. */
-function comoConjunto(outfit) {
-  const piezas = Object.values(outfit.piezas).filter(Boolean)
-  return {
-    id: `sug-${outfit.clave}`,
-    conjunto_prenda: piezas.map((p) => {
-      const ranura = huecoDe(p)
-      return { conjunto_id: 'sug', prenda_id: p.id, ranura, z_index: RANURAS[ranura].capa, pos_x: 0, pos_y: 0, prendas: p }
-    }),
-  }
-}
-
 export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null }) {
   const { prendas, cargando: cargandoPrendas } = usePrendas()
+  const { valoraciones, cargando: cargandoValoraciones, valorar } = useValoraciones()
   const [tiempo, setTiempo] = useState('cargando') // 'cargando' | null | { clima, origen, ciudad }
   const [manual, setManual] = useState(null)
   const [ciudad, setCiudad] = useState(ciudadGuardada())
@@ -46,6 +34,10 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
   const [propuestas, setPropuestas] = useState([])
   const [guardando, setGuardando] = useState(null)
   const vistos = useRef(new Set())
+  // Las propuestas ya en pantalla no cambian al valorarlas: así se puede
+  // deshacer el toque. El mapa nuevo se usa para la siguiente propuesta.
+  const valoracionesRef = useRef(valoraciones)
+  valoracionesRef.current = valoraciones
 
   const hoy = isoLocal(new Date())
 
@@ -59,12 +51,13 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
 
   // Se recalculan las tres propuestas al cambiar el tiempo, la ocasión o lo fijado.
   useEffect(() => {
-    if (cargandoPrendas || !clima) { setPropuestas([]); return }
+    const mapa = valoracionesRef.current
+    if (cargandoPrendas || !clima || !mapa) { setPropuestas([]); return }
     vistos.current = new Set()
-    const nuevas = sugerirOutfits(prendas, { clima, hoy, ocasion, fijadas, n: 3 })
+    const nuevas = sugerirOutfits(prendas, { clima, hoy, ocasion, fijadas, n: 3, valoraciones: mapa })
     nuevas.forEach((o) => vistos.current.add(o.clave))
     setPropuestas(nuevas)
-  }, [prendas, cargandoPrendas, clima, ocasion, fijadas, hoy])
+  }, [prendas, cargandoPrendas, clima, ocasion, fijadas, hoy, cargandoValoraciones])
 
   const conjuntos = useMemo(() => propuestas.map(comoConjunto), [propuestas])
 
@@ -72,7 +65,7 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
     vibrar(10)
     const resto = propuestas.filter((_, i) => i !== indice).map((o) => o.ids)
     const [nueva] = sugerirOutfits(prendas, {
-      clima, hoy, ocasion, fijadas, n: 1, descartar: [...vistos.current], mantener: resto,
+      clima, hoy, ocasion, fijadas, n: 1, descartar: [...vistos.current], mantener: resto, valoraciones,
     })
     if (!nueva) { mostrarToast('No tengo otra combinación distinta con esas prendas', 'info'); return }
     vistos.current.add(nueva.clave)
@@ -94,41 +87,7 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
   async function mePongo(outfit) {
     setGuardando(outfit.clave)
     try {
-      const { data: semanas } = await supabase.from('semanas').select('id, fecha_inicio, fecha_fin')
-      let semana = semanaParaFecha(semanas, hoy)
-      if (!semana) {
-        const { data, error } = await supabase.from('semanas').insert([semanaNuevaPara(hoy)]).select('id, fecha_inicio, fecha_fin').single()
-        if (error) throw new Error('No se pudo crear la semana')
-        semana = data
-      }
-
-      const { data: delDia } = await supabase
-        .from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id)').eq('semana_id', semana.id).eq('fecha', hoy)
-      const yaEsta = esDuplicado(delDia, outfit.ids)
-
-      if (!yaEsta) {
-        const conjunto = {
-          nombre: nombreLibre('Outfit de hoy', (delDia || []).map((c) => c.nombre)),
-          semana_id: semana.id,
-          fecha: hoy,
-        }
-        const piezas = Object.values(outfit.piezas).filter(Boolean)
-        const conRanura = piezas.map((p) => ({ prenda_id: p.id, ranura: huecoDe(p), z_index: RANURAS[huecoDe(p)].capa }))
-        let { error } = await supabase.from('conjuntos').insert([{ ...conjunto, conjunto_prenda: conRanura }])
-        // Base de datos sin la columna ranura: se guarda igual, sin imantación.
-        if (error) ({ error } = await supabase.from('conjuntos').insert([{ ...conjunto, conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id })) }]))
-        if (error) throw new Error('No se pudo guardar el outfit')
-      }
-
-      const usos = Object.values(outfit.piezas).filter(Boolean)
-        .filter((p) => !(p.usos || []).some((u) => u.fecha === hoy))
-        .map((p) => ({ prenda_id: p.id, fecha: hoy }))
-      // Un duplicado cuenta como éxito; cualquier otro fallo se avisa (antes se ignoraba).
-      if (usos.length) {
-        const errorUsos = await insertarUsos(supabase, usos)
-        if (errorUsos) throw new Error('No se pudo anotar el uso de las prendas')
-      }
-
+      const { yaEsta } = await guardarOutfitDeHoy(supabase, outfit, hoy)
       vibrar([40, 40])
       mostrarToast(yaEsta ? 'Ese outfit ya estaba en tu semana; anotado el uso' : 'Outfit de hoy guardado en tu semana', 'exito')
       onHecho?.()
@@ -138,7 +97,7 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
     }
   }
 
-  const cargandoTodo = cargandoPrendas || tiempo === 'cargando'
+  const cargandoTodo = cargandoPrendas || tiempo === 'cargando' || cargandoValoraciones
   const sinTiempo = !cargandoTodo && !clima
 
   return (
@@ -201,6 +160,12 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
                   })}
                 </div>
                 <p className="text-xs text-tenue -mt-1">Toca una prenda para llevarla sí o sí.</p>
+
+                <BotonesValoracion
+                  valor={valoraciones?.get(claveDeOutfit(outfit.ids)) ?? 0}
+                  onValorar={(v) => valorar(claveDeOutfit(outfit.ids), v, mostrarToast)}
+                  etiqueta={`la propuesta ${i + 1}`}
+                />
 
                 <div className="flex gap-2">
                   <button onClick={() => otra(i)} disabled={guardando !== null} className="boton boton-secundario flex-1">Otra</button>

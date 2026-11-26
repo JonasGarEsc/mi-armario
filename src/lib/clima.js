@@ -69,13 +69,16 @@ async function pedirClima({ lat, lon }) {
  * con la ciudad guardada en Ajustes. Se guarda 30 min para no repetir la petición.
  * Devuelve { clima, origen, ciudad } o null si no se ha podido saber.
  */
-export async function climaDeHoy({ ciudad = ciudadGuardada(), forzar = false } = {}) {
+export async function climaDeHoy({ ciudad = ciudadGuardada(), forzar = false, sinRed = false } = {}) {
   if (!forzar) {
     try {
       const guardado = JSON.parse(leerLocal(CLAVE_CACHE))
       if (guardado && Date.now() - guardado.cuando < VALIDEZ_MS && guardado.ciudad === ciudad) return guardado.valor
     } catch { /* sin caché válida */ }
   }
+
+  // Sin conexión no se pide ubicación ni previsión: solo vale lo guardado.
+  if (sinRed) return null
 
   try {
     let sitio = await pedirUbicacion()

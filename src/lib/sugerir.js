@@ -6,6 +6,7 @@
 import { oklchDeHex, familiaDeColor } from './colores.js'
 import { diasSinUsar } from './filtros.js'
 import { inferirRanura } from './maniqui.js'
+import { claveCombinacion } from './outfits.js'
 
 /** Objetivo de formalidad (1-5) de cada ocasión; null = sin preferencia. */
 export const OCASIONES = {
@@ -27,6 +28,7 @@ export const OCASIONES_VIAJE = {
 const PODA = 10 // prendas que pasan a combinarse por hueco
 const DIAS_DESCANSO = 3 // una prenda usada hace menos de 3 días no se propone
 const ABIERTO = /sandalia|chancla|alpargata|zueco|cangrejera|ojotas/i
+const PUNTOS_ME_GUSTA = 2 // lo que sube un outfit que te ha gustado
 
 /** Temporada que corresponde a una temperatura sentida. */
 export function temporadaDeTemperatura(t) {
@@ -146,10 +148,11 @@ function puntuarConjunto(piezas, base, ctx) {
  * prendas). `minimoDiferencia`: prendas que han de distinguir a dos outfits (2 por
  * defecto, 1 para la maleta). `descanso`: días que una prenda reposa tras usarse.
  * `requerir`: { pies, abrigo } — huecos que el outfit debe llevar sí o sí.
+ * `valoraciones`: Map claveCombinacion → 1 | -1. El -1 no se propone y el 1 sube.
  */
 export function sugerirOutfits(prendas, {
   clima, hoy, ocasion = 'cualquiera', fijadas = [], n = 3, descartar = [], mantener = [],
-  bonus = null, minimoDiferencia = 2, descanso = DIAS_DESCANSO, requerir = {},
+  bonus = null, minimoDiferencia = 2, descanso = DIAS_DESCANSO, requerir = {}, valoraciones = null,
 }) {
   const ctx = {
     hoy,
@@ -206,7 +209,13 @@ export function sugerirOutfits(prendas, {
     const ids = Object.values(piezas).filter(Boolean).map((p) => p.id)
     if (evitar.has(clave(ids))) return
     if ((requerir.pies && !piezas.pies) || (requerir.abrigo && !piezas.abrigo)) return
-    candidatos.push({ ids, piezas, puntuacion: puntuarConjunto(piezas, base, ctx) })
+    const valoracion = valoraciones?.get(claveCombinacion(ids)) ?? 0
+    if (valoracion === -1) return
+    candidatos.push({
+      ids,
+      piezas,
+      puntuacion: puntuarConjunto(piezas, base, ctx) + (valoracion === 1 ? PUNTOS_ME_GUSTA : 0),
+    })
   }
 
   for (const pies of calzados) {
