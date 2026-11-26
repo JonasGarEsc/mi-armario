@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react'
-import { limitarPosicion } from '../lib/outfits'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { aFraccion, esPosicionEnPixeles } from '../lib/outfits'
 import { RANURAS, dentroDelManiqui, inferirRanura, ranuraMasCercana } from '../lib/maniqui'
 import { vibrar } from '../lib/vibrar'
 import PrendaAjustada from './PrendaAjustada'
@@ -85,6 +85,27 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   const posRef = useRef(pos)
   const zRef = useRef(zIndex)
   const offset = useRef({ x: 0, y: 0 })
+  const nodo = useRef(null)
+
+  // Posición antigua en píxeles: se pasa a fracción del lienzo al abrirla.
+  useLayoutEffect(() => {
+    const { x, y } = posRef.current
+    const cont = nodo.current?.parentElement?.getBoundingClientRect()
+    if (!esPosicionEnPixeles(x, y) || !cont?.width) return
+    const nueva = aFraccion(x, y, cont.width, cont.height, cont.width * TAMANO_LIBRE)
+    posRef.current = nueva
+    setPos(nueva)
+  }, [])
+
+  // Del dedo (px) a la esquina de la prenda, en fracción del lienzo.
+  const posicionDesde = (e, cont) =>
+    aFraccion(
+      e.clientX - cont.left - offset.current.x,
+      e.clientY - cont.top - offset.current.y,
+      cont.width,
+      cont.height,
+      cont.width * TAMANO_LIBRE,
+    )
 
   const alBajar = (e) => {
     if (e.button !== undefined && e.button !== 0) return
@@ -96,15 +117,9 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
     // centrada bajo el dedo para que no pegue un salto.
     if (ranura) offset.current = { x: tam / 2, y: tam / 2 }
     else offset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-    const { x, y } = limitarPosicion(
-      e.clientX - cont.left - offset.current.x,
-      e.clientY - cont.top - offset.current.y,
-      cont.width,
-      cont.height,
-      tam,
-    )
-    posRef.current = { x, y }
-    setPos({ x, y })
+    const nueva = posicionDesde(e, cont)
+    posRef.current = nueva
+    setPos(nueva)
     setRanura(null)
 
     const nuevoZ = maxZ + 1
@@ -120,14 +135,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   const alMover = (e) => {
     if (!arrastrando) return
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
-    const tam = cont.width * TAMANO_LIBRE
-    const nueva = limitarPosicion(
-      e.clientX - cont.left - offset.current.x,
-      e.clientY - cont.top - offset.current.y,
-      cont.width,
-      cont.height,
-      tam,
-    )
+    const nueva = posicionDesde(e, cont)
     posRef.current = nueva
     setPos(nueva)
     onSobreCuerpo?.(sobreElManiqui(e, cont))
@@ -182,8 +190,10 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
         zIndex: zIndex + 20,
       }
     : {
-        left: `${pos.x}px`,
-        top: `${pos.y}px`,
+        // Hasta medir el lienzo, una posición antigua se pinta en píxeles.
+        ...(esPosicionEnPixeles(pos.x, pos.y)
+          ? { left: `${pos.x}px`, top: `${pos.y}px` }
+          : { left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }),
         width: `${TAMANO_LIBRE * 100}%`,
         height: `${TAMANO_LIBRE * 100}%`,
         zIndex: zIndex + 20,
@@ -191,6 +201,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
 
   return (
     <div
+      ref={nodo}
       onPointerDown={alBajar}
       onPointerMove={alMover}
       onPointerUp={alSoltar}
