@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { flushSync } from 'react-dom'
 import { supabase } from '../supabase'
 import { vibrar } from '../lib/vibrar'
 import { etiquetaFechaCorta, isoLocal } from '../lib/fechas'
@@ -8,10 +9,13 @@ import {
   FAMILIAS_COLOR, GRUPOS_FORMALIDAD, TEMPORADAS, filtrarPrendas, hayFiltros, sinFiltros, ultimaVez,
 } from '../lib/filtros'
 import { borrarArchivo } from '../lib/imagenes'
+import { nombreVistaPrenda, conTransicionVista } from '../lib/transicionVista'
+import { usePulsacionLarga } from '../lib/usePulsacionLarga'
 import {
   actualizarPrenda, confirmarBorradoPrenda, conservarPrenda, ocultarPrenda, quitarPrenda, reponerPrenda, usePrendas,
 } from '../lib/almacen'
 import BotonQueMePongo from './BotonQueMePongo'
+import EstadoVacio from './EstadoVacio'
 import Icono from './Icono'
 import ListaDeseos from './ListaDeseos'
 import Miniatura from './Miniatura'
@@ -19,11 +23,88 @@ import Miniatura from './Miniatura'
 const chipFiltro = (activo) =>
   `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
+// Una tarjeta del armario. Un toque abre la ficha; la pulsación larga (o el clic
+// derecho) abre el menú de siempre. En modo selección, el toque sigue marcando.
+function TarjetaPrenda({
+  prenda, seleccionada, enSeleccion, menuAbierto,
+  onAbrirMenu, onCerrarMenu, onSeleccionar, onAbrirFicha, onMarcarUso, onEditar, onEliminar,
+}) {
+  const nombre = prenda.nombre || 'Sin nombre'
+  const foto = useRef(null)
+  const pulsacion = usePulsacionLarga(() => { vibrar(30); onAbrirMenu() })
+
+  function alPulsarFoto(e) {
+    // La pulsación larga ya abrió el menú: el clic que llega después no cuenta
+    // (los clics de teclado tienen detail 0 y no pasan por esta comprobación).
+    if (e?.detail !== 0 && pulsacion.consumirClic()) return
+    if (enSeleccion) onSeleccionar()
+    else onAbrirFicha(prenda, foto.current)
+  }
+
+  return (
+    <article className="min-w-0" onContextMenu={(e) => { e.preventDefault(); pulsacion.cancelar(); onAbrirMenu() }}>
+      <div className="relative">
+        <button
+          onClick={alPulsarFoto}
+          onPointerDown={pulsacion.iniciar}
+          onPointerMove={pulsacion.mover}
+          onPointerUp={pulsacion.soltar}
+          onPointerCancel={pulsacion.cancelar}
+          aria-pressed={enSeleccion ? seleccionada : undefined}
+          aria-label={enSeleccion
+            ? `${seleccionada ? 'Quitar de la selección' : 'Seleccionar'} ${nombre}`
+            : `Abrir la ficha de ${nombre}`}
+          className={`block w-full aspect-4/5 rounded-xl bg-foto overflow-hidden border-2 select-none [-webkit-touch-callout:none] ${seleccionada ? 'border-acento' : 'border-transparent'}`}
+        >
+          <span ref={foto} className="block w-full h-full">
+            <Miniatura url={prenda.imagen_url} alt={nombre} className="w-full h-full object-contain p-3 md:p-4" />
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onSeleccionar}
+          aria-pressed={seleccionada}
+          aria-label={`${seleccionada ? 'Quitar de la selección' : 'Seleccionar'} ${nombre}`}
+          className="absolute top-0.5 right-0.5 z-10 w-11 h-11 flex items-center justify-center"
+        >
+          <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${seleccionada ? 'bg-acento border-acento text-sobre-acento' : 'bg-superficie/90 border-linea text-tenue'}`}>
+            <Icono nombre={seleccionada ? 'marca' : 'mas'} className="w-4 h-4" />
+          </span>
+        </button>
+        {menuAbierto && (
+          <div className="aparece absolute inset-0 z-20 rounded-xl bg-velo flex flex-col justify-end gap-2 p-2" onPointerDown={pulsacion.consumirClic} onClickCapture={(e) => { if (e.detail !== 0 && pulsacion.consumirClic()) { e.preventDefault(); e.stopPropagation() } }} onClick={onCerrarMenu} onKeyDown={(e) => { if (e.key === 'Escape') onCerrarMenu() }}>
+            <button onClick={() => { onCerrarMenu(); onMarcarUso() }} aria-label={`Anotar que hoy te has puesto ${nombre}`} className="boton boton-secundario">Me lo he puesto</button>
+            <button autoFocus onClick={() => { onCerrarMenu(); onEditar() }} aria-label={`Editar ${nombre}`} className="boton boton-secundario">Editar</button>
+            <button onClick={() => { onCerrarMenu(); onEliminar() }} aria-label={`Eliminar ${nombre}`} className="boton boton-peligro">Eliminar</button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center mt-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold leading-6 truncate">{nombre}</p>
+          <p className="text-sm leading-6 text-tenue truncate">{prenda.categorias?.nombre || 'Sin categoría'}</p>
+          {prenda.salida && (
+            <p className="text-xs leading-5 font-medium text-acento truncate">{prenda.salida === 'donar' ? 'Para donar' : 'Para vender'}</p>
+          )}
+          {ultimaVez(prenda) && (
+            <p className="text-xs leading-5 text-tenue truncate">Usada el {etiquetaFechaCorta(ultimaVez(prenda))}</p>
+          )}
+        </div>
+        <button onClick={() => (menuAbierto ? onCerrarMenu() : onAbrirMenu())} aria-label={`Opciones de ${nombre}`} aria-expanded={menuAbierto} className="boton-icono -mr-2 text-tenue">
+          <Icono nombre="puntos" />
+        </button>
+      </div>
+    </article>
+  )
+}
+
+
 
 // La pestaña (Mi ropa / Quiero) se recuerda aunque la galería se vuelva a montar al guardar algo.
 let vistaRecordada = 'ropa'
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAnadirDeseo, onVerOutfitsDeseo, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal, onCambio }) {
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAbrirFicha, onAnadirPrenda, onAnadirDeseo, onVerOutfitsDeseo, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal, onCambio }) {
   const { prendas, cargando } = usePrendas()
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [seleccionadas, setSeleccionadas] = useState([])
@@ -70,6 +151,33 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
     else setSeleccionadas([...seleccionadas, id])
   }
 
+  // La foto viaja de la tarjeta a la ficha. Solo esos dos elementos llevan el
+  // nombre de la transición, y se retira en cuanto termina.
+  function abrirFicha(prenda, elemento) {
+    vibrar(20)
+    const abrir = () => onAbrirFicha(prenda)
+    if (!elemento) { abrir(); return }
+
+    const nombreVista = nombreVistaPrenda(prenda.id)
+    elemento.style.viewTransitionName = nombreVista
+    const limpiar = () => { elemento.style.viewTransitionName = '' }
+    // El nombre se quita de la tarjeta dentro del cambio: la foto antigua ya
+    // está capturada y la nueva (la ficha) es la única que lo lleva.
+    const transicion = conTransicionVista(() => {
+      elemento.style.viewTransitionName = ''
+      flushSync(abrir)
+    })
+    if (!transicion) { limpiar(); return }
+    transicion.finished?.then?.(limpiar, limpiar)
+    setTimeout(limpiar, 1000)
+  }
+
+  function limpiarFiltros() {
+    setBusqueda('')
+    setFiltros(sinFiltros)
+    onQuitarFiltro?.()
+  }
+
   async function relacionesDeLaPrenda(prendaId) {
     let { data } = await supabase
       .from('conjunto_prenda')
@@ -85,7 +193,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
   }
 
   async function solicitarEliminacionPrenda(prenda, e) {
-    e.stopPropagation()
+    if (e) e.stopPropagation()
     const relaciones = await relacionesDeLaPrenda(prenda.id)
     const numOutfits = new Set(relaciones.map(r => r.conjunto_id)).size
 
@@ -285,65 +393,42 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
           ))}
         </div>
       ) : prendasFiltradas.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <Icono nombre="percha" className="w-12 h-12 text-tenue" />
-          <p className="text-xl font-bold">{prendas.length === 0 ? 'Aún no hay prendas' : 'No hay prendas que coincidan'}</p>
-          {prendas.length === 0 && (
-            <>
-              <p className="text-tenue max-w-xs">Empieza por la que más te pones. La foto se recorta sola.</p>
-              <button onClick={onAnadirPrenda} className="boton boton-primario mt-2">Añadir una prenda</button>
-            </>
-          )}
-        </div>
+        prendas.length === 0 ? (
+          <EstadoVacio
+            dibujo="percha"
+            titulo="Aún no hay prendas"
+            texto="Empieza por la que más te pones. La foto se recorta sola."
+            accionTexto="Añadir una prenda"
+            onAccion={onAnadirPrenda}
+          />
+        ) : (
+          <EstadoVacio
+            dibujo="percha"
+            titulo="No hay prendas que coincidan"
+            texto="Prueba con otra búsqueda o quita los filtros."
+            accionTexto="Quitar filtros"
+            onAccion={limpiarFiltros}
+          />
+        )
       ) : (
         <>
           <div className="rejilla mb-4">
-            {prendasVisibles.map((prenda) => {
-              const seleccionada = seleccionadas.includes(prenda.id)
-              const nombre = prenda.nombre || 'Sin nombre'
-              return (
-                <article key={prenda.id} className="min-w-0">
-                  <div className="relative">
-                    <button
-                      onClick={() => alternarSeleccion(prenda.id)}
-                      aria-pressed={seleccionada}
-                      aria-label={`Seleccionar ${nombre}`}
-                      className={`block w-full aspect-4/5 rounded-xl bg-foto overflow-hidden border-2 ${seleccionada ? 'border-acento' : 'border-transparent'}`}
-                    >
-                      <Miniatura url={prenda.imagen_url} alt={nombre} className="w-full h-full object-contain p-3 md:p-4" />
-                    </button>
-                    {seleccionada && (
-                      <span className="aparece pointer-events-none absolute top-2 left-2 w-7 h-7 rounded-full bg-acento text-sobre-acento flex items-center justify-center">
-                        <Icono nombre="marca" className="w-4 h-4" />
-                      </span>
-                    )}
-                    {menuAbierto === prenda.id && (
-                      <div className="aparece absolute inset-0 rounded-xl bg-velo flex flex-col justify-end gap-2 p-2" onClick={() => setMenuAbierto(null)} onKeyDown={(e) => { if (e.key === 'Escape') setMenuAbierto(null) }}>
-                        <button onClick={() => marcarUso(prenda)} aria-label={`Anotar que hoy te has puesto ${nombre}`} className="boton boton-secundario">Me lo he puesto</button>
-                        <button autoFocus onClick={() => { setMenuAbierto(null); onEditarPrenda(prenda) }} aria-label={`Editar ${nombre}`} className="boton boton-secundario">Editar</button>
-                        <button onClick={(e) => { setMenuAbierto(null); solicitarEliminacionPrenda(prenda, e) }} aria-label={`Eliminar ${nombre}`} className="boton boton-peligro">Eliminar</button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center mt-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold leading-6 truncate">{nombre}</p>
-                      <p className="text-sm leading-6 text-tenue truncate">{prenda.categorias?.nombre || 'Sin categoría'}</p>
-                      {prenda.salida && (
-                        <p className="text-xs leading-5 font-medium text-acento truncate">{prenda.salida === 'donar' ? 'Para donar' : 'Para vender'}</p>
-                      )}
-                      {ultimaVez(prenda) && (
-                        <p className="text-xs leading-5 text-tenue truncate">Usada el {etiquetaFechaCorta(ultimaVez(prenda))}</p>
-                      )}
-                    </div>
-                    <button onClick={() => setMenuAbierto(menuAbierto === prenda.id ? null : prenda.id)} aria-label={`Opciones de ${nombre}`} aria-expanded={menuAbierto === prenda.id} className="boton-icono -mr-2 text-tenue">
-                      <Icono nombre="puntos" />
-                    </button>
-                  </div>
-                </article>
-              )
-            })}
+            {prendasVisibles.map((prenda) => (
+              <TarjetaPrenda
+                key={prenda.id}
+                prenda={prenda}
+                seleccionada={seleccionadas.includes(prenda.id)}
+                enSeleccion={seleccionadas.length > 0}
+                menuAbierto={menuAbierto === prenda.id}
+                onAbrirMenu={() => setMenuAbierto(prenda.id)}
+                onCerrarMenu={() => setMenuAbierto(null)}
+                onSeleccionar={() => alternarSeleccion(prenda.id)}
+                onAbrirFicha={abrirFicha}
+                onMarcarUso={() => marcarUso(prenda)}
+                onEditar={() => onEditarPrenda(prenda)}
+                onEliminar={() => solicitarEliminacionPrenda(prenda)}
+              />
+            ))}
           </div>
           {limiteVisibles < prendasFiltradas.length && (
             <div ref={observadorReferencia} className="w-full h-10 my-4 flex justify-center items-center">

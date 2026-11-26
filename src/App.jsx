@@ -39,6 +39,7 @@ const OutfitsConDeseo = lazy(() => import('./components/OutfitsConDeseo'))
 const ConfirmarUso = lazy(() => import('./components/ConfirmarUso'))
 const Gestores = lazy(() => import('./components/Gestores'))
 const ResumenUsos = lazy(() => import('./components/ResumenUsos'))
+const FichaPrenda = lazy(() => import('./components/FichaPrenda'))
 
 const SECCIONES = [
   { id: 'ropa', nombre: 'Armario', icono: 'percha' },
@@ -212,6 +213,7 @@ function Armario({ sesion }) {
   const [modalVisible, setModalVisible] = useState(false)
   
   const [prendaAEditar, setPrendaAEditar] = useState(null)
+  const [prendaFicha, setPrendaFicha] = useState(null)
   const [prendasParaConjunto, setPrendasParaConjunto] = useState([])
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
   const [objetivoSemana, setObjetivoSemana] = useState(null)
@@ -349,13 +351,26 @@ function Armario({ sesion }) {
     vibrar(30)
   }
   
-  const abrirModal = (tipo) => {
+  const abrirModal = (tipo, { inmediato = false } = {}) => {
     if (!modalActivo) origenFoco.current = document.activeElement
     setModalActivo(tipo)
+    const enfocar = () => {
+      hojaRef.current?.focus({ preventScroll: true })
+      // Al cambiar de una hoja a otra (ficha → editar), el contenido empieza arriba.
+      const contenido = hojaRef.current?.querySelector('[data-hoja-contenido]')
+      if (contenido) contenido.scrollTop = 0
+    }
+    // Con transición de la foto, la hoja nace ya en su sitio: la captura nueva
+    // coincide con la posición final y no se ve entrar desde abajo.
+    if (inmediato) {
+      setModalVisible(true)
+      requestAnimationFrame(enfocar)
+      return
+    }
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setModalVisible(true)
-        hojaRef.current?.focus({ preventScroll: true })
+        enfocar()
       })
     })
   }
@@ -365,6 +380,7 @@ function Armario({ sesion }) {
     setTimeout(() => {
       setModalActivo(null)
       setPrendaAEditar(null)
+      setPrendaFicha(null)
       setPrendasParaConjunto([])
       setObjetivoSemana(null)
       requestAnimationFrame(() => origenFoco.current?.focus?.({ preventScroll: true }))
@@ -417,6 +433,12 @@ function Armario({ sesion }) {
     setPrendaAEditar(prenda)
     abrirModal('editar')
     vibrar(30)
+  }
+
+  function abrirFicha(prenda) {
+    setPrendaFicha(prenda)
+    abrirModal('ficha', { inmediato: true })
+    vibrar(20)
   }
 
   async function iniciarCreacionConjunto(idsSeleccionados) {
@@ -525,7 +547,7 @@ function Armario({ sesion }) {
       <div className="h-full flex flex-col" inert={!!(modalActivo || dialogoGlobal)}>
         <header className="shrink-0 pt-safe md:border-b md:border-linea md:bg-superficie">
           <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
-            <h1 className="min-w-0 text-[1.75rem] md:text-xl font-bold tracking-tight">
+            <h1 className="titular min-w-0 text-[1.85rem] md:text-2xl font-bold tracking-tight">
               <span className="md:hidden"><TituloSeccion respaldo={pestañaActiva} /></span>
               <span className="hidden md:inline">Perletta</span>
             </h1>
@@ -553,8 +575,8 @@ function Armario({ sesion }) {
         <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto overflow-hidden">
           <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
-              <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
-              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} onCambio={recargarVistas} />
+              <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
+              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAbrirFicha={abrirFicha} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} onCambio={recargarVistas} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
               <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} onPrepararMaleta={prepararMaleta} refresco={refrescoMaleta} recarga={actualizaciones} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} />
@@ -589,10 +611,18 @@ function Armario({ sesion }) {
               <Icono nombre="cerrar" />
             </button>
 
-            <div className="min-h-0 overflow-y-auto overscroll-contain px-5 md:px-7 pt-1 pb-6">
+            <div data-hoja-contenido className="min-h-0 overflow-y-auto overscroll-contain px-5 md:px-7 pt-1 pb-6">
               {/* Un solo Suspense: el asa, el velo y la X quedan fuera y siguen
                   funcionando aunque el contenido de la hoja llegue tarde. */}
               <Suspense fallback={<div role="status" aria-label="Cargando" className="flex flex-col gap-4"><div className="esqueleto h-8 w-48" />{[0, 1, 2, 3].map(i => <div key={i} className="esqueleto h-18" />)}</div>}>
+                {modalActivo === 'ficha' && prendaFicha && (
+                  <FichaPrenda
+                    prenda={prendaFicha}
+                    mostrarToast={mostrarToast}
+                    onEditar={(prenda) => { setPrendaAEditar(prenda); abrirModal('editar') }}
+                    onQueMePongo={(prenda) => { setPrendaFijada(prenda.id); abrirModal('que_me_pongo') }}
+                  />
+                )}
                 {modalActivo === 'formulario' && (
                   <FormularioPrenda deseo={modoDeseo} onVarias={() => abrirModal('carga_masiva')} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast(modoDeseo ? 'Añadido a tus deseos' : 'Prenda añadida', 'exito') }} />
                 )}

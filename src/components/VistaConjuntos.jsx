@@ -9,6 +9,7 @@ import { nombreLibre } from '../lib/nombres'
 import { esperarImagenes, generarPng, generarPngDeElemento } from '../lib/exportar'
 import { compartirConAviso } from '../lib/compartirUi'
 import Icono from './Icono'
+import EstadoVacio from './EstadoVacio'
 import ResumenMaleta from './ResumenMaleta'
 import Miniatura from './Miniatura'
 import LienzoOutfit from './LienzoOutfit'
@@ -464,7 +465,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
               <Icono nombre="volver" />
             </button>
             <h2 className="flex-1 min-w-0 flex">
-              {nombreEditable('maleta', maletaActiva.id, maletaActiva.nombre, 'min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
+              {nombreEditable('maleta', maletaActiva.id, maletaActiva.nombre, 'titular min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
             </h2>
             <button onClick={() => { vibrar(20); setResumenAbierto(true) }} disabled={resumenAbierto || conjuntos.length === 0} aria-label={`Compartir imagen resumen de ${maletaActiva.nombre}`} className="boton-icono disabled:opacity-40">
               <Icono nombre="compartir" />
@@ -540,7 +541,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
           )}
         </div>
       ) : (
-        <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Maletas</h2>
+        <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Maletas</h2>
       )}
 
       <div className="relative mb-4 md:max-w-sm">
@@ -549,18 +550,23 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
       </div>
 
       {cargando ? (
-        <div role="status" aria-label="Cargando" className={maletaActiva ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'rejilla'}>
+        <div role="status" aria-label="Cargando" className={maletaActiva ? 'grid grid-cols-1 md:grid-cols-2 gap-5' : 'rejilla'}>
           {maletaActiva
             ? <div className="esqueleto h-114 md:h-139" />
             : [0, 1].map(i => <div key={i}><div className="esqueleto aspect-[2/3] w-[86%] max-w-52 mx-auto mt-8 mb-3" /><div className="h-12 mt-2 flex flex-col items-center justify-center gap-2"><div className="esqueleto h-3 w-2/3" /><div className="esqueleto h-3 w-1/3" /></div></div>)}
         </div>
       ) : itemsFiltrados.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <Icono nombre="maleta" className="w-12 h-12 text-tenue" />
-          <p className="text-xl font-bold">{busqueda ? 'Nada coincide con la búsqueda' : maletaActiva ? 'Esta maleta está vacía' : 'Todavía no hay maletas'}</p>
-          {!busqueda && <p className="text-tenue max-w-xs">{maletaActiva ? 'Elige prendas en el armario y crea un outfit para esta maleta.' : 'Crea una, elige prendas del armario y monta los outfits dentro.'}</p>}
-          {!busqueda && !maletaActiva && <button onClick={onCrearMaleta} className="boton boton-primario mt-2">Nueva maleta</button>}
-        </div>
+        <EstadoVacio
+          dibujo="maleta"
+          titulo={busqueda ? 'Nada coincide con la búsqueda' : maletaActiva ? 'Esta maleta está vacía' : 'Todavía no hay maletas'}
+          texto={busqueda
+            ? 'Prueba con otro nombre.'
+            : maletaActiva
+              ? 'Elige prendas en el armario y crea un outfit para esta maleta.'
+              : 'Crea una, elige prendas del armario y monta los outfits dentro.'}
+          accionTexto={!busqueda && !maletaActiva ? 'Nueva maleta' : undefined}
+          onAccion={!busqueda && !maletaActiva ? onCrearMaleta : undefined}
+        />
       ) : !maletaActiva ? (
         <div className="rejilla mb-4">
           {itemsFiltrados.map((m) => {
@@ -661,7 +667,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
           {itemsFiltrados.map((conj) => (
             <article key={conj.id} className="min-w-0 rounded-xl border border-linea bg-superficie overflow-hidden isolate">
               <div className="flex items-center pl-4 pr-1 h-14 border-b border-linea">
@@ -679,7 +685,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
                 </button>
               </div>
 
-              <LienzoOutfit conjunto={conj} onGuardarEstado={actualizarEstado} />
+              <LienzoOutfit conjunto={conj} onGuardarEstado={actualizarEstado} ampliado />
             </article>
           ))}
         </div>

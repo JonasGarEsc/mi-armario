@@ -10,6 +10,7 @@ import { compartirConAviso } from '../lib/compartirUi'
 import { vibrar } from '../lib/vibrar'
 import { guardarEstadoPrenda } from '../lib/estadoPrenda'
 import BotonQueMePongo from './BotonQueMePongo'
+import EstadoVacio from './EstadoVacio'
 import Icono from './Icono'
 import LienzoOutfit from './LienzoOutfit'
 
@@ -306,7 +307,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
               <Icono nombre="volver" />
             </button>
             <h2 className="flex-1 min-w-0 flex">
-              {nombreEditable('semana', semanaActiva.id, semanaActiva.nombre, 'min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
+              {nombreEditable('semana', semanaActiva.id, semanaActiva.nombre, 'titular min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
             </h2>
             <button onClick={eliminarSemana} aria-label={`Eliminar ${semanaActiva.nombre}`} className="boton-icono -mr-2">
               <Icono nombre="borrar" />
@@ -341,7 +342,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
         </div>
       ) : (
         <>
-          <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Semana</h2>
+          <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Semana</h2>
           <BotonQueMePongo onClick={onQueMePongo} className="mb-4 md:self-start" />
         </>
       )}
@@ -372,16 +373,18 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
       </div>
 
       {cargando ? (
-        <div role="status" aria-label="Cargando" className={semanaActiva ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'grid grid-cols-1 md:grid-cols-2 gap-3'}>
-          {[0, 1, 2].map((i) => <div key={i} className={semanaActiva ? 'esqueleto aspect-square' : 'esqueleto h-28'} />)}
+        <div role="status" aria-label="Cargando" className={semanaActiva ? 'grid grid-cols-1 md:grid-cols-2 gap-5' : 'grid grid-cols-1 md:grid-cols-2 gap-3'}>
+          {[0, 1, 2].map((i) => <div key={i} className={semanaActiva ? 'esqueleto aspect-[5/6]' : 'esqueleto h-28'} />)}
         </div>
       ) : !semanaActiva ? (
         semanasFiltradas.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
-            <Icono nombre="calendario" className="w-12 h-12 text-tenue" />
-            <p className="text-xl font-bold">{busqueda ? 'Nada coincide con la búsqueda' : 'Todavía no hay semanas'}</p>
-            {!busqueda && <p className="text-tenue max-w-xs">Elige un día y tendrás la semana entera lista para montar outfits.</p>}
-          </div>
+          <EstadoVacio
+            dibujo="calendario"
+            titulo={busqueda ? 'Nada coincide con la búsqueda' : 'Todavía no hay semanas'}
+            texto={busqueda ? 'Prueba con otro nombre.' : 'Elige un día y tendrás la semana entera lista para montar outfits.'}
+            accionTexto={!busqueda ? 'Nueva semana' : undefined}
+            onAccion={!busqueda ? onCrearSemana : undefined}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
             {semanasFiltradas.map((semana) => {
@@ -414,13 +417,15 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
           </div>
         )
       ) : visibles.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <Icono nombre="calendario" className="w-12 h-12 text-tenue" />
-          <p className="text-xl font-bold">{busqueda ? 'Nada coincide con la búsqueda' : `Nada para el ${etiquetaDia(diaElegido)}`}</p>
-          {!busqueda && <p className="text-tenue max-w-xs">Añade un outfit con las prendas del armario.</p>}
-        </div>
+        <EstadoVacio
+          dibujo="calendario"
+          titulo={busqueda ? 'Nada coincide con la búsqueda' : `Nada para el ${etiquetaDia(diaElegido)}`}
+          texto={busqueda ? 'Prueba con otro nombre.' : 'Añade un outfit con las prendas del armario.'}
+          accionTexto={!busqueda && !semanaActiva ? 'Nueva semana' : undefined}
+          onAccion={!busqueda && !semanaActiva ? onCrearSemana : undefined}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
           {visibles.map((conjunto) => (
             <article key={conjunto.id} className="min-w-0 rounded-xl border border-linea bg-superficie overflow-hidden isolate">
               <div className="flex items-center pl-4 pr-1 h-14 border-b border-linea">
@@ -437,7 +442,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
                   <Icono nombre="borrar" className="w-5 h-5" />
                 </button>
               </div>
-              <LienzoOutfit conjunto={conjunto} onGuardarEstado={actualizarEstado} />
+              <LienzoOutfit conjunto={conjunto} onGuardarEstado={actualizarEstado} ampliado />
             </article>
           ))}
         </div>

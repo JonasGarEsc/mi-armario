@@ -78,7 +78,7 @@ function Maniqui({ resaltado = false }) {
   )
 }
 
-function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreCuerpo, soloLectura = false }) {
+function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreCuerpo, soloLectura = false, ancho = 720 }) {
   const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? Math.min(20 + index * 7, 70) })
   const [ranura, setRanura] = useState(cp.ranura || null)
   const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
@@ -312,7 +312,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
     >
       <PrendaAjustada
         url={cp.prendas.imagen_url}
-        ancho={720}
+        ancho={ancho}
         ranura={ranura}
         textos={[cp.prendas.nombre, cp.prendas.categorias?.nombre, cp.prendas.categorias?.tipos?.nombre]}
         largo={cp.prendas.largo}
@@ -338,31 +338,41 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   )
 }
 
-/** `soloLectura`: el outfit se ve vestido pero no se puede arrastrar (propuestas, vistas previas). */
-export default function LienzoOutfit({ conjunto, onGuardarEstado, soloLectura = false }) {
+/**
+ * `soloLectura`: el outfit se ve vestido pero no se puede arrastrar (propuestas, vistas previas).
+ * `ampliado`: en las tarjetas se recorta el aire de los lados para que el outfit se vea mayor.
+ */
+export default function LienzoOutfit({ conjunto, onGuardarEstado, soloLectura = false, ampliado = false, ancho = 720 }) {
   const prendas = (conjunto.conjunto_prenda || []).filter((cp) => cp.prendas)
   const [maxZ, setMaxZ] = useState(() => Math.max(10, ...prendas.map((cp) => cp.z_index || 0)))
   const [sobreCuerpo, setSobreCuerpo] = useState(false)
 
   return (
     <div
-      id={`lienzo-${conjunto.id}`}
       data-sin-swipe={soloLectura ? undefined : ''}
-      className="relative z-0 w-full aspect-square overflow-hidden bg-foto"
+      className={`relative z-0 w-full overflow-hidden bg-foto ${ampliado ? 'aspect-[5/6]' : 'aspect-square'}`}
     >
-      <Maniqui resaltado={sobreCuerpo} />
-      {prendas.map((cp, index) => (
-        <PrendaArrastrable
-          key={cp.prenda_id}
-          cp={cp}
-          index={index}
-          maxZ={maxZ}
-          setMaxZ={setMaxZ}
-          onGuardarEstado={onGuardarEstado}
-          onSobreCuerpo={setSobreCuerpo}
-          soloLectura={soloLectura}
-        />
-      ))}
+      {/* El escenario sigue siendo cuadrado y con las mismas medidas: en las
+          tarjetas solo se recorta el aire de los lados. Las posiciones y
+          escalas guardadas no cambian. */}
+      <div className="absolute inset-0 flex justify-center">
+        <div id={`lienzo-${conjunto.id}`} className="relative h-full aspect-square shrink-0 bg-foto">
+          <Maniqui resaltado={sobreCuerpo} />
+          {prendas.map((cp, index) => (
+            <PrendaArrastrable
+              key={cp.prenda_id}
+              cp={cp}
+              index={index}
+              maxZ={maxZ}
+              setMaxZ={setMaxZ}
+              onGuardarEstado={onGuardarEstado}
+              onSobreCuerpo={setSobreCuerpo}
+              soloLectura={soloLectura}
+              ancho={ancho}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

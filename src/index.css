@@ -10,6 +10,8 @@
    Radios: 12 px en controles y fotos, 24 px en hojas, redondo en botones de icono y filtros. */
 @theme {
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Titulares con carácter, sin descargar nada: serif del propio sistema. */
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, ui-serif, serif;
   --color-papel: var(--papel);
   --color-superficie: var(--superficie);
   --color-lamina: var(--lamina);
@@ -182,11 +184,18 @@ body {
     font-weight: 500;
     color: var(--tenue);
   }
+  .titular {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
   .titulo-hoja {
     min-width: 0;
     padding-right: 3rem;
-    font-size: 1.375rem;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
     font-weight: 700;
+    letter-spacing: -0.01em;
     line-height: 1.25;
     overflow-wrap: break-word;
   }
@@ -251,6 +260,19 @@ body {
 .entra { animation: entrar 220ms var(--ease-suave); }
 .sin-barra::-webkit-scrollbar { display: none; }
 .sin-barra { scrollbar-width: none; }
+
+/* La foto de la tarjeta se convierte en la de la ficha. Solo anima el grupo
+   que lleva nombre; el resto de la página cambia de golpe. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(*) {
+    animation-duration: 320ms;
+    animation-timing-function: var(--ease-ios);
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 320ms;
+  }
+}
 
 /* Maleta rígida de aluminio de la lista. Luz cenital suave; la tapa gira sobre su bisagra antes de entrar.
    El 3D (perspectiva, preserve-3d, will-change) solo se activa mientras se abre: si la tapa vive siempre en su

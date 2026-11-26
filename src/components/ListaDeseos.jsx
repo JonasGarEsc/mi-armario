@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { resumenDeseos } from '../lib/deseos'
 import { dinero } from '../lib/estadisticas'
+import EstadoVacio from './EstadoVacio'
 import Icono from './Icono'
 import Miniatura from './Miniatura'
 
@@ -10,12 +11,13 @@ export default function ListaDeseos({ deseos, armario, onAnadir, onVerOutfits, o
 
   if (deseos.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center">
-        <Icono nombre="lista" className="w-12 h-12 text-tenue" />
-        <p className="text-xl font-bold">Nada en tu lista de deseos</p>
-        <p className="text-tenue max-w-xs">Añade la foto de algo que quieres comprar y te digo con cuántas de tus prendas combina.</p>
-        <button onClick={onAnadir} className="boton boton-primario mt-2">Añadir un deseo</button>
-      </div>
+      <EstadoVacio
+        dibujo="lista"
+        titulo="Nada en tu lista de deseos"
+        texto="Añade la foto de algo que quieres comprar y te digo con cuántas de tus prendas combina."
+        accionTexto="Añadir un deseo"
+        onAccion={onAnadir}
+      />
     )
   }
 
