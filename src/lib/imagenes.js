@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { elegirUrl } from './urlFoto'
 
 // Las fotos viven en el bucket privado «prendas». Guardamos en la base la URL
 // canónica de getPublicUrl, pero para mostrarla pedimos una URL firmada.
@@ -23,10 +24,10 @@ export function rutaImagen(url) {
   }
 }
 
-function leerFirma(clave) {
+function leerFirma(clave, { caducada = false } = {}) {
   try {
     const guardada = JSON.parse(localStorage.getItem(PREFIJO + clave))
-    if (guardada?.url && guardada.expira > Date.now()) return guardada
+    if (guardada?.url && (caducada || guardada.expira > Date.now())) return guardada
   } catch {
     // localStorage lleno o modo privado: seguimos solo con memoria.
   }
@@ -78,7 +79,7 @@ export async function urlImagen(url, ancho = 480, forzar = false) {
   })()
     .then((firmada) => {
       pendientes.delete(clave)
-      if (!firmada) return url || null
+      if (!firmada) return elegirUrl(null, leerFirma(clave, { caducada: true })?.url, url)
       const valor = { url: firmada, expira: ahora + SEIS_DIAS * 1000 }
       memoria.set(clave, valor)
       guardarFirma(clave, valor)
@@ -86,7 +87,7 @@ export async function urlImagen(url, ancho = 480, forzar = false) {
     })
     .catch(() => {
       pendientes.delete(clave)
-      return url || null
+      return elegirUrl(null, leerFirma(clave, { caducada: true })?.url, url)
     })
 
   pendientes.set(clave, tarea)

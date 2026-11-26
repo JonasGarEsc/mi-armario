@@ -15,7 +15,9 @@ import AsistenteMaleta from './components/AsistenteMaleta'
 import AvisoUso from './components/AvisoUso'
 import Estadisticas from './components/Estadisticas'
 import CargaMasiva from './components/CargaMasiva'
+import OutfitsConDeseo from './components/OutfitsConDeseo'
 import { resumenCarga } from './lib/cargaMasiva'
+import { colaOffline, useConexion } from './lib/offline'
 import { useCargaMasiva } from './lib/cargaMasivaApp'
 import ConfirmarUso from './components/ConfirmarUso'
 import { ciudadGuardada, guardarCiudad } from './lib/clima'
@@ -115,6 +117,39 @@ function IndicadorCarga({ oculto, onAbrir }) {
   )
 }
 
+// «Sin conexión» y cuántos cambios esperan a enviarse. Al volver la red se envían solos.
+function IndicadorConexion({ mostrarToast }) {
+  const { enLinea, pendientes } = useConexion()
+  const [enviando, setEnviando] = useState(false)
+  const aviso = useRef(mostrarToast)
+  aviso.current = mostrarToast
+
+  useEffect(() => {
+    // La cola es de esta cuenta: se lee al entrar y se vacía al volver la red.
+    let vivo = true
+    const sincronizar = async () => {
+      if (colaOffline.cuantas() === 0) return
+      setEnviando(true)
+      const r = await colaOffline.vaciar()
+      if (!vivo) return
+      setEnviando(false)
+      if (r.enviadas > 0) aviso.current(`${r.enviadas} ${r.enviadas === 1 ? 'cambio sincronizado' : 'cambios sincronizados'}`, 'exito')
+    }
+    colaOffline.recargar()
+    sincronizar()
+    window.addEventListener('online', sincronizar)
+    return () => { vivo = false; window.removeEventListener('online', sincronizar) }
+  }, [])
+
+  if (enLinea && pendientes === 0) return null
+  return (
+    <p role="status" className="aparece fixed z-50 left-1/2 -translate-x-1/2 top-[max(0.5rem,env(safe-area-inset-top))] mt-1 px-3 min-h-8 flex items-center rounded-full bg-tinta text-papel text-xs font-semibold shadow-(--sombra) pointer-events-none">
+      {!enLinea ? 'Sin conexión' : enviando ? 'Enviando cambios…' : 'Cambios por enviar'}
+      {pendientes > 0 && ` · ${pendientes} por enviar`}
+    </p>
+  )
+}
+
 function PantallaCarga() {
   return (
     <div className="h-dvh grid place-items-center bg-papel">
@@ -139,6 +174,8 @@ function Armario({ sesion }) {
   const [maletaAsistente, setMaletaAsistente] = useState(null)
   const [usoPendiente, setUsoPendiente] = useState(null)
   const [prendaFijada, setPrendaFijada] = useState(null)
+  const [modoDeseo, setModoDeseo] = useState(false)
+  const [deseoElegido, setDeseoElegido] = useState(null)
   const [refrescoMaleta, setRefrescoMaleta] = useState(0)
 
   const [toasts, setToasts] = useState([])
@@ -456,7 +493,7 @@ function Armario({ sesion }) {
           <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
               <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
-              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
+              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
               <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} onPrepararMaleta={prepararMaleta} refresco={refrescoMaleta} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
@@ -476,6 +513,7 @@ function Armario({ sesion }) {
         </main>
 
         <BarraSecciones respaldo={pestañaActiva} onIr={irA} />
+        <IndicadorConexion mostrarToast={mostrarToast} />
         <IndicadorCarga oculto={modalActivo === 'carga_masiva'} onAbrir={() => { abrirModal('carga_masiva'); vibrar(20) }} />
       </div>
 
@@ -493,7 +531,7 @@ function Armario({ sesion }) {
             <div className="min-h-0 overflow-y-auto overscroll-contain px-5 md:px-7 pt-1 pb-6">
               {modalActivo === 'formulario' && (
                 <Suspense fallback={<div role="status" aria-label="Cargando editor" className="flex flex-col gap-4"><div className="esqueleto h-8 w-48" />{[0, 1, 2, 3].map(i => <div key={i} className="esqueleto h-18" />)}</div>}>
-                  <FormularioPrenda onVarias={() => abrirModal('carga_masiva')} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda añadida", "exito") }} />
+                  <FormularioPrenda deseo={modoDeseo} onVarias={() => abrirModal('carga_masiva')} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast(modoDeseo ? 'Añadido a tus deseos' : 'Prenda añadida', 'exito') }} />
                 </Suspense>
               )}
               {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
@@ -569,6 +607,8 @@ function Armario({ sesion }) {
                   onHecho={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana') }}
                 />
               )}
+
+              {modalActivo === 'deseo_outfits' && deseoElegido && <OutfitsConDeseo deseo={deseoElegido} />}
 
               {modalActivo === 'carga_masiva' && (
                 <CargaMasiva

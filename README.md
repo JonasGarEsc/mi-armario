@@ -27,6 +27,8 @@ En `docs/diseno/` están las demás vistas, en móvil y escritorio, claro y oscu
 - **Compartir**: cada outfit y cada maleta se comparten como imagen con el menú del móvil (o se descargan si no se puede). La de la maleta es un resumen con todos sus outfits en cuadrícula y las fechas.
 - **Subida masiva**: elige varias fotos a la vez; se preparan una a una en segundo plano (recorte, colores, IA) mientras sigues usando la app, y las revisas en una lista antes de guardarlas.
 - **Maniquí**: pellizca una prenda puesta para agrandarla o encogerla hasta un 20 % (doble toque la restablece) y mete la camiseta por dentro del pantalón con el botón de la prenda.
+- **Lista de deseos** («Quiero», en Armario): prendas que aún no tienes, con foto (subida o pegada) y precio. Cada una dice con cuántas de tus prendas combina y enseña cómo quedaría en outfits con lo que ya tienes. «Ya lo tengo» la pasa al armario.
+- **Sin conexión**: las fotos ya vistas se abren sin red (en el avión) y lo que anotes sin conexión (usos, la lista de la maleta) se guarda en el móvil y se envía solo al volver la red. Un aviso indica «Sin conexión» y cuántos cambios esperan.
 - Filtros en el armario por color, temporada, formalidad y «sin usar en 90 días».
 - El largo de cada prenda (crop, cadera, bermuda, midi…) decide cómo cae en el maniquí.
 - Cambiar la foto al editar una prenda.
@@ -57,7 +59,7 @@ Si el proyecto ya tenía datos, ejecuta en este orden:
 1. `supabase/multiusuario.sql`: añade `user_id`, pone las políticas por dueño y limita el bucket a la carpeta de cada cuenta.
 2. `supabase/actualizacion-v3.sql`: añade semanas, la columna `ranura` del maniquí, la tabla `usos`, el destino y las fechas de la maleta, las cascadas y el bucket privado.
 
-3. `supabase/actualizacion-v4.sql`: añade a las prendas colores, temporada, abrigo, formalidad, largo, estampado, precio, el origen de las etiquetas y `archivada`, la columna `salida` (donar o vender), la escala y «por dentro» de cada prenda del maniquí y la tabla `maleta_extras` (lista de la maleta). Si falta, la app sigue funcionando: la lista se guarda solo en el móvil.
+3. `supabase/actualizacion-v4.sql`: añade a las prendas colores, temporada, abrigo, formalidad, largo, estampado, precio, el origen de las etiquetas y `archivada`, la columna `salida` (donar o vender), la escala y «por dentro» de cada prenda del maniquí, la columna `deseada` (lista de deseos) y la tabla `maleta_extras` (lista de la maleta). Si falta, la app sigue funcionando: la lista se guarda solo en el móvil.
 
 Ejecuta el SQL antes de desplegar la versión nueva. La app aguanta sin algunas columnas (por ejemplo, guarda la posición aunque no exista `ranura`), pero la sección Semana necesita su tabla.
 
@@ -116,6 +118,8 @@ src/lib/capsula.js          maleta mínima: un outfit distinto por día con las 
 src/lib/checklistMaleta.js  lista de la maleta en la base de datos
 src/lib/cargaMasiva.js      cola de subida masiva de fotos
 src/lib/estadoPrenda.js     escala, «por dentro» y guardado del estado de cada prenda en el maniquí
+src/lib/deseos.js           cuánto combina un deseo con tu armario
+src/lib/colaOffline.js      acciones sin conexión que se envían al volver la red
 src/lib/uso.js              qué outfits planificados faltan por anotar como puestos
 src/lib/estadisticas.js     «Mi armario en números»
 supabase/esquema.sql        instalación completa desde cero

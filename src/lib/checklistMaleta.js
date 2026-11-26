@@ -3,6 +3,7 @@
 // sigue funcionando en el móvil como antes.
 
 import { leerCache, guardarCache } from './cache.js'
+import { ejecutarOperacion, esErrorDeRed } from './colaOffline.js'
 
 const claveMarcadas = (id) => `checklist_${id}`
 const claveExtras = (id) => `extras_${id}`
@@ -22,11 +23,24 @@ export const pendientes = (extras, marcadas, prendas) => ({
   prendas: prendas.filter((p) => !marcadas.includes(p.id)).length,
 })
 
-/** Lee la lista. { extras, marcadas, local } — local = sin tabla, guardado solo en el móvil. */
+const claveSnapshot = (id) => `checklistdb_${id}`
+
+// Sin escribir() inyectado (tests, otros usos) se hace la operación directamente.
+const directo = async (supabase, op) => ((await ejecutarOperacion(supabase, op)).error ? 'error' : 'hecha')
+const via = (supabase, escribir) => escribir || ((op) => directo(supabase, op))
+
+/**
+ * Lee la lista. { extras, marcadas, local, sinConexion }.
+ * local = sin tabla (guardado solo en el móvil). Sin conexión se enseña la última copia vista.
+ */
 export async function leerChecklist(supabase, maletaId) {
   const { data, error } = await supabase.from('maleta_extras').select('id, texto, prenda_id, hecho').eq('maleta_id', maletaId).order('creado_en')
   const guardadas = leerCache(claveMarcadas(maletaId))
 
+  if (error && esErrorDeRed(error)) {
+    const copia = leerCache(claveSnapshot(maletaId))
+    return { extras: copia?.extras || [], marcadas: copia?.marcadas || [], local: false, sinConexion: true }
+  }
   if (error) {
     const extras = leerCache(claveExtras(maletaId))
     return { extras: Array.isArray(extras) ? extras : [], marcadas: Array.isArray(guardadas) ? guardadas : [], local: true }
@@ -46,25 +60,32 @@ export async function leerChecklist(supabase, maletaId) {
     guardarCache(claveMarcadas(maletaId), null)
   }
 
-  return { extras: filas.filter((f) => f.texto).map(({ id, texto, hecho }) => ({ id, texto, hecho })), marcadas, local: false }
+  const extras = filas.filter((f) => f.texto).map(({ id, texto, hecho }) => ({ id, texto, hecho }))
+  guardarCache(claveSnapshot(maletaId), { extras, marcadas })
+  return { extras, marcadas, local: false, sinConexion: false }
 }
 
-export async function guardarMarcada(supabase, maletaId, prendaId, hecho, { local, marcadas }) {
+/** Guarda la copia que se enseña sin conexión (tras cada cambio). */
+export function recordarChecklist(maletaId, { extras, marcadas }) {
+  guardarCache(claveSnapshot(maletaId), { extras, marcadas })
+}
+
+const ok = (estado) => estado !== 'error'
+
+export async function guardarMarcada(supabase, maletaId, prendaId, hecho, { local, marcadas, escribir }) {
   if (local) { guardarCache(claveMarcadas(maletaId), marcadas); return true }
-  const r = hecho
-    ? await supabase.from('maleta_extras').upsert([{ maleta_id: maletaId, prenda_id: prendaId, hecho: true }], { onConflict: 'maleta_id,prenda_id' })
-    : await supabase.from('maleta_extras').delete().eq('maleta_id', maletaId).eq('prenda_id', prendaId)
-  return !r.error
+  return ok(await via(supabase, escribir)(hecho
+    ? { tabla: 'maleta_extras', accion: 'upsert', datos: { maleta_id: maletaId, prenda_id: prendaId, hecho: true }, onConflict: 'maleta_id,prenda_id' }
+    : { tabla: 'maleta_extras', accion: 'delete', filtro: { maleta_id: maletaId, prenda_id: prendaId } }))
 }
 
-export async function guardarExtraHecho(supabase, maletaId, extra, { local, extras }) {
+export async function guardarExtraHecho(supabase, maletaId, extra, { local, extras, escribir }) {
   if (local) { guardarCache(claveExtras(maletaId), extras); return true }
-  const { error } = await supabase.from('maleta_extras').update({ hecho: extra.hecho }).eq('id', extra.id)
-  return !error
+  return ok(await via(supabase, escribir)({ tabla: 'maleta_extras', accion: 'update', datos: { hecho: extra.hecho }, filtro: { id: extra.id } }))
 }
 
-/** Añade cosas a la lista; las que ya estaban se saltan. Devuelve las nuevas { id, texto, hecho }. */
-export async function anadirExtras(supabase, maletaId, textos, { local, extras }) {
+/** Añade cosas a la lista; las que ya estaban se saltan. Devuelve las nuevas { id, texto, hecho } (o null si falla). */
+export async function anadirExtras(supabase, maletaId, textos, { local, extras, escribir }) {
   const nuevos = []
   for (const t of textos.map(limpiarTexto).filter(Boolean)) {
     if (!yaEsta([...extras, ...nuevos], t)) nuevos.push({ texto: t, hecho: false })
@@ -76,13 +97,18 @@ export async function anadirExtras(supabase, maletaId, textos, { local, extras }
     guardarCache(claveExtras(maletaId), [...extras, ...conId])
     return conId
   }
-  const { data, error } = await supabase.from('maleta_extras')
-    .insert(nuevos.map((n) => ({ maleta_id: maletaId, texto: n.texto }))).select('id, texto, hecho')
-  return error ? null : data
+  // El id lo pone la app: así la fila ya tiene identidad aunque se guarde más tarde.
+  const conId = nuevos.map((n) => ({ ...n, id: crypto.randomUUID() }))
+  const enviar = via(supabase, escribir)
+  const guardados = []
+  for (const n of conId) {
+    const r = await enviar({ tabla: 'maleta_extras', accion: 'insert', datos: { id: n.id, maleta_id: maletaId, texto: n.texto } })
+    if (ok(r)) guardados.push(n)
+  }
+  return guardados.length === 0 ? null : guardados
 }
 
-export async function quitarExtra(supabase, maletaId, extra, { local, extras }) {
+export async function quitarExtra(supabase, maletaId, extra, { local, extras, escribir }) {
   if (local) { guardarCache(claveExtras(maletaId), extras); return true }
-  const { error } = await supabase.from('maleta_extras').delete().eq('id', extra.id)
-  return !error
+  return ok(await via(supabase, escribir)({ tabla: 'maleta_extras', accion: 'delete', filtro: { id: extra.id } }))
 }

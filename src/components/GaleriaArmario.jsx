@@ -4,6 +4,7 @@ import { vibrar } from '../lib/vibrar'
 import { leerCache, guardarCache } from '../lib/cache'
 import { etiquetaFechaCorta, isoLocal } from '../lib/fechas'
 import { PUNTO_FAMILIA } from '../lib/colores'
+import { escribir } from '../lib/offline'
 import { CAMPOS_ETIQUETA, insertarPrenda } from '../lib/etiquetas'
 import {
   FAMILIAS_COLOR, GRUPOS_FORMALIDAD, TEMPORADAS, filtrarPrendas, hayFiltros, sinFiltros, ultimaVez,
@@ -11,6 +12,7 @@ import {
 import { borrarArchivo } from '../lib/imagenes'
 import BotonQueMePongo from './BotonQueMePongo'
 import Icono from './Icono'
+import ListaDeseos from './ListaDeseos'
 import Miniatura from './Miniatura'
 
 // La caché solo necesita lo que pinta la rejilla, no el árbol de categorías entero.
@@ -28,6 +30,7 @@ const resumenPrenda = (p) => ({
   etiquetas_auto: p.etiquetas_auto ?? null,
   archivada: p.archivada ?? false,
   salida: p.salida ?? null,
+  deseada: p.deseada ?? false,
   ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, p[c] ?? null])),
 })
 
@@ -35,13 +38,17 @@ const chipFiltro = (activo) =>
   `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
+// La pestaña (Mi ropa / Quiero) se recuerda aunque la galería se vuelva a montar al guardar algo.
+let vistaRecordada = 'ropa'
+
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAnadirDeseo, onVerOutfitsDeseo, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState(() => leerCache('prendas') || [])
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [seleccionadas, setSeleccionadas] = useState([])
   const [cargando, setCargando] = useState(() => !leerCache('prendas'))
   const [busqueda, setBusqueda] = useState('')
   const [filtros, setFiltros] = useState(sinFiltros)
+  const [vista, setVista] = useState(vistaRecordada)
   const [limiteVisibles, setLimiteVisibles] = useState(24)
   const observadorReferencia = useRef(null)
 
@@ -139,7 +146,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
             deshecho = true
             const fila = { id: prenda.id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: prenda.categoria_id }
             // Con sus etiquetas (color, largo...); sin ellas si la base aún no las tiene.
-            const etiquetas = { ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, prenda[c] ?? null])), etiquetas_auto: prenda.etiquetas_auto ?? null, archivada: prenda.archivada ?? false, salida: prenda.salida ?? null }
+            const etiquetas = { ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, prenda[c] ?? null])), etiquetas_auto: prenda.etiquetas_auto ?? null, archivada: prenda.archivada ?? false, salida: prenda.salida ?? null, deseada: prenda.deseada ?? false }
             const errRecuperar = await insertarPrenda(supabase, fila, etiquetas)
             if (errRecuperar) return mostrarToast('No se pudo recuperar la prenda', 'error')
 
@@ -164,8 +171,9 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
   async function marcarUso(prenda) {
     setMenuAbierto(null)
     const hoy = isoLocal(new Date())
-    const { error } = await supabase.from('usos').insert([{ prenda_id: prenda.id, fecha: hoy }])
-    if (error) return mostrarToast('No se pudo anotar el uso', 'error')
+    // Sin conexión se guarda en el móvil y se envía al volver la red.
+    const estado = await escribir({ tabla: 'usos', accion: 'insert', datos: { prenda_id: prenda.id, fecha: hoy } })
+    if (estado === 'error') return mostrarToast('No se pudo anotar el uso', 'error')
 
     const nuevas = prendas.map(p => (
       p.id === prenda.id ? { ...p, usos: [...(p.usos || []), { fecha: hoy }] } : p
@@ -173,13 +181,65 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
     setPrendas(nuevas)
     guardarCache('prendas', nuevas.map(resumenPrenda))
     vibrar(20)
-    mostrarToast('Anotado: te lo has puesto hoy', 'exito')
+    mostrarToast(estado === 'encolada' ? 'Anotado: se enviará cuando vuelva la conexión' : 'Anotado: te lo has puesto hoy', 'exito')
   }
 
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
+  const deseos = prendas.filter(p => p.deseada && !p.archivada)
+
+  function yaLoTengo(deseo) {
+    vibrar(20)
+    cambiarDeseo(deseo, { deseada: false }, `«${deseo.nombre}» ya está en tu armario`)
+  }
+
+  async function cambiarDeseo(deseo, campos, mensaje) {
+    const { error } = await supabase.from('prendas').update(campos).eq('id', deseo.id)
+    if (error) return mostrarToast('No se pudo guardar', 'error')
+    const nuevas = prendas.map(p => (p.id === deseo.id ? { ...p, ...campos } : p))
+    setPrendas(nuevas)
+    guardarCache('prendas', nuevas.map(resumenPrenda))
+    mostrarToast(mensaje, 'exito')
+  }
+
+  function quitarDeseo(deseo, e) {
+    e.stopPropagation()
+    setDialogoGlobal({
+      mensaje: `¿Quitar «${deseo.nombre}» de tu lista de deseos?`,
+      esDestructivo: true,
+      textoConfirmar: 'Quitar',
+      onConfirm: async () => {
+        const { error } = await supabase.from('prendas').delete().eq('id', deseo.id)
+        if (error) return mostrarToast('No se pudo quitar', 'error')
+        const nuevas = prendas.filter(p => p.id !== deseo.id)
+        setPrendas(nuevas)
+        guardarCache('prendas', nuevas.map(resumenPrenda))
+        borrarArchivo(deseo.imagen_url)
+        vibrar([50, 50])
+      },
+    })
+  }
 
   return (
     <div className="flex flex-col flex-1 shrink-0">
+      <div role="tablist" aria-label="Armario" className="mb-4 flex gap-1 rounded-xl bg-lamina p-1 self-start">
+        {[['ropa', 'Mi ropa'], ['quiero', `Quiero${deseos.length ? ` (${deseos.length})` : ''}`]].map(([id, texto]) => (
+          <button key={id} role="tab" aria-selected={vista === id} onClick={() => { vibrar(10); vistaRecordada = id; setVista(id) }} className={`min-h-11 px-5 rounded-lg text-sm font-semibold ${vista === id ? 'bg-superficie text-tinta shadow-sm' : 'text-tenue'}`}>
+            {texto}
+          </button>
+        ))}
+      </div>
+
+      {vista === 'quiero' ? (
+        <ListaDeseos
+          deseos={deseos}
+          armario={prendas}
+          onAnadir={onAnadirDeseo}
+          onVerOutfits={onVerOutfitsDeseo}
+          onYaLoTengo={yaLoTengo}
+          onEliminar={quitarDeseo}
+        />
+      ) : (
+        <>
       {prendas.length >= 2 && <BotonQueMePongo onClick={onQueMePongo} className="mb-4 md:self-start" />}
       <div className="flex items-center gap-2 mb-4">
         <div className="relative flex-1 min-w-0 md:max-w-sm">
@@ -323,6 +383,8 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
           <Icono nombre="mas" className="w-5 h-5" />
           Añadir prenda
         </button>
+      )}
+        </>
       )}
     </div>
   )

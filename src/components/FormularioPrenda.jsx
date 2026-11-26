@@ -8,7 +8,7 @@ import {
 } from '../lib/etiquetas'
 import CamposEtiquetas from './CamposEtiquetas'
 
-export default function FormularioPrenda({ onExito, onVarias }) {
+export default function FormularioPrenda({ onExito, onVarias, deseo = false }) {
   const [tipos, setTipos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [archivo, setArchivo] = useState(null)
@@ -35,6 +35,31 @@ export default function FormularioPrenda({ onExito, onVarias }) {
     supabase.from('tipos').select('*').then(({ data }) => setTipos(data || []))
     supabase.from('categorias').select('*').then(({ data }) => setCategorias(data || []))
   }, [])
+
+  // También se puede pegar una imagen (Ctrl/⌘+V) o traerla del portapapeles con el botón.
+  useEffect(() => {
+    const alPegar = (e) => {
+      const imagen = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith('image/'))
+      if (imagen) { e.preventDefault(); setArchivo(imagen) }
+    }
+    document.addEventListener('paste', alPegar)
+    return () => document.removeEventListener('paste', alPegar)
+  }, [])
+
+  async function pegarImagen() {
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const tipo = item.types.find((t) => t.startsWith('image/'))
+        if (tipo) {
+          setArchivo(new File([await item.getType(tipo)], 'imagen-pegada.png', { type: tipo }))
+          return
+        }
+      }
+      setErrorFormulario('No hay ninguna imagen en el portapapeles.')
+    } catch {
+      setErrorFormulario('No se pudo leer el portapapeles. Prueba a pegar con Ctrl/⌘+V.')
+    }
+  }
 
   useEffect(() => {
     if (!archivo) {
@@ -109,14 +134,14 @@ export default function FormularioPrenda({ onExito, onVarias }) {
       const auto = origenEtiquetas({ sugeridaPorIA, editadas: tocado.current.etiquetas })
       const errPrenda = await insertarPrenda(
         supabase,
-        { nombre: nombreLimpio, imagen_url: subida.url, categoria_id: categoriaId },
+        { nombre: nombreLimpio, imagen_url: subida.url, categoria_id: categoriaId, ...(deseo && { deseada: true }) },
         { ...fila, etiquetas_auto: auto },
       )
 
       if (errPrenda) {
         // Si la fila falla, la foto no se queda huérfana en el bucket.
         await borrarArchivo(subida.url)
-        throw new Error('Error en base de datos al guardar la ropa.')
+        throw new Error(deseo ? 'No se pudo guardar el deseo. ¿Has ejecutado actualizacion-v4.sql en Supabase?' : 'Error en base de datos al guardar la ropa.')
       }
 
       if (onExito) onExito()
@@ -131,8 +156,8 @@ export default function FormularioPrenda({ onExito, onVarias }) {
 
   return (
     <form onSubmit={manejarEnvio} className="flex flex-col gap-4 text-left">
-      <h2 className="titulo-hoja">Añadir prenda</h2>
-      {onVarias && (
+      <h2 className="titulo-hoja">{deseo ? 'Añadir a mi lista de deseos' : 'Añadir prenda'}</h2>
+      {onVarias && !deseo && (
         <button type="button" onClick={onVarias} className="boton boton-secundario w-full -mt-1">Subir varias fotos a la vez</button>
       )}
 
@@ -142,8 +167,11 @@ export default function FormularioPrenda({ onExito, onVarias }) {
 
       <div>
         <label htmlFor="imagen" className="etiqueta">Fotografía</label>
-        <input id="imagen" type="file" name="imagen" accept="image/*" required onChange={elegirFoto} className="campo p-1.5! text-tenue file:mr-3 file:min-h-9 file:px-3 file:border-0 file:rounded-lg file:bg-lamina file:text-tinta file:font-semibold file:cursor-pointer" />
+        <input id="imagen" type="file" name="imagen" accept="image/*" onChange={elegirFoto} className="campo p-1.5! text-tenue file:mr-3 file:min-h-9 file:px-3 file:border-0 file:rounded-lg file:bg-lamina file:text-tinta file:font-semibold file:cursor-pointer" />
       </div>
+
+      {archivo?.name === 'imagen-pegada.png' && <p className="text-sm text-tenue -mt-2">Imagen pegada.</p>}
+      <button type="button" onClick={pegarImagen} className="boton boton-secundario w-full -mt-1">Pegar imagen del portapapeles</button>
 
       <div className="flex items-center gap-3 min-h-11">
         <input type="checkbox" id="toggleFondo" checked={quitarFondo} onChange={(e) => setQuitarFondo(e.target.checked)} className="w-6 h-6 shrink-0 accent-acento cursor-pointer" />
@@ -189,7 +217,7 @@ export default function FormularioPrenda({ onExito, onVarias }) {
 
       <button type="submit" disabled={cargando} className="boton boton-primario mt-2 w-full">
         {cargando && <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>}
-        {cargando ? estadoProceso : 'Guardar prenda'}
+        {cargando ? estadoProceso : deseo ? 'Guardar deseo' : 'Guardar prenda'}
       </button>
     </form>
   )

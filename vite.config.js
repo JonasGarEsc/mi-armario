@@ -30,17 +30,31 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5000000,
         runtimeCaching: [
           {
-            // Fotos de Supabase: se cachean tal como las sirve la URL firmada.
-            urlPattern: /\/storage\/v1\/(?:render\/image|object)\/.*/i,
-            handler: 'StaleWhileRevalidate',
+            // Fotos de Supabase: se guardan por su ruta, no por la URL entera, porque la firma
+            // (el token) cambia cada vez. Así las ya vistas se abren sin conexión (en el avión).
+            // Son inmutables (cada subida tiene su nombre), por eso sin revalidar.
+            // Función y no expresión regular: para otro dominio, Workbox solo acepta una regex que
+            // coincida desde el principio de la URL, y esta mira dentro de la ruta.
+            urlPattern: ({ url }) => /\/storage\/v1\/(?:render\/image|object)\/sign\/prendas\//.test(url.pathname),
+            handler: 'CacheFirst',
             options: {
-              cacheName: 'prendas-fotos',
-              expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheName: 'prendas-fotos-v2',
+              expiration: { maxEntries: 800, maxAgeSeconds: 60 * 60 * 24 * 60, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [0, 200] },
+              plugins: [
+                {
+                  // Va dentro del Service Worker: no puede usar nada de fuera de esta función.
+                  cacheKeyWillBeUsed: async ({ request }) => {
+                    const u = new URL(request.url)
+                    const ancho = u.searchParams.get('width')
+                    return `${u.origin}${u.pathname}${ancho ? `?width=${ancho}` : ''}`
+                  },
+                },
+              ],
             },
           },
           {
-            urlPattern: /^https:\/\/(?:geocoding-api|api)\.open-meteo\.com\/.*/i,
+            urlPattern: /^https:\/\/(?:geocoding-api|archive-api|api)\.open-meteo\.com\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'clima',

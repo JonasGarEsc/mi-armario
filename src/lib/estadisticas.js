@@ -1,6 +1,6 @@
 // «Mi armario en números». Lógica pura: se prueba sin navegador y no toca la red.
 
-import { estaOlvidada, diasSinUsar } from './filtros.js'
+import { estaOlvidada, diasSinUsar, esDelArmario } from './filtros.js'
 
 const TOP = 5
 const SIN_INDICAR = 'Sin indicar'
@@ -31,8 +31,8 @@ export function costePorUso(prenda) {
  * `hoy` es YYYY-MM-DD.
  */
 export function estadisticasArmario(todas, hoy) {
-  const archivadas = todas.filter((p) => p.archivada)
-  const prendas = todas.filter((p) => !p.archivada)
+  const archivadas = todas.filter((p) => p.archivada && !p.deseada)
+  const prendas = todas.filter(esDelArmario)
 
   const porUsos = [...prendas].sort((a, b) => numUsos(b) - numUsos(a) || a.nombre.localeCompare(b.nombre, 'es'))
   const conUsos = porUsos.filter((p) => numUsos(p) > 0)

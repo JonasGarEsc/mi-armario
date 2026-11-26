@@ -9,6 +9,7 @@
 --   Fase 3. Lista de la maleta en la base de datos (tabla maleta_extras).
 --   Fase 4. Marcar prendas para donar o vender (columna salida).
 --   Fase 5. Escala y «por dentro» de cada prenda en el maniquí.
+--   Fase 6. Lista de deseos (columna deseada).
 
 -- Fase 1 · Etiquetas de las prendas ----------------------------------------
 
@@ -89,3 +90,10 @@ begin
     alter table public.conjunto_prenda add constraint conjunto_prenda_escala_rango check (escala between 0.5 and 1.5);
   end if;
 end $$;
+
+-- Fase 6 · Lista de deseos ---------------------------------------------------
+-- Una prenda «deseada» es algo que aún no tienes: lleva su foto y sus etiquetas como
+-- cualquier otra, pero no sale en el armario ni en las propuestas. «Ya lo tengo» la
+-- pasa al armario. (Misma tabla, no una aparte: reutiliza fotos, colores, IA y copias.)
+
+alter table public.prendas add column if not exists deseada boolean not null default false;

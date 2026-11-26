@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { esDelArmario } from '../lib/filtros'
 import { etiquetaDia } from '../lib/fechas'
 import Icono from './Icono'
 import Miniatura from './Miniatura'
@@ -20,7 +21,7 @@ export default function SelectorPrendas({ fecha, nombreSemana, onGuardar, onCanc
       .order('creado_en', { ascending: false })
       .then(({ data }) => {
         if (!vivo) return
-        setPrendas((data || []).filter((p) => !p.archivada))
+        setPrendas((data || []).filter(esDelArmario))
         setCargando(false)
       })
     return () => { vivo = false }

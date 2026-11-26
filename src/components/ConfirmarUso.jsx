@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { esDelArmario } from '../lib/filtros'
 import { guardarResuelto, usosPorAnadir } from '../lib/uso'
 import { vibrar } from '../lib/vibrar'
 import { etiquetaDia, desdeISO } from '../lib/fechas'
@@ -15,7 +16,7 @@ export default function ConfirmarUso({ outfit, mostrarToast, onHecho }) {
   useEffect(() => {
     let vivo = true
     supabase.from('prendas').select('*').order('creado_en', { ascending: false })
-      .then(({ data }) => { if (vivo) setPrendas((data || []).filter((p) => !p.archivada)) })
+      .then(({ data }) => { if (vivo) setPrendas((data || []).filter(esDelArmario)) })
     return () => { vivo = false }
   }, [])
 

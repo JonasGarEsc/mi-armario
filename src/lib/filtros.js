@@ -13,6 +13,9 @@ export const DIAS_SIN_USAR = 90
 
 export { FAMILIAS_COLOR, TEMPORADAS }
 
+/** ¿Es una prenda que tienes y se ve en el armario? (ni archivada ni de la lista de deseos) */
+export const esDelArmario = (p) => !p.archivada && !p.deseada
+
 const MS_DIA = 86_400_000
 
 /** Última fecha (YYYY-MM-DD) en que se usó la prenda, o null. */
@@ -45,13 +48,13 @@ export const sinFiltros = { familia: '', temporada: '', formalidad: '', olvidada
 
 export const hayFiltros = (f) => Boolean(f.familia || f.temporada || f.formalidad || f.olvidadas)
 
-/** Aplica búsqueda, categoría y los filtros de etiquetas. Las archivadas no salen. */
+/** Aplica búsqueda, categoría y los filtros de etiquetas. Ni archivadas ni deseadas salen. */
 export function filtrarPrendas(prendas, { busqueda = '', categoriaId = null, filtros = sinFiltros, hoy } = {}) {
   const term = busqueda.toLowerCase()
   const grupo = GRUPOS_FORMALIDAD.find((g) => g.id === filtros.formalidad)
 
   return prendas.filter((p) => {
-    if (p.archivada) return false
+    if (!esDelArmario(p)) return false
     if (term && !(`${p.nombre || ''}`.toLowerCase().includes(term) || `${p.categorias?.nombre || ''}`.toLowerCase().includes(term))) return false
     if (categoriaId && p.categoria_id !== categoriaId) return false
     if (filtros.familia && p.familia_color !== filtros.familia) return false

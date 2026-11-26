@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { isoLocal } from '../lib/fechas'
 import { cuandoFue, desdeSemana, guardarResuelto, leerResueltos, outfitsSinUso, usosPorAnadir } from '../lib/uso'
+import { escribir } from '../lib/offline'
 import { vibrar } from '../lib/vibrar'
 import Miniatura from './Miniatura'
 
@@ -42,12 +43,12 @@ export default function AvisoUso({ version = 0, onCambio, mostrarToast }) {
     setTrabajando(true)
     const { data: usos } = await supabase.from('usos').select('prenda_id, fecha').eq('fecha', outfit.fecha)
     const nuevos = usosPorAnadir(outfit.conjunto_prenda.map((cp) => cp.prenda_id), outfit.fecha, usos || [])
-    const { error } = nuevos.length ? await supabase.from('usos').insert(nuevos) : { error: null }
+    const estados = await Promise.all(nuevos.map((datos) => escribir({ tabla: 'usos', accion: 'insert', datos })))
     setTrabajando(false)
-    if (error) return mostrarToast('No se pudo anotar el uso', 'error')
+    if (estados.includes('error')) return mostrarToast('No se pudo anotar el uso', 'error')
     guardarResuelto(outfit.id)
     vibrar(20)
-    mostrarToast('Anotado', 'exito')
+    mostrarToast(estados.includes('encolada') ? 'Anotado: se enviará cuando vuelva la conexión' : 'Anotado', 'exito')
     siguiente()
   }
 
