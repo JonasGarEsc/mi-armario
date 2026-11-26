@@ -6,6 +6,7 @@ import { paisDeCasa, previsionViaje } from '../lib/clima'
 import { desdeISO, etiquetaDia, isoLocal } from '../lib/fechas'
 import { nombreLibre } from '../lib/nombres'
 import { esDuplicado } from '../lib/outfits'
+import { insertarConjuntos } from '../lib/insertarConjuntos'
 import { RANURAS } from '../lib/maniqui'
 import { OCASIONES_VIAJE, huecoDe } from '../lib/sugerir'
 import { vibrar } from '../lib/vibrar'
@@ -80,22 +81,25 @@ export default function AsistenteMaleta({ maleta, mostrarToast, onHecho }) {
       const { data } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id)').eq('maleta_id', maleta.id)
       const existentes = data || []
       const nombres = existentes.map((c) => c.nombre)
-      let creados = 0
       let repetidos = 0
+      const porGuardar = []
 
       for (const [i, o] of resultado.outfits.entries()) {
         if (esDuplicado(existentes, o.ids)) { repetidos++; continue }
         const nombre = nombreLibre(`Día ${i + 1} · ${etiquetaDia(desdeISO(o.fecha))}`, nombres)
         nombres.push(nombre)
         const piezas = Object.values(o.piezas).filter(Boolean)
-        const base = { nombre, maleta_id: maleta.id, fecha: o.fecha }
-        const { error } = await supabase.from('conjuntos').insert([{
-          ...base, conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id, ranura: huecoDe(p), z_index: RANURAS[huecoDe(p)].capa })),
-        }])
-        if (error) throw new Error('No se pudo guardar un outfit')
-        creados++
+        porGuardar.push({
+          nombre,
+          maleta_id: maleta.id,
+          fecha: o.fecha,
+          conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id, ranura: huecoDe(p), z_index: RANURAS[huecoDe(p)].capa })),
+        })
         existentes.push({ id: null, nombre, conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id })) })
       }
+      const error = await insertarConjuntos(supabase, porGuardar)
+      if (error) throw new Error('No se pudo guardar un outfit')
+      const creados = porGuardar.length
 
       // Lo que no es ropa, a la lista de la maleta.
       const actual = await leerChecklist(supabase, maleta.id)

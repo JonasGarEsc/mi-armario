@@ -9,6 +9,7 @@ import { generarPng } from '../lib/exportar'
 import { compartirConAviso } from '../lib/compartirUi'
 import { vibrar } from '../lib/vibrar'
 import { guardarEstadoPrenda } from '../lib/estadoPrenda'
+import { insertarConjuntos } from '../lib/insertarConjuntos'
 import BotonQueMePongo from './BotonQueMePongo'
 import EstadoVacio from './EstadoVacio'
 import Icono from './Icono'
@@ -248,7 +249,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
   async function clonarOutfit(conjunto) {
     const delDia = conjuntos.filter((c) => c.fecha === conjunto.fecha)
     const nombre = nombreLibre(`${conjunto.nombre} (Copia)`, delDia.map((c) => c.nombre))
-    const { error } = await supabase.from('conjuntos').insert([{
+    const error = await insertarConjuntos(supabase, [{
       nombre,
       semana_id: semanaActiva.id,
       fecha: conjunto.fecha,
@@ -258,6 +259,8 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
         pos_y: cp.pos_y,
         z_index: cp.z_index,
         ranura: cp.ranura || null,
+        escala: cp.escala ?? 1,
+        por_dentro: Boolean(cp.por_dentro),
       })),
     }])
     if (error) return mostrarToast('No se pudo duplicar el outfit', 'error')

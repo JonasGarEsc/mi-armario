@@ -52,12 +52,15 @@ test('los filtros eq, in, is y not se combinan con orden y tramo', () => {
   assert.deepEqual(nulas.map((f) => f.id), ['3'])
 })
 
-test('insertar guarda la fila y las piezas anidadas; borrar arrastra la cascada', () => {
+test('insertar guarda filas por tabla y borrar arrastra la cascada', () => {
   const { datos } = crearDatosDemo()
   const creados = insertarFilas(datos, 'conjuntos', [{
     nombre: 'Nuevo', maleta_id: 'm-paris', fecha: '2026-05-01',
-    conjunto_prenda: [{ prenda_id: 'p-camiseta' }, { prenda_id: 'p-vaqueros' }],
   }])
+  insertarFilas(datos, 'conjunto_prenda', [
+    { conjunto_id: creados[0].id, prenda_id: 'p-camiseta' },
+    { conjunto_id: creados[0].id, prenda_id: 'p-vaqueros' },
+  ])
   assert.equal(creados.length, 1)
   assert.equal(datos.conjunto_prenda.filter((cp) => cp.conjunto_id === creados[0].id).length, 2)
 
@@ -66,6 +69,19 @@ test('insertar guarda la fila y las piezas anidadas; borrar arrastra la cascada'
   assert.equal(datos.prendas.some((p) => p.id === 'p-camiseta'), false)
   assert.equal(datos.conjunto_prenda.some((cp) => cp.prenda_id === 'p-camiseta'), false)
   assert.equal(datos.usos.some((u) => u.prenda_id === 'p-camiseta'), false)
+})
+
+test('insertar rechaza relaciones anidadas con 400 (PGRST204) como PostgREST', () => {
+  const { datos } = crearDatosDemo()
+  const antes = datos.conjuntos.length
+  assert.throws(
+    () => insertarFilas(datos, 'conjuntos', [{
+      nombre: 'Nuevo', maleta_id: 'm-paris',
+      conjunto_prenda: [{ prenda_id: 'p-camiseta' }],
+    }]),
+    { status: 400, code: 'PGRST204' },
+  )
+  assert.equal(datos.conjuntos.length, antes)
 })
 
 test('el upsert respeta la clave compuesta y no duplica', () => {

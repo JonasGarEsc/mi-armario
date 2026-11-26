@@ -2,6 +2,7 @@ import { nombreLibre } from './nombres.js'
 import { CAMPOS_ETIQUETA, normalizarEtiquetas } from './etiquetas.js'
 import { limitarEscala } from './estadoPrenda.js'
 import { claveCombinacion } from './outfits.js'
+import { insertarConjuntos } from './insertarConjuntos.js'
 import { insertarUsos } from './uso.js'
 
 // Restaurar una copia: se añade a lo que ya hay, sin borrar nada.
@@ -305,7 +306,7 @@ export async function importarCopia(supabase, crudo) {
       conjunto_prenda: prendasDelConjunto,
     }
 
-    const { error } = await supabase.from('conjuntos').insert([fila])
+    const error = await insertarConjuntos(supabase, [fila])
     if (error) {
       resumen.omitidos++
       continue

@@ -226,21 +226,22 @@ function clavesDeConflicto(params) {
   return String(params.get('on_conflict') || 'id').split(',').map((c) => c.trim())
 }
 
-/** Inserta filas y sus relaciones anidadas, como PostgREST. */
+/** Inserta filas en una tabla; como PostgREST real, rechaza relaciones anidadas. */
 export function insertarFilas(datos, tabla, filas, params = new URLSearchParams()) {
-  const creadas = []
   for (const original of filas) {
-    const plano = {}
-    const anidadas = []
-    for (const [clave, valor] of Object.entries(original)) {
-      const rel = relacion(tabla, clave)
-      if (rel && rel.tipo === 'lista' && Array.isArray(valor)) {
-        anidadas.push({ rel, valor })
-      } else {
-        plano[clave] = valor
+    for (const clave of Object.keys(original)) {
+      if (relacion(tabla, clave)) {
+        const error = new Error(`Could not find the '${clave}' column of '${tabla}' in the schema cache`)
+        error.status = 400
+        error.code = 'PGRST204'
+        throw error
       }
     }
-    const fila = filaNueva(tabla, plano)
+  }
+
+  const creadas = []
+  for (const original of filas) {
+    const fila = filaNueva(tabla, original)
 
     const claves = clavesDeConflicto(params)
     const existente = claves.every((c) => fila[c] !== undefined)
@@ -254,15 +255,6 @@ export function insertarFilas(datos, tabla, filas, params = new URLSearchParams(
       principal = existente
     } else {
       datos[tabla].push(fila)
-    }
-
-    for (const { rel, valor } of anidadas) {
-      const hijas = valor.map((h) => filaNueva(rel.tabla, { ...h, [rel.clave]: principal.id }))
-      for (const hija of hijas) {
-        const ya = datos[rel.tabla].find((f) => rel.tabla === 'conjunto_prenda' && String(f.conjunto_id) === String(hija.conjunto_id) && String(f.prenda_id) === String(hija.prenda_id))
-        if (ya) Object.assign(ya, hija)
-        else datos[rel.tabla].push(hija)
-      }
     }
     creadas.push(principal)
   }
@@ -687,6 +679,7 @@ export async function crearSupabaseFalso({ puerto = 0, datos: iniciales } = {}) 
 
       return errorRest(res, 404, 'No encontrado')
     } catch (error) {
+      if (error.status) return errorRest(res, error.status, error.message, error.code)
       console.error('[supabase-falso]', error)
       return errorRest(res, 500, error.message || 'Error interno')
     }

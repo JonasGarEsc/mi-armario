@@ -7,6 +7,7 @@ import { RANURAS } from './maniqui.js'
 import { nombreLibre } from './nombres.js'
 import { semanaNuevaPara, semanaParaFecha } from './semanas.js'
 import { huecoDe } from './sugerir.js'
+import { insertarConjuntos } from './insertarConjuntos.js'
 import { insertarUsos } from './uso.js'
 
 const CONSULTA_DEL_DIA = 'id, nombre, fecha, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre))))'
@@ -57,7 +58,7 @@ export async function guardarOutfitDeHoy(supabase, outfit, hoy = isoLocal(new Da
     }
     const piezas = Object.values(outfit.piezas).filter(Boolean)
     const conRanura = piezas.map((p) => ({ prenda_id: p.id, ranura: huecoDe(p), z_index: RANURAS[huecoDe(p)].capa }))
-    const { error } = await supabase.from('conjuntos').insert([{ ...conjunto, conjunto_prenda: conRanura }])
+    const error = await insertarConjuntos(supabase, [{ ...conjunto, conjunto_prenda: conRanura }])
     if (error) throw new Error('No se pudo guardar el outfit')
   }
 

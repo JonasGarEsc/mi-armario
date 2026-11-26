@@ -13,6 +13,7 @@ import Acceso from './components/Acceso'
 import NuevaContrasena from './components/NuevaContrasena'
 import { supabase } from './supabase'
 import { esDuplicado } from './lib/outfits'
+import { insertarConjuntos } from './lib/insertarConjuntos'
 import { fijarEspacio } from './lib/cache'
 import { vibrar } from './lib/vibrar'
 import { nombreLibre } from './lib/nombres'
@@ -337,11 +338,10 @@ function Armario({ sesion }) {
 
     const nombreFinal = nombreLibre(nombre, (conjuntosExistentes || []).map(c => c.nombre))
 
-    // Una sola llamada: si falla, no queda un outfit vacío.
-    const { error } = await supabase.from('conjuntos').insert([{
+    const error = await insertarConjuntos(supabase, [{
       nombre: nombreFinal,
       maleta_id,
-      conjunto_prenda: prendasParaConjunto.map(prenda_id => ({ prenda_id }))
+      conjunto_prenda: prendasParaConjunto.map(prenda_id => ({ prenda_id })),
     }])
     if (error) return mostrarToast("Error al guardar", "error")
 
@@ -372,7 +372,7 @@ function Armario({ sesion }) {
     }
 
     const nombreFinal = nombreLibre(nombre, (existentes || []).map(c => c.nombre))
-    const { error } = await supabase.from('conjuntos').insert([{
+    const error = await insertarConjuntos(supabase, [{
       nombre: nombreFinal,
       semana_id: semana.id,
       fecha,

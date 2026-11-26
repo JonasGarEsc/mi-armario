@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../lib/vibrar'
 import { guardarEstadoPrenda } from '../lib/estadoPrenda'
+import { insertarConjuntos } from '../lib/insertarConjuntos'
 import { useChecklistMaleta } from '../lib/useChecklistMaleta'
 import { leerCache, guardarCache } from '../lib/cache'
 import { nombreLibre } from '../lib/nombres'
@@ -188,16 +189,22 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
         </div>
       ),
       onConfirm: async () => {
+        const copiarPrenda = (cp) => ({
+          prenda_id: cp.prenda_id,
+          pos_x: cp.pos_x,
+          pos_y: cp.pos_y,
+          z_index: cp.z_index,
+          ranura: cp.ranura || null,
+          escala: cp.escala ?? 1,
+          por_dentro: Boolean(cp.por_dentro),
+        })
         if (tipo === 'outfit') {
           const { data: nombresDestino } = await supabase.from('conjuntos').select('nombre').eq('maleta_id', idMaletaDestino)
           const nombreFinal = nombreLibre(nuevoNombre, (nombresDestino || []).map(n => n.nombre))
-          // Una sola llamada con las relaciones anidadas.
-          const { error } = await supabase.from('conjuntos').insert([{
+          const error = await insertarConjuntos(supabase, [{
             nombre: nombreFinal,
             maleta_id: idMaletaDestino,
-            conjunto_prenda: item.conjunto_prenda.map(cp => ({
-              prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index, ranura: cp.ranura || null
-            }))
+            conjunto_prenda: (item.conjunto_prenda || []).map(copiarPrenda),
           }])
           if (error) return mostrarToast("Error al clonar.", "error")
           if (idMaletaDestino == maletaActiva?.id) setMaletaActiva({...maletaActiva})
@@ -212,14 +219,12 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
           }]).select().single()
 
           if (errM || !nuevaMaleta) return mostrarToast("Error al clonar maleta.", "error")
-          const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index, ranura)').eq('maleta_id', item.id)
+          const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index, ranura, escala, por_dentro)').eq('maleta_id', item.id)
           if (conjuntosViejos?.length) {
-            const { error: errC } = await supabase.from('conjuntos').insert(conjuntosViejos.map(c => ({
+            const errC = await insertarConjuntos(supabase, conjuntosViejos.map(c => ({
               nombre: c.nombre,
               maleta_id: nuevaMaleta.id,
-              conjunto_prenda: (c.conjunto_prenda || []).map(cp => ({
-                prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index, ranura: cp.ranura || null
-              }))
+              conjunto_prenda: (c.conjunto_prenda || []).map(copiarPrenda),
             })))
             if (errC) return mostrarToast("Error al clonar los outfits", "error")
           }
