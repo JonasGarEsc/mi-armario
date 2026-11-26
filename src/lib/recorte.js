@@ -135,12 +135,14 @@ export async function cajaVisible(src, clave) {
 }
 
 /**
- * Coloca la imagen para que su caja visible cubra el objetivo.
+ * Coloca la imagen para que su caja visible quepa en el objetivo sin
+ * deformarse ni agrandarse de más: la prenda mantiene sus proporciones reales.
  * `aspecto` es ancho/alto del contenedor y `objetivo` es la zona del
- * contenedor que hay que tapar (fracciones de 0 a 1, relativa al hueco).
- * Devuelve porcentajes respecto al ancho y alto del contenedor.
+ * contenedor a vestir (fracciones de 0 a 1, relativa al hueco).
+ * `holgura` permite sobrepasar un poco el objetivo en la dimensión sobrante
+ * (1 = encaje exacto, sin salirse). Devuelve porcentajes del contenedor.
  */
-export function encajarCaja(caja, aspecto = 1, objetivo = null, margen = 1.03) {
+export function encajarCaja(caja, aspecto = 1, objetivo = null, holgura = 1.08) {
   if (!caja || !(caja.w > 0) || !(caja.h > 0) || !(aspecto > 0)) return null
 
   const relacion = caja.relacion > 0 ? caja.relacion : 1
@@ -154,11 +156,12 @@ export function encajarCaja(caja, aspecto = 1, objetivo = null, margen = 1.03) {
   const centroX = zona.x + zona.w / 2
   const centroY = (zona.y + zona.h / 2) * altoContenedor
 
-  // Ancho de la imagen completa para que la caja visible cubra el objetivo.
-  const anchoImagen = Math.max(
+  // Ancho de la imagen completa para que la caja visible quepa en el objetivo
+  // (la dimensión más restrictiva manda, así no se agranda ni se deforma).
+  const anchoImagen = Math.min(
     anchoObjetivo / caja.w,
     (altoObjetivo * relacion) / caja.h,
-  ) * margen
+  ) * holgura
   const altoImagen = anchoImagen / relacion
 
   const izquierda = centroX - (caja.w * anchoImagen) / 2 - caja.x * anchoImagen
