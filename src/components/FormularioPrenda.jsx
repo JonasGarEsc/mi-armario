@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { borrarArchivo } from '../lib/imagenes'
 import { prepararFoto, subirFoto } from '../lib/imagen'
 import { colorDeImagen } from '../lib/colores'
+import { traerDatosDeEnlace } from '../lib/enlace'
 import {
   clasificarSugerencia, etiquetasDeFormulario, etiquetasParaGuardar, hayEtiquetas, insertarPrenda, origenEtiquetas, pedirEtiquetas,
 } from '../lib/etiquetas'
@@ -23,6 +24,9 @@ export default function FormularioPrenda({ onExito, onVarias, deseo = false }) {
   const [sugeridaPorIA, setSugeridaPorIA] = useState(false)
   const [pista, setPista] = useState('')
   const [errorFormulario, setErrorFormulario] = useState('')
+  const [enlace, setEnlace] = useState('')
+  const [trayendoEnlace, setTrayendoEnlace] = useState(false)
+  const [avisoEnlace, setAvisoEnlace] = useState('')
 
   // La foto se prepara (comprime, recorta) en cuanto se elige, mientras rellenas el resto.
   const tarea = useRef(null)
@@ -30,6 +34,9 @@ export default function FormularioPrenda({ onExito, onVarias, deseo = false }) {
   const tocado = useRef({ nombre: false, clasificacion: false, etiquetas: false })
   const listas = useRef({ tipos: [], categorias: [] })
   listas.current = { tipos, categorias }
+  // Para rellenar solo huecos con los datos del enlace, sin pisar lo escrito.
+  const escritos = useRef({ nombre: '', etiquetas: null, archivo: null })
+  escritos.current = { nombre, etiquetas, archivo }
 
   useEffect(() => {
     supabase.from('tipos').select('*').then(({ data }) => setTipos(data || []))
@@ -113,6 +120,43 @@ export default function FormularioPrenda({ onExito, onVarias, deseo = false }) {
     setArchivo(nueva)
   }
 
+  async function traerDatos(e) {
+    e.preventDefault()
+    const url = enlace.trim()
+    if (!url) {
+      setAvisoEnlace('Pega el enlace de la tienda.')
+      return
+    }
+    setTrayendoEnlace(true)
+    setAvisoEnlace('')
+    const datos = await traerDatosDeEnlace(supabase, url)
+    setTrayendoEnlace(false)
+    if (!datos) {
+      setAvisoEnlace('No se pudo leer el enlace, rellénalo a mano.')
+      return
+    }
+
+    // Solo se rellenan los campos vacíos: lo que ya hayas escrito no se toca.
+    const actual = escritos.current
+    let relleno = false
+    if (datos.nombre && !actual.nombre.trim()) {
+      setNombre((previo) => (previo.trim() ? previo : datos.nombre))
+      relleno = true
+    }
+    if (datos.precio !== '' && String(actual.etiquetas?.precio ?? '').trim() === '') {
+      setEtiquetas((previas) => (String(previas.precio ?? '').trim() ? previas : { ...previas, precio: datos.precio }))
+      relleno = true
+    }
+    if (datos.foto && !actual.archivo) {
+      // La foto entra por el mismo flujo que una elegida a mano.
+      setArchivo((previa) => previa || datos.foto)
+      relleno = true
+    }
+    setAvisoEnlace(relleno
+      ? 'Datos traídos. Revísalos y pulsa «Guardar deseo».'
+      : 'No se han encontrado datos nuevos; rellénalo a mano.')
+  }
+
   async function manejarEnvio(e) {
     e.preventDefault()
     setCargando(true)
@@ -163,6 +207,29 @@ export default function FormularioPrenda({ onExito, onVarias, deseo = false }) {
 
       {errorFormulario && (
         <div role="alert" className="aviso-error">{errorFormulario}</div>
+      )}
+
+      {deseo && (
+        <div>
+          <label htmlFor="enlaceTienda" className="etiqueta">Enlace de la tienda</label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              id="enlaceTienda"
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck="false"
+              placeholder="https://tienda.example/producto"
+              value={enlace}
+              onChange={(e) => { setEnlace(e.target.value); setAvisoEnlace('') }}
+              className="campo"
+            />
+            <button type="button" onClick={traerDatos} disabled={trayendoEnlace} className="boton boton-secundario shrink-0">
+              {trayendoEnlace ? 'Leyendo…' : 'Traer datos'}
+            </button>
+          </div>
+          {avisoEnlace && <p role="status" className="text-sm text-tenue mt-1">{avisoEnlace}</p>}
+        </div>
       )}
 
       <div>
