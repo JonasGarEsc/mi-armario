@@ -10,6 +10,8 @@ import VistaConjuntos from './components/VistaConjuntos'
 import VistaSemanas from './components/VistaSemanas'
 import SelectorPrendas from './components/SelectorPrendas'
 import EtiquetarArmario from './components/EtiquetarArmario'
+import QueMePongo from './components/QueMePongo'
+import { ciudadGuardada, guardarCiudad } from './lib/clima'
 import Gestores from './components/Gestores'
 import Icono from './components/Icono'
 import Acceso from './components/Acceso'
@@ -411,7 +413,7 @@ function Armario({ sesion }) {
           <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
               <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
-              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
+              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
               <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
@@ -421,6 +423,7 @@ function Armario({ sesion }) {
                 activa={pestañaActiva === 'semana'}
                 recarga={actualizaciones}
                 onCrearSemana={() => { abrirModal('crear_semana'); vibrar(30) }}
+                onQueMePongo={() => { abrirModal('que_me_pongo'); vibrar(30) }}
                 onAnadirOutfit={(semana, fecha) => { setObjetivoSemana({ semana, fecha }); abrirModal('elegir_prendas'); vibrar(30) }}
                 mostrarToast={mostrarToast}
                 setDialogoGlobal={solicitarConfirmacionGlobal}
@@ -501,6 +504,13 @@ function Armario({ sesion }) {
                 </div>
               )}
 
+              {modalActivo === 'que_me_pongo' && (
+                <QueMePongo
+                  mostrarToast={mostrarToast}
+                  onHecho={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana') }}
+                />
+              )}
+
               {modalActivo === 'ajustes' && (
                 <div className="flex flex-col gap-3">
                   <h2 className="titulo-hoja mb-2">Ajustes</h2>
@@ -520,6 +530,11 @@ function Armario({ sesion }) {
                     <Icono nombre="lista" />
                   </label>
                   <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada.</p>
+                  <div>
+                    <label htmlFor="ciudadClima" className="etiqueta">Mi ciudad (para el tiempo de hoy)</label>
+                    <input id="ciudadClima" type="text" autoComplete="off" placeholder="Madrid" defaultValue={ciudadGuardada()} onBlur={(e) => guardarCiudad(e.target.value)} className="campo" />
+                    <p className="text-sm text-tenue mt-1">Se usa si no das permiso de ubicación.</p>
+                  </div>
                   <EtiquetarArmario onTerminado={recargarVistas} />
                   <ResumenUsos />
                   <div className="pt-3 mt-1 border-t border-linea">

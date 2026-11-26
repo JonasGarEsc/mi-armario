@@ -20,6 +20,7 @@ En `docs/diseno/` están las demás vistas, en móvil y escritorio, claro y oscu
 - En **Semana**, elegir un día en el calendario y crear la semana completa (lunes a domingo), con un outfit por día.
 - Marcar «Me lo he puesto» en una prenda y ver la última fecha de uso.
 - **Etiquetado automático**: al elegir la foto, la app calcula los colores en el móvil y una IA propone nombre, tipo, categoría, temporada, abrigo, formalidad, largo y estampado. Tú confirmas o corriges. En Ajustes, «Etiquetar mi armario» hace lo mismo con las prendas que ya tenías.
+- **¿Qué me pongo hoy?** (en Armario y en Semana): con el tiempo de hoy, lo que más tiempo llevas sin ponerte y la armonía de color, propone 3 outfits vestidos en el maniquí. «Otra» cambia uno, tocar una prenda la fija, y «Me lo pongo» lo deja como outfit de hoy en la Semana y anota el uso.
 - Filtros en el armario por color, temporada, formalidad y «sin usar en 90 días».
 - El largo de cada prenda (crop, cadera, bermuda, midi…) decide cómo cae en el maniquí.
 - Cambiar la foto al editar una prenda.
@@ -103,6 +104,8 @@ src/lib/imagenes.js         URLs firmadas del bucket privado, con caché en memo
 src/lib/colores.js          colores dominantes de una foto (OKLab) y familia de color
 src/lib/etiquetas.js        etiquetas de las prendas: validación y llamadas a Supabase
 src/lib/vestir.js           cómo cae cada prenda sobre el maniquí
+src/lib/sugerir.js          propuestas de outfit (clima, rotación, color, formalidad)
+src/lib/clima.js            tiempo de hoy con Open-Meteo
 supabase/esquema.sql        instalación completa desde cero
 supabase/actualizacion-v3.sql  migración para proyectos con datos
 supabase/actualizacion-v4.sql  etiquetas de las prendas

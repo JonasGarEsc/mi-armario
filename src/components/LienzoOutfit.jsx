@@ -77,7 +77,7 @@ function Maniqui({ resaltado = false }) {
   )
 }
 
-function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreCuerpo }) {
+function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreCuerpo, soloLectura = false }) {
   const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? Math.min(20 + index * 7, 70) })
   const [ranura, setRanura] = useState(cp.ranura || null)
   const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
@@ -202,13 +202,13 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   return (
     <div
       ref={nodo}
-      onPointerDown={alBajar}
-      onPointerMove={alMover}
-      onPointerUp={alSoltar}
-      onPointerCancel={alSoltar}
-      style={{ ...estilo, touchAction: 'none' }}
+      onPointerDown={soloLectura ? undefined : alBajar}
+      onPointerMove={soloLectura ? undefined : alMover}
+      onPointerUp={soloLectura ? undefined : alSoltar}
+      onPointerCancel={soloLectura ? undefined : alSoltar}
+      style={{ ...estilo, touchAction: soloLectura ? 'auto' : 'none' }}
       className={`absolute flex select-none items-center justify-center ${
-        arrastrando ? 'cursor-grabbing' : 'cursor-grab'
+        soloLectura ? 'pointer-events-none' : arrastrando ? 'cursor-grabbing' : 'cursor-grab'
       } ${ranura && !arrastrando ? 'transition-[left,top,width,height] duration-200 ease-suave' : ''}`}
       title={ranura ? `Imantada: ${RANURAS[ranura].etiqueta}` : undefined}
     >
@@ -223,7 +223,8 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreC
   )
 }
 
-export default function LienzoOutfit({ conjunto, onGuardarEstado }) {
+/** `soloLectura`: el outfit se ve vestido pero no se puede arrastrar (propuestas, vistas previas). */
+export default function LienzoOutfit({ conjunto, onGuardarEstado, soloLectura = false }) {
   const prendas = (conjunto.conjunto_prenda || []).filter((cp) => cp.prendas)
   const [maxZ, setMaxZ] = useState(() => Math.max(10, ...prendas.map((cp) => cp.z_index || 0)))
   const [sobreCuerpo, setSobreCuerpo] = useState(false)
@@ -231,7 +232,7 @@ export default function LienzoOutfit({ conjunto, onGuardarEstado }) {
   return (
     <div
       id={`lienzo-${conjunto.id}`}
-      data-sin-swipe
+      data-sin-swipe={soloLectura ? undefined : ''}
       className="relative z-0 w-full aspect-square overflow-hidden bg-foto"
     >
       <Maniqui resaltado={sobreCuerpo} />
@@ -244,6 +245,7 @@ export default function LienzoOutfit({ conjunto, onGuardarEstado }) {
           setMaxZ={setMaxZ}
           onGuardarEstado={onGuardarEstado}
           onSobreCuerpo={setSobreCuerpo}
+          soloLectura={soloLectura}
         />
       ))}
     </div>

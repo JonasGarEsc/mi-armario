@@ -7,13 +7,14 @@ import {
 import { nombreLibre } from '../lib/nombres'
 import { compartirArchivo, descargar, generarPng } from '../lib/exportar'
 import { vibrar } from '../lib/vibrar'
+import BotonQueMePongo from './BotonQueMePongo'
 import Icono from './Icono'
 import LienzoOutfit from './LienzoOutfit'
 
 const CONSULTA_CONJUNTOS = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(*, categorias(nombre, tipos(nombre))))'
 const CONSULTA_SIN_RANURA = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
-export default function VistaSemanas({ activa = false, recarga = 0, onCrearSemana, onAnadirOutfit, mostrarToast, setDialogoGlobal }) {
+export default function VistaSemanas({ activa = false, recarga = 0, onCrearSemana, onQueMePongo, onAnadirOutfit, mostrarToast, setDialogoGlobal }) {
   const [semanas, setSemanas] = useState(() => leerCache('semanas') || [])
   const [cargando, setCargando] = useState(() => !leerCache('semanas'))
   const [errorBase, setErrorBase] = useState('')
@@ -346,7 +347,10 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
           </div>
         </div>
       ) : (
-        <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Semana</h2>
+        <>
+          <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Semana</h2>
+          <BotonQueMePongo onClick={onQueMePongo} className="mb-4 md:self-start" />
+        </>
       )}
 
       {errorBase && !semanaActiva && (

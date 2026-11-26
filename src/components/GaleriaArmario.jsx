@@ -8,6 +8,7 @@ import {
   FAMILIAS_COLOR, GRUPOS_FORMALIDAD, TEMPORADAS, filtrarPrendas, hayFiltros, sinFiltros, ultimaVez,
 } from '../lib/filtros'
 import { borrarArchivo } from '../lib/imagenes'
+import BotonQueMePongo from './BotonQueMePongo'
 import Icono from './Icono'
 import Miniatura from './Miniatura'
 
@@ -34,7 +35,7 @@ const chipFiltro = (activo) =>
 // Color representativo de cada familia, solo para el punto del chip.
 const PUNTO_FAMILIA = { neutro: '#8a8d94', cálido: '#d9604a', frío: '#4f7fc0', tierra: '#8b5a2b', pastel: '#f2c6d3', vivo: '#e02f6b' }
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState(() => leerCache('prendas') || [])
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [seleccionadas, setSeleccionadas] = useState([])
@@ -179,6 +180,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
 
   return (
     <div className="flex flex-col flex-1 shrink-0">
+      {prendas.length >= 2 && <BotonQueMePongo onClick={onQueMePongo} className="mb-4 md:self-start" />}
       <div className="flex items-center gap-2 mb-4">
         <div className="relative flex-1 min-w-0 md:max-w-sm">
           <Icono nombre="buscar" className="w-5 h-5 absolute left-3.5 top-3.5 text-tenue pointer-events-none" />
