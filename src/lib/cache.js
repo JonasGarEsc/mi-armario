@@ -23,3 +23,10 @@ export function guardarCache(clave, valor) {
     // Cuota llena o modo privado: la caché es solo una mejora, se ignora.
   }
 }
+
+// Solo lo que se puede volver a pedir. Se quedan la sesión, la cola sin conexión y las listas de maleta.
+const RECONSTRUIBLE = /^armario_(firma|caja)_|^armario_v2_[^:]*:(prendas|maletas|semanas|semana_|conjuntos_)/
+
+export function borrarSoloCache(almacen = localStorage) {
+  for (const clave of Object.keys(almacen)) if (RECONSTRUIBLE.test(clave)) almacen.removeItem(clave)
+}

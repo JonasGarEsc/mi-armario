@@ -309,3 +309,17 @@ export async function importarCopia(supabase, crudo) {
 
   return resumen
 }
+
+/** Todas las filas de una tabla, por tramos: Supabase corta cada respuesta (1000 por defecto). */
+export async function leerTabla(supabase, tabla) {
+  const orden = tabla === 'conjunto_prenda' ? ['conjunto_id', 'prenda_id'] : ['id']
+  const filas = []
+  for (;;) {
+    let consulta = supabase.from(tabla).select('*')
+    for (const columna of orden) consulta = consulta.order(columna) // sin orden fijo, los tramos se pisan
+    const { data, error } = await consulta.range(filas.length, filas.length + 999)
+    if (error) return { data: null, error }
+    if (data.length === 0) return { data: filas, error: null } // el servidor puede dar menos de lo pedido
+    filas.push(...data)
+  }
+}

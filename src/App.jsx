@@ -21,7 +21,7 @@ import { fijarEspacio } from './lib/cache'
 import { vibrar } from './lib/vibrar'
 import { nombreLibre } from './lib/nombres'
 import { etiquetaDia } from './lib/fechas'
-import { contarCopia, importarCopia } from './lib/backup'
+import { contarCopia, importarCopia, leerTabla } from './lib/backup'
 
 // Todo lo que solo se ve dentro de una hoja pesa y se descarga al abrirla:
 // el motor de recorte, las estadísticas, la carga masiva, etc.
@@ -277,7 +277,7 @@ function Armario({ sesion }) {
     const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos']
     const copia = { exportado_en: new Date().toISOString(), version: 4 }
     for (const tabla of tablas) {
-      const { data, error } = await supabase.from(tabla).select('*')
+      const { data, error } = await leerTabla(supabase, tabla)
       if (error) return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
       copia[tabla] = data
     }

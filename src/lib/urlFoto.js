@@ -4,3 +4,9 @@
  * y no por el token, así que esa URL vieja sigue encontrando la foto en la caché.
  */
 export const elegirUrl = (firmada, vieja, canonica) => firmada || vieja || canonica || null
+
+/** ¿Se puede borrar el archivo? Solo si consta que ninguna prenda lo usa; ante la duda, se queda. */
+export async function fotoSinUso(supabase, url) {
+  const { count, error } = await supabase.from('prendas').select('id', { count: 'exact', head: true }).eq('imagen_url', url)
+  return !error && count === 0
+}

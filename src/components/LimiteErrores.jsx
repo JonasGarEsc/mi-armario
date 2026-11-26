@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { borrarSoloCache } from '../lib/cache'
 
 // Sin esto, un dato viejo en caché deja la app en blanco sin explicación.
 export default class LimiteErrores extends Component {
@@ -21,7 +22,7 @@ export default class LimiteErrores extends Component {
           Suele pasar cuando hay datos guardados de una versión anterior.
         </p>
         <button
-          onClick={() => { localStorage.clear(); location.reload() }}
+          onClick={() => { borrarSoloCache(); location.reload() }}
           className="boton boton-primario"
         >
           Limpiar caché y recargar

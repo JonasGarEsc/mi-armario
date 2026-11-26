@@ -1,7 +1,7 @@
 // Caja visible de una foto con transparencia y perfil de anchuras.
 // Sirve para vestir el maniquí aunque la foto tenga aire alrededor.
 
-const PREFIJO = 'armario_caja_v2_'
+const PREFIJO = 'armario_caja_v3_'
 const OPACO = 64 // alfa mínimo para contar un píxel (ignora sombras suaves)
 const FILAS_PERFIL = 40
 const memoria = new Map()

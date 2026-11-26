@@ -38,9 +38,10 @@ export default defineConfig({
             urlPattern: ({ url }) => /\/storage\/v1\/(?:render\/image|object)\/sign\/prendas\//.test(url.pathname),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'prendas-fotos-v2',
+              cacheName: 'prendas-fotos-v3',
               expiration: { maxEntries: 800, maxAgeSeconds: 60 * 60 * 24 * 60, purgeOnQuotaError: true },
-              cacheableResponse: { statuses: [0, 200] },
+              // Solo 200: una respuesta opaca (0) no se puede medir ni saber si fue un error.
+              cacheableResponse: { statuses: [200] },
               plugins: [
                 {
                   // Va dentro del Service Worker: no puede usar nada de fuera de esta función.

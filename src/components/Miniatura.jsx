@@ -37,6 +37,7 @@ export default function Miniatura({ url, alt = '', className = '', ancho = 480 }
   return (
     <span className={`relative block overflow-hidden ${className}`}>
       <img
+        crossOrigin="anonymous"
         ref={imagen}
         src={src}
         onError={fallar}

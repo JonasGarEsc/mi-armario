@@ -59,6 +59,7 @@ export default function PrendaAjustada({
   return (
     <span className={`relative block h-full w-full ${puesta ? '' : 'overflow-hidden'}`}>
       <img
+        crossOrigin="anonymous"
         src={src}
         onError={fallar}
         alt={alt}

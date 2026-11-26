@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { elegirUrl } from './urlFoto'
+import { elegirUrl, fotoSinUso } from './urlFoto'
 
 // Las fotos viven en el bucket privado «prendas». Guardamos en la base la URL
 // canónica de getPublicUrl, pero para mostrarla pedimos una URL firmada.
@@ -112,6 +112,8 @@ export function olvidarImagen(url) {
 export async function borrarArchivo(url) {
   const ruta = rutaImagen(url)
   if (!ruta) return
+  // Una copia restaurada comparte foto con la original.
+  if (!(await fotoSinUso(supabase, url))) return
   await supabase.storage.from('prendas').remove([ruta])
   olvidarImagen(url)
 }
