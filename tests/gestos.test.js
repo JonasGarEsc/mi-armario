@@ -1,0 +1,29 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { cerrarHoja, destinoDelGesto } from '../src/lib/gestos.js'
+
+test('arrastrar más de un cuarto de pantalla cambia de panel', () => {
+  assert.equal(destinoDelGesto(1, 3, -120, 0, 400), 2)
+  assert.equal(destinoDelGesto(1, 3, 120, 0, 400), 0)
+  assert.equal(destinoDelGesto(1, 3, -60, 0, 400), 1)
+})
+
+test('un lanzamiento rápido cambia de panel aunque el recorrido sea corto', () => {
+  assert.equal(destinoDelGesto(0, 3, -40, -0.8, 400), 1)
+})
+
+test('no se pasa del primer ni del último panel', () => {
+  assert.equal(destinoDelGesto(0, 3, 300, 1, 400), 0)
+  assert.equal(destinoDelGesto(2, 3, -300, -1, 400), 2)
+})
+
+test('si el dedo vuelve atrás, el lanzamiento no cuenta', () => {
+  assert.equal(destinoDelGesto(1, 3, 20, -0.8, 400), 1)
+})
+
+test('la hoja se cierra al bajarla bastante o al lanzarla', () => {
+  assert.equal(cerrarHoja(200, 0, 600), true)
+  assert.equal(cerrarHoja(40, 0.9, 600), true)
+  assert.equal(cerrarHoja(40, 0.1, 600), false)
+  assert.equal(cerrarHoja(-30, -1, 600), false)
+})

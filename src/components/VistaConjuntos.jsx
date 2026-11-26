@@ -160,7 +160,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     temporizadorMaleta.current = setTimeout(() => {
       setAbriendoId(null)
       abrirMaleta(m)
-    }, 820)
+    }, 520)
   }
 
   async function guardarNombre() {
@@ -561,13 +561,13 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                   ))}
 
                   <span className="maleta-cuerpo relative block aspect-[2/3]">
-                    {/* Tirador lateral con su etiqueta de equipaje. */}
-                    <span className="maleta-goma absolute -right-1.5 top-[27%] w-3 h-[18%] rounded-r-md" aria-hidden="true" />
-                    <span className="maleta-etiqueta absolute -right-2.5 top-[43%] w-3.5 h-[13%] rounded-[3px]" aria-hidden="true" />
+                    {/* Asa lateral con su etiqueta de cuero. */}
+                    <span className="maleta-goma absolute -right-1 top-[24%] w-2 h-[16%] rounded-r-[4px]" aria-hidden="true" />
+                    <span className="maleta-etiqueta absolute -right-2 top-[38%] w-3 h-[11%] rounded-[2px]" aria-hidden="true" />
 
                     {/* Carcasa trasera y forro: la ropa doblada se ve al abrir la tapa. */}
-                    <span className="maleta-carcasa absolute inset-0 rounded-3xl p-2">
-                      <span className="maleta-interior relative block w-full h-full rounded-2xl overflow-hidden">
+                    <span className="maleta-carcasa absolute inset-0 rounded-[14px] p-[5%]">
+                      <span className="maleta-interior relative block w-full h-full rounded-[9px] overflow-hidden">
                         {imagenes.length === 0 && (
                           <>
                             <span className="maleta-correa absolute -inset-x-4 top-1/2 h-3 -translate-y-1/2 rotate-[52deg]" />
@@ -587,7 +587,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                                 width: `${ancho}%`,
                                 height: `${alto}%`,
                                 '--giro': `${llena ? (i % 2 ? 1 : -1) : [-2, 1.5, 2.5, -1.5][i]}deg`,
-                                '--retardo': `${200 + fila * 80}ms`,
+                                '--retardo': `${120 + fila * 50}ms`,
                               }}>
                                 <Miniatura url={url} alt="" className="w-full h-full object-contain" />
                               </span>
@@ -599,36 +599,24 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
 
                     {/* Tapa con bisagra a la izquierda: cara exterior y forro por detrás. */}
                     <span className="maleta-tapa absolute inset-0" aria-hidden="true">
-                      <span className="maleta-reverso absolute inset-0 rounded-3xl">
-                        <span className="maleta-bolsillo absolute inset-x-3 bottom-3 h-[46%] rounded-xl" />
+                      <span className="maleta-reverso absolute inset-0 rounded-[14px]">
+                        <span className="maleta-bolsillo absolute inset-x-3 bottom-3 h-[46%] rounded-lg" />
                       </span>
-                      <span className="maleta-cara maleta-carcasa absolute inset-0 rounded-3xl overflow-hidden">
-                        <span className="maleta-costillas absolute inset-x-[15%] inset-y-[8%] rounded-xl" />
-                        <span className="maleta-banda absolute inset-x-0 top-[19%] h-[5%]" />
-                        <span className="maleta-banda absolute inset-x-0 bottom-[17%] h-[5%]" />
-                        {['top-0 left-0', 'top-0 right-0 rotate-90', 'bottom-0 right-0 rotate-180', 'bottom-0 left-0 -rotate-90'].map(esquina => (
-                          <span key={esquina} className={`maleta-esquina absolute ${esquina} w-7 h-7`} />
-                        ))}
-                        {/* Cremallera: cinta, dientes y costura. El viewBox es 2:3, como la tapa. */}
-                        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 300" fill="none">
-                          <rect className="maleta-cinta" x="9" y="9" width="182" height="282" rx="20" />
-                          <rect className="maleta-dientes" x="9" y="9" width="182" height="282" rx="20" />
-                          <rect className="maleta-costura" x="15" y="15" width="170" height="270" rx="15" />
-                        </svg>
-                        {/* Carro de la cremallera con su tirador. */}
-                        <span className="maleta-metal absolute right-[3%] top-[30%] w-2.5 h-3 rounded-sm" />
-                        <span className="maleta-metal absolute right-[4.5%] top-[35%] w-1.5 h-5 rounded-full rotate-6" />
-                        {/* Candado en el borde que se abre. */}
-                        <span className="maleta-metal absolute right-[7%] top-[53%] w-3.5 h-9 rounded-[5px]">
-                          <span className="maleta-rueda absolute left-[3px] top-1.5 w-2 h-2 rounded-full" />
-                          <span className="maleta-goma absolute inset-x-[3px] bottom-1.5 h-2.5 rounded-sm" />
+                      <span className="maleta-cara maleta-carcasa absolute inset-0 rounded-[14px] overflow-hidden">
+                        {/* Acanalado del aluminio y junta del perímetro. */}
+                        <span className="maleta-costillas absolute inset-x-[8%] inset-y-[5%]" />
+                        <span className="maleta-junta absolute inset-[3.5%] rounded-[11px]" />
+                        {/* Cierre con candado, encastrado en el borde que se abre. */}
+                        <span className="maleta-cierre absolute right-[5%] top-[44%] w-[11%] h-[12%] rounded-[3px]">
+                          <span className="maleta-metal absolute inset-x-[22%] top-[18%] h-[26%] rounded-[2px]" />
+                          <span className="maleta-ruedecillas absolute inset-x-[22%] bottom-[16%] h-[30%] rounded-[1px]" />
                         </span>
                       </span>
                     </span>
 
                     {/* Bisagras sobre el eje de giro. */}
-                    <span className="maleta-bisagra absolute -left-1 top-[14%] w-2 h-[11%] rounded-sm" aria-hidden="true" />
-                    <span className="maleta-bisagra absolute -left-1 bottom-[14%] w-2 h-[11%] rounded-sm" aria-hidden="true" />
+                    <span className="maleta-bisagra absolute -left-[3px] top-[15%] w-[5px] h-[9%] rounded-[2px]" aria-hidden="true" />
+                    <span className="maleta-bisagra absolute -left-[3px] bottom-[15%] w-[5px] h-[9%] rounded-[2px]" aria-hidden="true" />
                   </span>
                 </span>
                 <span className="block mt-2 font-semibold leading-6 truncate">{m.nombre}</span>

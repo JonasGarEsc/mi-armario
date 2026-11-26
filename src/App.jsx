@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
-import { useSwipeable } from 'react-swipeable'
+import { useArrastrarHoja } from './lib/useArrastrarHoja'
+import { useDeslizarPaneles } from './lib/useDeslizarPaneles'
 import FormularioEdicion from './components/FormularioEdicion'
 import FormularioMaleta from './components/FormularioMaleta'
 import FormularioSemana from './components/FormularioSemana'
@@ -216,7 +217,7 @@ function Armario({ sesion }) {
       setPrendasParaConjunto([])
       setObjetivoSemana(null)
       requestAnimationFrame(() => origenFoco.current?.focus?.({ preventScroll: true }))
-    }, 220)
+    }, 300)
   }
 
   useEffect(() => {
@@ -236,29 +237,15 @@ function Armario({ sesion }) {
 
   const irA = (seccion) => { setPestañaActiva(seccion); vibrar(30) }
 
-  // Arrastrar una prenda dentro de un outfit no debe cambiar de sección.
-  const swipeNavegacion = useSwipeable({
-    onSwipedLeft: ({ event }) => {
-      if (event.target.closest('[data-sin-swipe]')) return
-      if (pestañaActiva === 'ropa') irA('conjuntos')
-      else if (pestañaActiva === 'conjuntos') irA('semana')
-    },
-    onSwipedRight: ({ event }) => {
-      if (event.target.closest('[data-sin-swipe]')) return
-      if (pestañaActiva === 'semana') irA('conjuntos')
-      else if (pestañaActiva === 'conjuntos') irA('ropa')
-    },
-    preventScrollOnSwipe: false,
-    trackMouse: false,
-    delta: 60
+  // Los paneles siguen al dedo; arrastrar una prenda dentro de un outfit
+  // (data-sin-swipe) no cambia de sección.
+  const indiceSeccion = { ropa: 0, conjuntos: 1, semana: 2 }[pestañaActiva] ?? 0
+  const pistaRef = useDeslizarPaneles({
+    indice: indiceSeccion,
+    total: SECCIONES.length,
+    onCambiar: (i) => irA(SECCIONES[i].id),
   })
-
-  const swipeModal = useSwipeable({
-    onSwipedDown: () => cerrarModal(),
-    preventScrollOnSwipe: true,
-    delta: 20,
-    trackTouch: true
-  })
+  const asaRef = useArrastrarHoja(hojaRef, () => cerrarModal(), !!modalActivo)
 
   function iniciarEdicion(prenda) {
     setPrendaAEditar(prenda)
@@ -349,7 +336,6 @@ function Armario({ sesion }) {
 
   const chip = (activo) => `min-h-11 px-4 rounded-full ${activo ? 'bg-acento text-sobre-acento font-semibold' : 'bg-lamina text-tinta'}`
   const seccion = SECCIONES.find(s => s.id === pestañaActiva)
-  const indiceSeccion = { ropa: 0, conjuntos: 1, semana: 2 }[pestañaActiva] ?? 0
   const panel = 'relative w-1/3 min-w-0 h-full flex flex-col overflow-y-auto overscroll-y-contain sin-barra px-4 md:px-8 pt-2 md:pt-8 pb-4 md:pb-8 touch-pan-y'
 
   return (
@@ -393,8 +379,8 @@ function Armario({ sesion }) {
           </div>
         </header>
 
-        <main {...swipeNavegacion} className="flex-1 min-h-0 w-full max-w-6xl mx-auto overflow-hidden">
-          <div className="flex w-[300%] h-full transition-transform duration-250 ease-suave" style={{ transform: `translateX(-${indiceSeccion * (100 / 3)}%)` }}>
+        <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto overflow-hidden">
+          <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
               <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
               <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
@@ -429,9 +415,9 @@ function Armario({ sesion }) {
 
       {modalActivo && (
         <div className="fixed inset-0 z-80 flex flex-col justify-end md:justify-center md:items-center md:p-6" inert={!!dialogoGlobal}>
-          <div onClick={cerrarModal} className={`absolute inset-0 bg-velo transition-opacity duration-200 ${modalVisible ? 'opacity-100' : 'opacity-0'}`} />
-          <div ref={hojaRef} tabIndex={-1} role="dialog" aria-modal="true" className={`relative w-full md:max-w-lg max-h-[92dvh] md:max-h-[88dvh] flex flex-col bg-superficie rounded-t-3xl md:rounded-3xl pb-safe transition-[translate,opacity] duration-200 ease-suave ${modalVisible ? 'translate-y-0 opacity-100' : 'translate-y-full md:translate-y-4 md:opacity-0'}`}>
-            <div {...swipeModal} className="shrink-0 h-7 flex items-center justify-center touch-none">
+          <div onClick={cerrarModal} className={`absolute inset-0 bg-velo transition-opacity duration-300 ease-ios ${modalVisible ? 'opacity-100' : 'opacity-0'}`} />
+          <div ref={hojaRef} tabIndex={-1} role="dialog" aria-modal="true" className={`relative w-full md:max-w-lg max-h-[92dvh] md:max-h-[88dvh] flex flex-col bg-superficie rounded-t-3xl md:rounded-3xl pb-safe transition-[translate,opacity] duration-300 ease-ios ${modalVisible ? 'translate-y-0 opacity-100' : 'translate-y-full md:translate-y-4 md:opacity-0'}`}>
+            <div ref={asaRef} className="shrink-0 h-7 flex items-center justify-center touch-none cursor-grab">
               <div className="w-10 h-1 rounded-full bg-linea md:hidden" />
             </div>
             <button onClick={cerrarModal} aria-label="Cerrar" className="boton-icono absolute! top-4 right-3 z-10">
