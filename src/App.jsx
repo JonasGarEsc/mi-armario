@@ -2,30 +2,18 @@ import { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 're
 import { useArrastrarHoja } from './lib/useArrastrarHoja'
 import { useDeslizarPaneles } from './lib/useDeslizarPaneles'
 import { fijarSeccionVisual, useSeccionVisual } from './lib/seccionVisual'
-import FormularioEdicion from './components/FormularioEdicion'
-import FormularioMaleta from './components/FormularioMaleta'
-import FormularioSemana from './components/FormularioSemana'
+import { crearGestorAtras } from './lib/atras'
 import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import VistaSemanas from './components/VistaSemanas'
-import SelectorPrendas from './components/SelectorPrendas'
-import EtiquetarArmario from './components/EtiquetarArmario'
-import QueMePongo from './components/QueMePongo'
-import AsistenteMaleta from './components/AsistenteMaleta'
 import AvisoUso from './components/AvisoUso'
-import Estadisticas from './components/Estadisticas'
-import CargaMasiva from './components/CargaMasiva'
-import OutfitsConDeseo from './components/OutfitsConDeseo'
 import { resumenCarga } from './lib/cargaMasiva'
 import { colaOffline, useConexion } from './lib/offline'
 import { useCargaMasiva } from './lib/cargaMasivaApp'
-import ConfirmarUso from './components/ConfirmarUso'
 import { ciudadGuardada, guardarCiudad } from './lib/clima'
-import Gestores from './components/Gestores'
 import Icono from './components/Icono'
 import Acceso from './components/Acceso'
 import NuevaContrasena from './components/NuevaContrasena'
-import ResumenUsos from './components/ResumenUsos'
 import { supabase } from './supabase'
 import { esDuplicado } from './lib/outfits'
 import { fijarEspacio } from './lib/cache'
@@ -34,8 +22,22 @@ import { nombreLibre } from './lib/nombres'
 import { etiquetaDia } from './lib/fechas'
 import { contarCopia, importarCopia } from './lib/backup'
 
-// El motor de recorte pesa cientos de kB: solo se descarga al abrir el formulario.
+// Todo lo que solo se ve dentro de una hoja pesa y se descarga al abrirla:
+// el motor de recorte, las estadísticas, la carga masiva, etc.
 const FormularioPrenda = lazy(() => import('./components/FormularioPrenda'))
+const FormularioEdicion = lazy(() => import('./components/FormularioEdicion'))
+const FormularioMaleta = lazy(() => import('./components/FormularioMaleta'))
+const FormularioSemana = lazy(() => import('./components/FormularioSemana'))
+const SelectorPrendas = lazy(() => import('./components/SelectorPrendas'))
+const EtiquetarArmario = lazy(() => import('./components/EtiquetarArmario'))
+const QueMePongo = lazy(() => import('./components/QueMePongo'))
+const AsistenteMaleta = lazy(() => import('./components/AsistenteMaleta'))
+const Estadisticas = lazy(() => import('./components/Estadisticas'))
+const CargaMasiva = lazy(() => import('./components/CargaMasiva'))
+const OutfitsConDeseo = lazy(() => import('./components/OutfitsConDeseo'))
+const ConfirmarUso = lazy(() => import('./components/ConfirmarUso'))
+const Gestores = lazy(() => import('./components/Gestores'))
+const ResumenUsos = lazy(() => import('./components/ResumenUsos'))
 
 const SECCIONES = [
   { id: 'ropa', nombre: 'Armario', icono: 'percha' },
@@ -210,6 +212,8 @@ function Armario({ sesion }) {
   const [filtroActual, setFiltroActual] = useState(null)
   const hojaRef = useRef(null)
   const origenFoco = useRef(null)
+  const atrasRef = useRef(null)
+  if (!atrasRef.current) atrasRef.current = crearGestorAtras(window.history)
 
   const [dialogoGlobal, setDialogoGlobal] = useState(null)
 
@@ -230,8 +234,10 @@ function Armario({ sesion }) {
   useEffect(() => {
     if (modalActivo !== 'filtros') return
     async function cargarDatosMenu() {
-      const { data: tipos } = await supabase.from('tipos').select('*').order('nombre')
-      const { data: categorias } = await supabase.from('categorias').select('*').order('nombre')
+      const [{ data: tipos }, { data: categorias }] = await Promise.all([
+        supabase.from('tipos').select('*').order('nombre'),
+        supabase.from('categorias').select('*').order('nombre'),
+      ])
       if (tipos && categorias) {
          const menuEstructurado = tipos.map(t => ({
            ...t,
@@ -338,6 +344,17 @@ function Armario({ sesion }) {
       requestAnimationFrame(() => origenFoco.current?.focus?.({ preventScroll: true }))
     }, 300)
   }
+
+  // Atrás cierra la capa de arriba (diálogo u hoja) y consume su entrada.
+  useEffect(() => {
+    if (!modalActivo) return undefined
+    return atrasRef.current.abrir('hoja', cerrarModal)
+  }, [modalActivo])
+
+  useEffect(() => {
+    if (!dialogoGlobal) return undefined
+    return atrasRef.current.abrir('dialogo', () => setDialogoGlobal(null))
+  }, [dialogoGlobal])
 
   useEffect(() => {
     const alPulsar = (e) => {
@@ -547,145 +564,147 @@ function Armario({ sesion }) {
             </button>
 
             <div className="min-h-0 overflow-y-auto overscroll-contain px-5 md:px-7 pt-1 pb-6">
-              {modalActivo === 'formulario' && (
-                <Suspense fallback={<div role="status" aria-label="Cargando editor" className="flex flex-col gap-4"><div className="esqueleto h-8 w-48" />{[0, 1, 2, 3].map(i => <div key={i} className="esqueleto h-18" />)}</div>}>
+              {/* Un solo Suspense: el asa, el velo y la X quedan fuera y siguen
+                  funcionando aunque el contenido de la hoja llegue tarde. */}
+              <Suspense fallback={<div role="status" aria-label="Cargando" className="flex flex-col gap-4"><div className="esqueleto h-8 w-48" />{[0, 1, 2, 3].map(i => <div key={i} className="esqueleto h-18" />)}</div>}>
+                {modalActivo === 'formulario' && (
                   <FormularioPrenda deseo={modoDeseo} onVarias={() => abrirModal('carga_masiva')} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast(modoDeseo ? 'Añadido a tus deseos' : 'Prenda añadida', 'exito') }} />
-                </Suspense>
-              )}
-              {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
-              {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={(maleta) => {
-                cerrarModal(); recargarVistas(); vibrar([50, 50])
-                mostrarToast('Maleta creada', 'exito', maleta?.fecha_inicio ? { texto: 'Prepárala por mí', onClick: () => prepararMaleta(maleta) } : null)
-              }} onCancelar={cerrarModal} />}
-              {modalActivo === 'confirmar_uso' && usoPendiente && (
-                <ConfirmarUso outfit={usoPendiente} mostrarToast={mostrarToast} onHecho={() => { cerrarModal(); recargarVistas() }} />
-              )}
-              {modalActivo === 'asistente_maleta' && maletaAsistente && (
-                <AsistenteMaleta
-                  maleta={maletaAsistente}
-                  mostrarToast={mostrarToast}
-                  onHecho={() => { cerrarModal(); setRefrescoMaleta(n => n + 1); setPestañaActiva('conjuntos') }}
-                />
-              )}
-              {modalActivo === 'crear_semana' && <FormularioSemana onExito={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana'); vibrar([50, 50]); mostrarToast("Semana creada", "exito") }} onCancelar={cerrarModal} />}
-              {modalActivo === 'elegir_prendas' && objetivoSemana && (
-                <SelectorPrendas
-                  fecha={objetivoSemana.fecha}
-                  nombreSemana={objetivoSemana.semana.nombre}
-                  onGuardar={crearOutfitSemana}
-                  onCancelar={cerrarModal}
-                />
-              )}
+                )}
+                {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
+                {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={(maleta) => {
+                  cerrarModal(); recargarVistas(); vibrar([50, 50])
+                  mostrarToast('Maleta creada', 'exito', maleta?.fecha_inicio ? { texto: 'Prepárala por mí', onClick: () => prepararMaleta(maleta) } : null)
+                }} onCancelar={cerrarModal} />}
+                {modalActivo === 'confirmar_uso' && usoPendiente && (
+                  <ConfirmarUso outfit={usoPendiente} mostrarToast={mostrarToast} onHecho={() => { cerrarModal(); recargarVistas() }} />
+                )}
+                {modalActivo === 'asistente_maleta' && maletaAsistente && (
+                  <AsistenteMaleta
+                    maleta={maletaAsistente}
+                    mostrarToast={mostrarToast}
+                    onHecho={() => { cerrarModal(); setRefrescoMaleta(n => n + 1); setPestañaActiva('conjuntos') }}
+                  />
+                )}
+                {modalActivo === 'crear_semana' && <FormularioSemana onExito={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana'); vibrar([50, 50]); mostrarToast("Semana creada", "exito") }} onCancelar={cerrarModal} />}
+                {modalActivo === 'elegir_prendas' && objetivoSemana && (
+                  <SelectorPrendas
+                    fecha={objetivoSemana.fecha}
+                    nombreSemana={objetivoSemana.semana.nombre}
+                    onGuardar={crearOutfitSemana}
+                    onCancelar={cerrarModal}
+                  />
+                )}
 
-              {modalActivo === 'crear_conjunto' && (
-                <form onSubmit={guardarConjunto} className="flex flex-col gap-4">
-                  <h2 className="titulo-hoja">Guardar outfit</h2>
-                  <div>
-                    <label htmlFor="maletaId" className="etiqueta">Maleta</label>
-                    <select id="maletaId" name="maletaId" required className="campo">
-                      {maletasDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="nombreConjunto" className="etiqueta">Nombre</label>
-                    <input id="nombreConjunto" type="text" name="nombreConjunto" autoComplete="off" required placeholder="Casual día 1" className="campo" />
-                  </div>
-                  <button type="submit" className="boton boton-primario mt-2">Guardar</button>
-                </form>
-              )}
-
-              {modalActivo === 'filtros' && (
-                <div className="flex flex-col gap-5">
-                  <h2 className="titulo-hoja">Filtrar</h2>
-                  <button onClick={() => aplicarFiltro(null)} aria-pressed={!filtroActual} className={`self-start ${chip(!filtroActual)}`}>Todo</button>
-                  {!datosMenu && <div role="status" aria-label="Cargando" className="flex gap-2">{[0, 1, 2].map(i => <div key={i} className="esqueleto h-11 w-24" />)}</div>}
-                  {datosMenu?.map(tipo => (
-                    <div key={tipo.id}>
-                      <h3 className="etiqueta">{tipo.nombre}</h3>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {tipo.categorias.length === 0 && <span className="text-sm text-tenue">Sin prendas</span>}
-                        {tipo.categorias.map(cat => (
-                          <button key={cat.id} onClick={() => aplicarFiltro(cat)} aria-pressed={filtroActual?.id === cat.id} className={chip(filtroActual?.id === cat.id)}>{cat.nombre}</button>
-                        ))}
-                      </div>
+                {modalActivo === 'crear_conjunto' && (
+                  <form onSubmit={guardarConjunto} className="flex flex-col gap-4">
+                    <h2 className="titulo-hoja">Guardar outfit</h2>
+                    <div>
+                      <label htmlFor="maletaId" className="etiqueta">Maleta</label>
+                      <select id="maletaId" name="maletaId" required className="campo">
+                        {maletasDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                      </select>
                     </div>
-                  ))}
-                  <div className="grid grid-cols-2 gap-3 pt-4 border-t border-linea">
-                    <button onClick={() => abrirModal('tipos')} className="boton boton-secundario">Tipos</button>
-                    <button onClick={() => abrirModal('categorias')} className="boton boton-secundario">Categorías</button>
+                    <div>
+                      <label htmlFor="nombreConjunto" className="etiqueta">Nombre</label>
+                      <input id="nombreConjunto" type="text" name="nombreConjunto" autoComplete="off" required placeholder="Casual día 1" className="campo" />
+                    </div>
+                    <button type="submit" className="boton boton-primario mt-2">Guardar</button>
+                  </form>
+                )}
+
+                {modalActivo === 'filtros' && (
+                  <div className="flex flex-col gap-5">
+                    <h2 className="titulo-hoja">Filtrar</h2>
+                    <button onClick={() => aplicarFiltro(null)} aria-pressed={!filtroActual} className={`self-start ${chip(!filtroActual)}`}>Todo</button>
+                    {!datosMenu && <div role="status" aria-label="Cargando" className="flex gap-2">{[0, 1, 2].map(i => <div key={i} className="esqueleto h-11 w-24" />)}</div>}
+                    {datosMenu?.map(tipo => (
+                      <div key={tipo.id}>
+                        <h3 className="etiqueta">{tipo.nombre}</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {tipo.categorias.length === 0 && <span className="text-sm text-tenue">Sin prendas</span>}
+                          {tipo.categorias.map(cat => (
+                            <button key={cat.id} onClick={() => aplicarFiltro(cat)} aria-pressed={filtroActual?.id === cat.id} className={chip(filtroActual?.id === cat.id)}>{cat.nombre}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-linea">
+                      <button onClick={() => abrirModal('tipos')} className="boton boton-secundario">Tipos</button>
+                      <button onClick={() => abrirModal('categorias')} className="boton boton-secundario">Categorías</button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {modalActivo === 'que_me_pongo' && (
-                <QueMePongo
-                  key={prendaFijada || 'libre'}
-                  prendaInicial={prendaFijada}
-                  mostrarToast={mostrarToast}
-                  onHecho={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana') }}
-                />
-              )}
+                {modalActivo === 'que_me_pongo' && (
+                  <QueMePongo
+                    key={prendaFijada || 'libre'}
+                    prendaInicial={prendaFijada}
+                    mostrarToast={mostrarToast}
+                    onHecho={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana') }}
+                  />
+                )}
 
-              {modalActivo === 'deseo_outfits' && deseoElegido && <OutfitsConDeseo deseo={deseoElegido} />}
+                {modalActivo === 'deseo_outfits' && deseoElegido && <OutfitsConDeseo deseo={deseoElegido} />}
 
-              {modalActivo === 'carga_masiva' && (
-                <CargaMasiva
-                  mostrarToast={mostrarToast}
-                  onGuardadas={(vacia) => { recargarVistas(); if (vacia) cerrarModal() }}
-                />
-              )}
+                {modalActivo === 'carga_masiva' && (
+                  <CargaMasiva
+                    mostrarToast={mostrarToast}
+                    onGuardadas={(vacia) => { recargarVistas(); if (vacia) cerrarModal() }}
+                  />
+                )}
 
-              {modalActivo === 'estadisticas' && (
-                <Estadisticas
-                  mostrarToast={mostrarToast}
-                  onCambio={recargarVistas}
-                  onProponer={(id) => { setPrendaFijada(id); abrirModal('que_me_pongo') }}
-                />
-              )}
+                {modalActivo === 'estadisticas' && (
+                  <Estadisticas
+                    mostrarToast={mostrarToast}
+                    onCambio={recargarVistas}
+                    onProponer={(id) => { setPrendaFijada(id); abrirModal('que_me_pongo') }}
+                  />
+                )}
 
-              {modalActivo === 'ajustes' && (
-                <div className="flex flex-col gap-3">
-                  <h2 className="titulo-hoja mb-2">Ajustes</h2>
-                  <button role="switch" aria-checked={temaOscuro} onClick={() => { setTemaOscuro(!temaOscuro); vibrar(30) }} className="boton boton-secundario justify-between!">
-                    Tema oscuro
-                    <span aria-hidden="true" className={`w-11 h-6 rounded-full p-0.5 ${temaOscuro ? 'bg-acento' : 'bg-tenue'}`}>
-                      <span className={`block w-5 h-5 rounded-full bg-superficie transition-transform duration-200 ${temaOscuro ? 'translate-x-5' : ''}`} />
-                    </span>
-                  </button>
-                  <button onClick={() => { cerrarModal(); exportarDatos() }} className="boton boton-secundario justify-between!">
-                    Descargar copia de seguridad
-                    <Icono nombre="descargar" />
-                  </button>
-                  <label className="boton boton-secundario justify-between! cursor-pointer">
-                    Restaurar copia de seguridad
-                    <input type="file" accept=".json,application/json" onChange={alElegirCopia} className="sr-only" />
-                    <Icono nombre="lista" />
-                  </label>
-                  <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada.</p>
-                  <div>
-                    <label htmlFor="ciudadClima" className="etiqueta">Mi ciudad (para el tiempo de hoy)</label>
-                    <input id="ciudadClima" type="text" autoComplete="off" placeholder="Madrid" defaultValue={ciudadGuardada()} onBlur={(e) => guardarCiudad(e.target.value)} className="campo" />
-                    <p className="text-sm text-tenue mt-1">Se usa si no das permiso de ubicación.</p>
-                  </div>
-                  <button onClick={() => abrirModal('estadisticas')} className="boton boton-secundario justify-between!">
-                    Mi armario en números
-                    <Icono nombre="lista" />
-                  </button>
-                  <EtiquetarArmario onTerminado={recargarVistas} />
-                  <ResumenUsos />
-                  <div className="pt-3 mt-1 border-t border-linea">
-                    <p className="text-sm text-tenue mb-2 truncate">Sesión: {sesion.user?.email}</p>
-                    <button onClick={() => { cerrarModal(); supabase.auth.signOut() }} className="boton boton-secundario w-full justify-between!">
-                      Cerrar sesión
-                      <Icono nombre="salir" />
+                {modalActivo === 'ajustes' && (
+                  <div className="flex flex-col gap-3">
+                    <h2 className="titulo-hoja mb-2">Ajustes</h2>
+                    <button role="switch" aria-checked={temaOscuro} onClick={() => { setTemaOscuro(!temaOscuro); vibrar(30) }} className="boton boton-secundario justify-between!">
+                      Tema oscuro
+                      <span aria-hidden="true" className={`w-11 h-6 rounded-full p-0.5 ${temaOscuro ? 'bg-acento' : 'bg-tenue'}`}>
+                        <span className={`block w-5 h-5 rounded-full bg-superficie transition-transform duration-200 ${temaOscuro ? 'translate-x-5' : ''}`} />
+                      </span>
                     </button>
+                    <button onClick={() => { cerrarModal(); exportarDatos() }} className="boton boton-secundario justify-between!">
+                      Descargar copia de seguridad
+                      <Icono nombre="descargar" />
+                    </button>
+                    <label className="boton boton-secundario justify-between! cursor-pointer">
+                      Restaurar copia de seguridad
+                      <input type="file" accept=".json,application/json" onChange={alElegirCopia} className="sr-only" />
+                      <Icono nombre="lista" />
+                    </label>
+                    <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada.</p>
+                    <div>
+                      <label htmlFor="ciudadClima" className="etiqueta">Mi ciudad (para el tiempo de hoy)</label>
+                      <input id="ciudadClima" type="text" autoComplete="off" placeholder="Madrid" defaultValue={ciudadGuardada()} onBlur={(e) => guardarCiudad(e.target.value)} className="campo" />
+                      <p className="text-sm text-tenue mt-1">Se usa si no das permiso de ubicación.</p>
+                    </div>
+                    <button onClick={() => abrirModal('estadisticas')} className="boton boton-secundario justify-between!">
+                      Mi armario en números
+                      <Icono nombre="lista" />
+                    </button>
+                    <EtiquetarArmario onTerminado={recargarVistas} />
+                    <ResumenUsos />
+                    <div className="pt-3 mt-1 border-t border-linea">
+                      <p className="text-sm text-tenue mb-2 truncate">Sesión: {sesion.user?.email}</p>
+                      <button onClick={() => { cerrarModal(); supabase.auth.signOut() }} className="boton boton-secundario w-full justify-between!">
+                        Cerrar sesión
+                        <Icono nombre="salir" />
+                      </button>
+                    </div>
+                    <p className="text-sm text-tenue pt-2">Perletta v3</p>
                   </div>
-                  <p className="text-sm text-tenue pt-2">Perletta v3</p>
-                </div>
-              )}
+                )}
 
-              {/* Le inyectamos las variables a Gestores */}
-              {(modalActivo === 'tipos' || modalActivo === 'categorias') && <Gestores key={modalActivo} seccion={modalActivo} onCambio={recargarVistas} setDialogoGlobal={solicitarConfirmacionGlobal} mostrarToast={mostrarToast} />}
+                {/* Le inyectamos las variables a Gestores */}
+                {(modalActivo === 'tipos' || modalActivo === 'categorias') && <Gestores key={modalActivo} seccion={modalActivo} onCambio={recargarVistas} setDialogoGlobal={solicitarConfirmacionGlobal} mostrarToast={mostrarToast} />}
+              </Suspense>
             </div>
           </div>
         </div>
