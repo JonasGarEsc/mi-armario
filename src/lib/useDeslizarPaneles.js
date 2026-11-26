@@ -5,6 +5,14 @@ import { curvaAsentamiento, destinoDelGesto } from './gestos'
 export const CURVA_IOS = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const DURACION = 380
 
+/** ¿Está el elemento dentro de algo que se desplaza en horizontal (filas de chips, carruseles)? */
+function enDesplazamientoHorizontal(el, limite) {
+  for (let n = el; n && n !== limite; n = n.parentElement) {
+    if (n.scrollWidth > n.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) return true
+  }
+  return false
+}
+
 /**
  * Paneles en fila que siguen al dedo, afinado para que no haya ni un corte:
  *  - Eventos táctiles nativos: en cuanto el gesto es horizontal se bloquea el
@@ -76,6 +84,8 @@ export function useDeslizarPaneles({ indice, total, onCambiar, onPrevisualizar }
     const empezar = (e) => {
       if (e.touches.length !== 1) { gesto = null; return }
       if (e.target.closest?.('[data-sin-swipe], input, textarea, select')) return
+      // Un gesto sobre una fila que se desplaza (chips, miniaturas) es para ella, no para cambiar de pantalla.
+      if (enDesplazamientoHorizontal(e.target, zona)) { gesto = null; return }
       const t = e.touches[0]
       gesto = { x0: t.clientX, y0: t.clientY, dx: 0, previo: 0, horizontal: null, muestras: [[e.timeStamp, t.clientX]] }
     }
