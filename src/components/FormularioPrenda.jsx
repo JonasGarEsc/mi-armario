@@ -65,19 +65,10 @@ export default function FormularioPrenda({ onExito }) {
 
       const extension = archivoProcesado.type === 'image/png' ? 'png' : 'webp'
       const nombreArchivo = `prenda-${Date.now()}.${extension}`
-      const nombreMiniatura = nombreArchivo.replace(/(\.\w+)$/, '-320$1')
 
       setEstadoProceso('Subiendo al servidor…')
       const { error: errImg } = await supabase.storage.from('prendas').upload(nombreArchivo, archivoProcesado)
       if (errImg) throw new Error('Error al subir imagen. Revisa tu conexión.')
-
-      // Copia ligera para la rejilla (~15 kB). Si falla, la app usa la grande.
-      try {
-        const mini = await imageCompression(archivoProcesado, { maxSizeMB: 0.05, maxWidthOrHeight: 400, useWebWorker: false, fileType: 'image/webp' })
-        await supabase.storage.from('prendas').upload(nombreMiniatura, mini)
-      } catch {
-        // Sin miniatura también funciona: la rejilla cae en la imagen grande.
-      }
 
       const { data: { publicUrl } } = supabase.storage.from('prendas').getPublicUrl(nombreArchivo)
 

@@ -12,8 +12,11 @@ const resumenPrenda = (p) => ({
   categorias: p.categorias ? { nombre: p.categorias.nombre } : null
 })
 
-// Las fotos nuevas se suben con una copia -320.webp para la rejilla; las viejas no la tienen.
-const conMiniatura = (url) => (url ? url.replace(/(\.[a-z0-9]+)(\?.*)?$/i, '-320$1$2') : url)
+// Rejilla ligera: Supabase reduce y recodifica la foto en AVIF (~9 kB). Si falla, se usa el original.
+const conTamano = (url) =>
+  url && url.includes('/storage/v1/object/public/')
+    ? url.replace('/object/public/', '/render/image/public/') + '?width=480&resize=contain&quality=70&format=avif'
+    : url
 
 export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState([])
@@ -77,7 +80,6 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
 
         // La foto se borra 7 s después. Mientras el aviso siga en pantalla, se puede deshacer.
         const archivo = prenda.imagen_url.split('/').pop()
-        const archivoMiniatura = conMiniatura(archivo)
         let deshecho = false
         mostrarToast('Prenda eliminada', 'info', {
           texto: 'Deshacer',
@@ -92,10 +94,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
             mostrarToast('Prenda recuperada', 'exito')
           }
         })
-        setTimeout(() => {
-          if (deshecho) return
-          supabase.storage.from('prendas').remove(archivoMiniatura !== archivo ? [archivo, archivoMiniatura] : [archivo])
-        }, 7500)
+        setTimeout(() => { if (!deshecho) supabase.storage.from('prendas').remove([archivo]) }, 7500)
       }
     })
   }
@@ -150,7 +149,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
                       className="absolute inset-0 w-full h-full touch-manipulation active:opacity-80 transition-opacity"
                     >
                       <img
-                        src={conMiniatura(prenda.imagen_url)}
+                        src={conTamano(prenda.imagen_url)}
                         onError={(e) => { if (e.currentTarget.src !== prenda.imagen_url) { e.currentTarget.srcset = ''; e.currentTarget.src = prenda.imagen_url } }}
                         loading="lazy"
                         decoding="async"
