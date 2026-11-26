@@ -43,6 +43,19 @@ const SECCIONES = [
   { id: 'semana', nombre: 'Semana', icono: 'calendario' }
 ]
 
+// Pinta el tema en el documento: lo usan el armario (elige el usuario) y el acceso (elige el sistema).
+function pintarTema(oscuro) {
+  const root = document.documentElement
+  if (oscuro) root.classList.add('modo-oscuro')
+  else root.classList.remove('modo-oscuro')
+  root.style.colorScheme = oscuro ? 'dark' : 'light'
+  // Quitar 'media' evita que el navegador imponga el suyo y deje las dos etiquetas descoordinadas.
+  document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
+    meta.removeAttribute('media')
+    meta.setAttribute('content', oscuro ? '#0f1012' : '#f6f6f7')
+  })
+}
+
 // Puerta de entrada: sin sesión no se monta el armario, así ninguna consulta sale
 // antes de que Supabase sepa quién eres (y RLS no devuelva vacío).
 export default function App() {
@@ -68,6 +81,19 @@ export default function App() {
 
     return () => { activo = false; subscription.unsubscribe() }
   }, [])
+
+  const enAcceso = sesion === null || Boolean(sesion && recuperando)
+
+  // Entrar, registrarse o recuperar contraseña siguen el tema del sistema, no el guardado:
+  // así respetan el cambio en vivo y el ajuste del móvil tras cerrar sesión.
+  useEffect(() => {
+    if (!enAcceso) return undefined
+    const sistema = window.matchMedia('(prefers-color-scheme: dark)')
+    pintarTema(sistema.matches)
+    const alCambiar = (e) => pintarTema(e.matches)
+    sistema.addEventListener('change', alCambiar)
+    return () => sistema.removeEventListener('change', alCambiar)
+  }, [enAcceso])
 
   if (sesion === undefined) return <PantallaCarga />
   if (sesion && recuperando) return <NuevaContrasena onListo={() => setRecuperando(false)} />
@@ -197,16 +223,8 @@ function Armario({ sesion }) {
   })
 
   useEffect(() => {
-    const root = document.documentElement
-    if (temaOscuro) root.classList.add('modo-oscuro')
-    else root.classList.remove('modo-oscuro')
-    root.style.colorScheme = temaOscuro ? 'dark' : 'light'
+    pintarTema(temaOscuro)
     localStorage.setItem('tema_armario', temaOscuro ? 'dark' : 'light')
-    // El tema lo elige el usuario, no el sistema: las dos etiquetas siguen esa decisión.
-    document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
-      meta.removeAttribute('media')
-      meta.setAttribute('content', temaOscuro ? '#0f1012' : '#f6f6f7')
-    })
   }, [temaOscuro])
 
   useEffect(() => {
