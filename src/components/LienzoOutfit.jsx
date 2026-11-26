@@ -1,8 +1,8 @@
 import { useId, useRef, useState } from 'react'
 import { limitarPosicion } from '../lib/outfits'
-import { RANURAS, dentroDelManiqui, inferirRanura, ranuraMasCercana } from '../lib/maniqui'
+import { RANURAS, dentroDelManiqui, inferirRanura, objetivoDeRanura, ranuraMasCercana } from '../lib/maniqui'
 import { vibrar } from '../lib/vibrar'
-import Miniatura from './Miniatura'
+import PrendaAjustada from './PrendaAjustada'
 
 const TAMANO_LIBRE = 0.28 // 28 % del ancho del escenario
 
@@ -247,6 +247,8 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
         zIndex: zIndex + 20,
       }
 
+  const zona = ranura ? objetivoDeRanura(ranura) : null
+
   return (
     <div
       onPointerDown={alBajar}
@@ -259,11 +261,12 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       } ${ranura && !arrastrando ? 'transition-[left,top,width,height] duration-200 ease-suave' : ''}`}
       title={ranura ? `Imantada: ${RANURAS[ranura].etiqueta}` : undefined}
     >
-      <Miniatura
+      <PrendaAjustada
         url={cp.prendas.imagen_url}
         ancho={720}
-        alt=""
-        className="pointer-events-none h-full w-full select-none object-contain drop-shadow-sm"
+        aspecto={ranura ? RANURAS[ranura].w / RANURAS[ranura].h : 1}
+        objetivo={zona}
+        ajustar={Boolean(zona)}
       />
     </div>
   )

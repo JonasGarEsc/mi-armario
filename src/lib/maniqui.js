@@ -2,13 +2,25 @@
 // Las coordenadas son porcentajes de un escenario cuadrado.
 
 export const RANURAS = {
-  cabeza: { x: 40, y: 2, w: 20, h: 15, capa: 6, etiqueta: 'Cabeza' },
-  torso: { x: 29, y: 19, w: 42, h: 31, capa: 3, etiqueta: 'Torso' },
-  abrigo: { x: 24, y: 19, w: 52, h: 35, capa: 4, etiqueta: 'Abrigo' },
-  vestido: { x: 27, y: 20, w: 46, h: 56, capa: 2, etiqueta: 'Vestido' },
-  piernas: { x: 33, y: 45, w: 34, h: 45, capa: 1, etiqueta: 'Piernas' },
-  pies: { x: 34, y: 85, w: 32, h: 13, capa: 5, etiqueta: 'Pies' },
+  cabeza: { x: 40, y: 2, w: 20, h: 15, capa: 6, etiqueta: 'Cabeza', objetivo: { x: 42, y: 3, w: 16, h: 14 } },
+  torso: { x: 29, y: 19, w: 42, h: 31, capa: 3, etiqueta: 'Torso', objetivo: { x: 38, y: 19, w: 24, h: 31 } },
+  abrigo: { x: 24, y: 19, w: 52, h: 35, capa: 4, etiqueta: 'Abrigo', objetivo: { x: 36, y: 19, w: 28, h: 35 } },
+  vestido: { x: 27, y: 20, w: 46, h: 56, capa: 2, etiqueta: 'Vestido', objetivo: { x: 36, y: 20, w: 28, h: 56 } },
+  piernas: { x: 33, y: 40, w: 34, h: 50, capa: 1, etiqueta: 'Piernas', objetivo: { x: 38, y: 40, w: 24, h: 50 } },
+  pies: { x: 34, y: 85, w: 32, h: 13, capa: 5, etiqueta: 'Pies', objetivo: { x: 42, y: 86, w: 16, h: 10 } },
   accesorio: { x: 76, y: 40, w: 18, h: 18, capa: 7, etiqueta: 'Accesorio' },
+}
+
+/** Zona del cuerpo que debe tapar una prenda, relativa a su hueco. */
+export function objetivoDeRanura(clave) {
+  const r = RANURAS[clave]
+  if (!r?.objetivo) return null
+  return {
+    x: (r.objetivo.x - r.x) / r.w,
+    y: (r.objetivo.y - r.y) / r.h,
+    w: r.objetivo.w / r.w,
+    h: r.objetivo.h / r.h,
+  }
 }
 
 // El orden importa: lo más específico va antes que lo genérico.
