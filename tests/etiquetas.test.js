@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  camposSinPisar, etiquetasCambiadas, etiquetasParaGuardar, hayEtiquetas, normalizarEtiquetas, normalizarSugerencia,
+  actualizarPrenda, camposSinPisar, etiquetasCambiadas, etiquetasParaGuardar, hayEtiquetas, insertarPrenda,
+  normalizarEtiquetas, normalizarSugerencia,
 } from '../src/lib/etiquetas.js'
 
 test('de lo que dice la IA solo se aceptan valores permitidos', () => {
@@ -42,6 +43,26 @@ test('detecta si las etiquetas han cambiado', () => {
   assert.equal(etiquetasCambiadas({ largo: null }, { largo: '' }), false)
   assert.equal(etiquetasCambiadas({ colores: ['#000000'] }, { colores: ['#000000', '#ffffff'] }), true)
   assert.equal(etiquetasCambiadas({}, { abrigo: 3 }), true)
+})
+
+test('insertar y actualizar no reintentan sin etiquetas: devuelven el error', async () => {
+  const intentos = []
+  const error = { message: 'permiso denegado' }
+  const supabase = {
+    from: () => ({
+      insert: async (filas) => { intentos.push(['insert', filas]); return { error } },
+      update: (datos) => {
+        intentos.push(['update', datos])
+        return { eq: async () => ({ error }) }
+      },
+    }),
+  }
+
+  assert.equal(await insertarPrenda(supabase, { nombre: 'Camiseta' }, { precio: 20 }), error)
+  assert.equal(await actualizarPrenda(supabase, 'p1', { nombre: 'Camiseta' }, { precio: 20 }), error)
+  assert.equal(intentos.length, 2)
+  assert.deepEqual(intentos[0][1], [{ nombre: 'Camiseta', precio: 20 }])
+  assert.deepEqual(intentos[1][1], { nombre: 'Camiseta', precio: 20 })
 })
 
 test('del formulario a la base de datos, lo vacío es null', () => {

@@ -49,7 +49,7 @@ export default function Estadisticas({ mostrarToast, onProponer, onCambio }) {
     const { error } = await supabase.from('prendas').update(campos).eq('id', prenda.id)
     if (error) {
       actualizarPrenda(prenda.id, antes)
-      return mostrarToast('No se pudo guardar. ¿Has ejecutado actualizacion-v4.sql en Supabase?', 'error')
+      return mostrarToast('No se pudo guardar.', 'error')
     }
     mostrarToast(mensaje, 'exito', {
       texto: 'Deshacer',

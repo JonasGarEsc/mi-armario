@@ -1,9 +1,8 @@
 import { nombreLibre } from './nombres.js'
 import { CAMPOS_ETIQUETA, normalizarEtiquetas } from './etiquetas.js'
-import { intentosDeGuardado, limitarEscala } from './estadoPrenda.js'
+import { limitarEscala } from './estadoPrenda.js'
 import { claveCombinacion } from './outfits.js'
 import { insertarUsos } from './uso.js'
-import { esTablaAusente } from './valoraciones.js'
 
 // Restaurar una copia: se añade a lo que ya hay, sin borrar nada.
 // Los ids se regeneran y las relaciones se vuelven a atar por nombre o por id
@@ -11,8 +10,6 @@ import { esTablaAusente } from './valoraciones.js'
 // fotos son privadas de cada cuenta: fuera de la cuenta original se restauran sin foto.
 
 export const TABLAS_COPIA = ['tipos', 'categorias', 'maletas', 'semanas', 'prendas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras', 'valoraciones']
-
-const CAMPOS_EXTRA = [...CAMPOS_ETIQUETA, 'etiquetas_auto', 'archivada', 'salida', 'deseada']
 
 /** Fila de `prendas` a partir de una de la copia: lo básico más las etiquetas, si las trae. */
 export function filaDePrenda(prenda, id, categoriaId) {
@@ -25,8 +22,6 @@ export function filaDePrenda(prenda, id, categoriaId) {
   if (prenda.salida === 'donar' || prenda.salida === 'vender') fila.salida = prenda.salida
   return fila
 }
-
-const sinExtras = (fila) => Object.fromEntries(Object.entries(fila).filter(([k]) => !CAMPOS_EXTRA.includes(k)))
 
 /** Fila de `maleta_extras` con la maleta y la prenda ya remapeadas a sus ids nuevos. */
 export function filaDeMaletaExtra(extra, id, maletaId, prendaId) {
@@ -66,14 +61,14 @@ export function remapearValoraciones(valoraciones, mapaPrendas) {
   })
 }
 
-/** Restaura las valoraciones; en una base sin la tabla sigue sin error. */
+/** Restaura las valoraciones. Las que fallan se cuentan como omitidas. */
 export async function importarValoraciones(supabase, valoraciones) {
   let guardadas = 0
   let omitidas = 0
   for (const lote of enLotes(filasDeValoraciones(valoraciones))) {
     const { error } = await supabase.from('valoraciones').upsert(lote, { onConflict: 'user_id,clave' })
     if (!error) guardadas += lote.length
-    else if (!esTablaAusente(error)) omitidas += lote.length
+    else omitidas += lote.length
   }
   return { guardadas, omitidas }
 }
@@ -174,14 +169,7 @@ export async function importarCopia(supabase, crudo) {
       fecha_inicio: maleta.fecha_inicio || null,
       fecha_fin: maleta.fecha_fin || null,
     }
-    let { error } = await supabase.from('maletas').insert([fila])
-    if (error) {
-      // Copias antiguas sin las columnas de clima.
-      delete fila.destino
-      delete fila.fecha_inicio
-      delete fila.fecha_fin
-      ;({ error } = await supabase.from('maletas').insert([fila]))
-    }
+    const { error } = await supabase.from('maletas').insert([fila])
     if (error) throw new Error(`No se pudo importar la maleta «${maleta.nombre}».`)
     maletasPorNombre.set(clave, id)
     if (maleta.id) mapaMaletas.set(maleta.id, id)
@@ -235,11 +223,7 @@ export async function importarCopia(supabase, crudo) {
   }
 
   for (const lote of enLotes(filasPrendas)) {
-    let { error } = await supabase.from('prendas').insert(lote)
-    // Base de datos sin actualizacion-v4.sql: las prendas entran sin etiquetas.
-    if (error && lote.some((f) => CAMPOS_EXTRA.some((c) => c in f))) {
-      ({ error } = await supabase.from('prendas').insert(lote.map(sinExtras)))
-    }
+    const { error } = await supabase.from('prendas').insert(lote)
     if (error) throw new Error('No se pudieron importar algunas prendas.')
     resumen.prendas += lote.length
   }
@@ -321,15 +305,7 @@ export async function importarCopia(supabase, crudo) {
       conjunto_prenda: prendasDelConjunto,
     }
 
-    // Base de datos sin las columnas nuevas o sin `ranura`: se guarda igual, con menos detalle.
-    let error = null
-    const variantes = prendasDelConjunto.map((cp) => intentosDeGuardado(cp))
-    const pasos = Math.max(...variantes.map((v) => v.length))
-    for (let paso = 0; paso < pasos; paso++) {
-      fila.conjunto_prenda = variantes.map((v) => v[Math.min(paso, v.length - 1)])
-      ;({ error } = await supabase.from('conjuntos').insert([fila]))
-      if (!error) break
-    }
+    const { error } = await supabase.from('conjuntos').insert([fila])
     if (error) {
       resumen.omitidos++
       continue
@@ -371,7 +347,6 @@ export async function importarCopia(supabase, crudo) {
   }
 
   for (const lote of enLotes(filasExtras)) {
-    // Base de datos antigua sin `maleta_extras`: la copia se restaura sin la lista.
     const { error } = await supabase.from('maleta_extras').insert(lote)
     if (!error) resumen.maleta_extras += lote.length
     else resumen.omitidos += lote.length

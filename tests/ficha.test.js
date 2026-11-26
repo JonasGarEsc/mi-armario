@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  CONSULTA_OUTFITS_BASICA, consultarOutfitsDePrenda, etiquetasDePrenda, resumenFicha, textoUsos,
+  consultarOutfitsDePrenda, etiquetasDePrenda, resumenFicha, textoUsos,
 } from '../src/lib/ficha.js'
 
 const conUsos = { precio: 30, usos: [{ fecha: '2026-11-01' }, { fecha: '2026-11-20' }] }
@@ -80,12 +80,10 @@ test('los outfits que contienen la prenda no se repiten', async () => {
   assert.deepEqual(lista, [{ id: 'a', nombre: 'Uno' }, { id: 'b', nombre: 'Dos' }])
 })
 
-test('con una base antigua se reintenta la consulta básica', async () => {
-  const supabase = crearSupabase([{ data: null }, { data: [{ conjuntos: { id: 'a', nombre: 'Uno' } }] }])
-  const lista = await consultarOutfitsDePrenda(supabase, 'prenda-1')
-  assert.equal(lista.length, 1)
-  assert.equal(supabase.consultas.length, 2)
-  assert.equal(supabase.consultas[1].columnas, CONSULTA_OUTFITS_BASICA)
+test('si falla la consulta de outfits, se informa y no se reintenta', async () => {
+  const supabase = crearSupabase([{ data: null, error: { message: 'permiso denegado' } }])
+  await assert.rejects(() => consultarOutfitsDePrenda(supabase, 'prenda-1'), /outfits/)
+  assert.equal(supabase.consultas.length, 1)
 })
 
 test('sin cliente o sin prenda no se consulta nada', async () => {

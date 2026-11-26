@@ -37,12 +37,19 @@ export default function VistaHoy({ mostrarToast, onHecho }) {
     return () => { vivo = false }
   }, [enLinea])
 
+  const [errorPlanificado, setErrorPlanificado] = useState(false)
+
   useEffect(() => {
-    if (!enLinea) { setPlanificado(null); return undefined }
+    if (!enLinea) { setPlanificado(null); setErrorPlanificado(false); return undefined }
     let vivo = true
+    setErrorPlanificado(false)
     outfitDelDia(supabase, hoy)
       .then((c) => { if (vivo) setPlanificado(c) })
-      .catch(() => { if (vivo) setPlanificado(null) })
+      .catch(() => {
+        if (!vivo) return
+        setPlanificado(null)
+        setErrorPlanificado(true)
+      })
     return () => { vivo = false }
   }, [hoy, enLinea])
 
@@ -110,6 +117,10 @@ export default function VistaHoy({ mostrarToast, onHecho }) {
         <p role="status" className="rounded-xl bg-lamina px-4 py-3 text-sm text-tenue">
           Sin conexión. Se muestra lo que ya estaba guardado.
         </p>
+      )}
+
+      {errorPlanificado && (
+        <p role="alert" className="aviso-error">No se pudo comprobar el outfit ya planificado para hoy.</p>
       )}
 
       {cargando && (

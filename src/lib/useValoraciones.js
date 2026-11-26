@@ -4,8 +4,7 @@ import { cargarValoraciones, conValoracion, guardarValoracion, siguienteValor } 
 
 /**
  * Valoraciones del usuario con actualización optimista.
- * `valoraciones` es null mientras carga. Si la base es antigua y no tiene la
- * tabla, se puede valorar igual: solo no se guarda, sin errores visibles.
+ * `valoraciones` es null mientras carga.
  */
 export function useValoraciones() {
   const [mapa, setMapa] = useState(null)
@@ -31,7 +30,7 @@ export function useValoraciones() {
     setMapa(siguiente)
 
     const r = await guardarValoracion(supabase, clave, nuevo)
-    if (r.ok || r.sinTabla) return
+    if (r.ok) return
     // Vuelta atrás solo de esta clave, sin pisar otros cambios.
     const vuelta = conValoracion(mapaRef.current, clave, anterior)
     mapaRef.current = vuelta

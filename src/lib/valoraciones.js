@@ -6,11 +6,6 @@ import { claveCombinacion } from './outfits.js'
 
 export const TABLA_VALORACIONES = 'valoraciones'
 
-/** Códigos con los que Supabase avisa de que la tabla aún no existe. */
-export function esTablaAusente(error) {
-  return Boolean(error) && ['42P01', 'PGRST205'].includes(String(error.code))
-}
-
 /** Clave estable de una combinación de prendas. */
 export function claveDeOutfit(ids) {
   return claveCombinacion(ids || [])
@@ -29,7 +24,7 @@ export function conValoracion(mapa, clave, valor) {
   return siguiente
 }
 
-/** Todas las valoraciones del usuario. Si la tabla no existe, no hay ninguna. */
+/** Todas las valoraciones del usuario. Si la consulta falla, no hay ninguna. */
 export async function cargarValoraciones(supabase) {
   if (!supabase) return new Map()
   try {
@@ -41,10 +36,7 @@ export async function cargarValoraciones(supabase) {
   }
 }
 
-/**
- * Guarda (o borra) una valoración. Sin tabla no falla: se devuelve `sinTabla`
- * para que la interfaz lo ignore en silencio.
- */
+/** Guarda (o borra) una valoración. Si falla, se devuelve `ok: false`. */
 export async function guardarValoracion(supabase, clave, valor) {
   if (!supabase || !clave) return { ok: false }
   try {
@@ -52,8 +44,7 @@ export async function guardarValoracion(supabase, clave, valor) {
       ? supabase.from(TABLA_VALORACIONES).delete().eq('clave', clave)
       : supabase.from(TABLA_VALORACIONES).upsert({ clave, valor }, { onConflict: 'user_id,clave' })
     const { error } = await consulta
-    if (!error) return { ok: true }
-    return esTablaAusente(error) ? { ok: false, sinTabla: true } : { ok: false }
+    return error ? { ok: false } : { ok: true }
   } catch {
     return { ok: false }
   }

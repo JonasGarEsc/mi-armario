@@ -7,15 +7,21 @@ import { vibrar } from '../lib/vibrar'
 // Botón de Ajustes que etiqueta las prendas que ya tenías: de 3 en 3, con progreso,
 // y se puede parar y reanudar (siempre empieza por las que faltan).
 export default function EtiquetarArmario({ onTerminado }) {
-  const [estado, setEstado] = useState('cargando') // cargando | listo | trabajando | sin-migracion
+  const [estado, setEstado] = useState('cargando') // cargando | listo | trabajando | error
   const [pendientes, setPendientes] = useState(0)
   const [progreso, setProgreso] = useState({ hechos: 0, total: 0, fallos: 0 })
   const [resultado, setResultado] = useState(null)
+  const [errorLectura, setErrorLectura] = useState('')
   const control = useRef(null)
 
   async function contar() {
     const { data, error } = await supabase.from('prendas').select(COLUMNAS_ETIQUETADO)
-    if (error) { setEstado('sin-migracion'); return [] }
+    if (error) {
+      setErrorLectura('No se pudo leer el armario para etiquetarlo.')
+      setEstado('error')
+      return []
+    }
+    setErrorLectura('')
     const faltan = pendientesDeEtiquetar(data || [])
     setPendientes(faltan.length)
     setEstado('listo')
@@ -36,14 +42,11 @@ export default function EtiquetarArmario({ onTerminado }) {
     setEstado('trabajando')
     vibrar(20)
 
-    let sinColumnas = false
     const fin = await procesarEnCola(faltan, async (prenda) => {
       const r = await etiquetarPrenda(supabase, prenda)
-      if (r.sinColumnas) { sinColumnas = true; control.current.abort() }
       return r.ok
     }, { concurrencia: 3, signal: control.current.signal, onProgreso: setProgreso })
 
-    if (sinColumnas) { setEstado('sin-migracion'); return }
     setResultado(fin)
     await contar()
     onTerminado?.()
@@ -52,12 +55,8 @@ export default function EtiquetarArmario({ onTerminado }) {
 
   if (estado === 'cargando') return null
 
-  if (estado === 'sin-migracion') {
-    return (
-      <p className="text-sm text-tenue">
-        Para etiquetar el armario falta ejecutar <code>supabase/actualizacion-v4.sql</code> en Supabase.
-      </p>
-    )
+  if (estado === 'error') {
+    return <p role="alert" className="aviso-error">{errorLectura}</p>
   }
 
   const trabajando = estado === 'trabajando'

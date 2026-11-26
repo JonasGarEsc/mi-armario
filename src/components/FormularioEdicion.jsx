@@ -119,7 +119,7 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
     setErrorFormulario('')
     const { error } = await supabase.from('prendas').update({ archivada: !prenda.archivada }).eq('id', prenda.id)
     setGuardando(false)
-    if (error) return setErrorFormulario('No se pudo archivar. ¿Has ejecutado actualizacion-v4.sql en Supabase?')
+    if (error) return setErrorFormulario('No se pudo archivar.')
     onExito()
   }
 

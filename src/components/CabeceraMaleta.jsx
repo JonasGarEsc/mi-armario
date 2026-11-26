@@ -58,6 +58,7 @@ export default function CabeceraMaleta({
 
       {lista.listo && (
         <div className="mt-1">
+          {lista.error && <p role="alert" className="aviso-error mt-2">{lista.error}</p>}
           <button
             onClick={() => setChecklistAbierta(!checklistAbierta)}
             aria-expanded={checklistAbierta}

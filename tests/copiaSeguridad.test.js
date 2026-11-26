@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { restaurarCopia } from '../src/lib/copiaSeguridad.js'
+import { exportarDatos, restaurarCopia } from '../src/lib/copiaSeguridad.js'
 
 const archivoCon = (texto) => ({ text: async () => texto })
 
@@ -30,6 +30,13 @@ test('una copia sin prendas ni outfits se rechaza antes de confirmar', async () 
   await restaurarCopia({}, archivoCon('{"otra_cosa": true}'), deps)
   assert.deepEqual(avisos, [{ mensaje: 'La copia no tiene prendas ni outfits.', tipo: 'error' }])
   assert.equal(confirmaciones.length, 0)
+})
+
+test('si falla una tabla, la exportación se detiene con aviso', async () => {
+  const avisos = []
+  const consulta = { select: () => consulta, order: () => consulta, range: async () => ({ data: null, error: { message: 'sin permisos' } }) }
+  await exportarDatos({ from: () => consulta }, (mensaje, tipo) => avisos.push({ mensaje, tipo }))
+  assert.deepEqual(avisos, [{ mensaje: 'No se pudo exportar categorias', tipo: 'error' }])
 })
 
 test('una copia válida pide confirmación diciendo cuánto se añadirá', async () => {

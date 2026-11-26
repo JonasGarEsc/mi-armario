@@ -6,7 +6,6 @@ import {
   cargarValoraciones,
   claveDeOutfit,
   conValoracion,
-  esTablaAusente,
   guardarValoracion,
   siguienteValor,
 } from '../src/lib/valoraciones.js'
@@ -63,18 +62,18 @@ test('tocar otra vez el mismo botón quita la valoración', () => {
   assert.equal(conValoracion(mapa, 'y', -1).get('y'), -1)
 })
 
-test('carga el mapa y, sin tabla, devuelve uno vacío sin lanzar', async () => {
+test('carga el mapa y, si la consulta falla, devuelve uno vacío sin lanzar', async () => {
   const ok = falso({ data: [{ clave: 'a', valor: 1 }, { clave: 'b', valor: -1 }] })
   const mapa = await cargarValoraciones(ok.cliente)
   assert.equal(mapa.get('a'), 1)
   assert.equal(mapa.get('b'), -1)
 
-  const ausente = falso({ error: { code: '42P01', message: 'no existe' } })
-  assert.equal((await cargarValoraciones(ausente.cliente)).size, 0)
+  const roto = falso({ error: { message: 'sin permisos' } })
+  assert.equal((await cargarValoraciones(roto.cliente)).size, 0)
   assert.equal((await cargarValoraciones(null)).size, 0)
 })
 
-test('guarda, borra y tolera que la tabla aún no exista', async () => {
+test('guarda y borra; si falla, lo dice sin tolerar tablas ausentes', async () => {
   const ok = falso()
   assert.deepEqual(await guardarValoracion(ok.cliente, 'a', 1), { ok: true })
   assert.deepEqual(ok.llamadas[0], {
@@ -84,16 +83,9 @@ test('guarda, borra y tolera que la tabla aún no exista', async () => {
   assert.deepEqual(await guardarValoracion(ok.cliente, 'a', 0), { ok: true })
   assert.deepEqual(ok.llamadas[1], { tipo: 'delete', tabla: 'valoraciones', columna: 'clave', valor: 'a' })
 
-  for (const code of ['42P01', 'PGRST205']) {
-    const ausente = falso({ error: { code } })
-    assert.deepEqual(await guardarValoracion(ausente.cliente, 'a', 1), { ok: false, sinTabla: true })
-  }
   const roto = falso({ error: { code: '23505' } })
   assert.deepEqual(await guardarValoracion(roto.cliente, 'a', 1), { ok: false })
-
-  assert.equal(esTablaAusente({ code: '42P01' }), true)
-  assert.equal(esTablaAusente({ code: 'PGRST205' }), true)
-  assert.equal(esTablaAusente({ code: '23505' }), false)
+  assert.deepEqual(await guardarValoracion(falso({ error: { code: '42P01' } }).cliente, 'a', 1), { ok: false })
 })
 
 test('un «no me gusta» la saca de las propuestas y un «me gusta» la sube', () => {

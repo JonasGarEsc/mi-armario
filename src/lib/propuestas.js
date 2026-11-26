@@ -10,7 +10,6 @@ import { huecoDe } from './sugerir.js'
 import { insertarUsos } from './uso.js'
 
 const CONSULTA_DEL_DIA = 'id, nombre, fecha, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre))))'
-const CONSULTA_SIN_RANURA = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
 /** Outfit propuesto → el formato que entiende el lienzo del maniquí. */
 export function comoConjunto(outfit) {
@@ -27,14 +26,12 @@ export function comoConjunto(outfit) {
 /** Outfit planificado para ese día en la semana (el primero con prendas), o null. */
 export async function outfitDelDia(supabase, fecha) {
   if (!supabase) return null
-  const buscar = (columnas) => supabase
+  const { data, error } = await supabase
     .from('conjuntos')
-    .select(columnas)
+    .select(CONSULTA_DEL_DIA)
     .eq('fecha', fecha)
     .not('semana_id', 'is', null)
-  let { data, error } = await buscar(CONSULTA_DEL_DIA)
-  // Base antigua sin alguna columna del lienzo: se lee igual, con menos detalle.
-  if (error) ({ data } = await buscar(CONSULTA_SIN_RANURA))
+  if (error) throw new Error('No se pudo leer el outfit de hoy')
   return (data || []).find((c) => (c.conjunto_prenda || []).some((cp) => cp.prendas)) || null
 }
 
@@ -60,9 +57,7 @@ export async function guardarOutfitDeHoy(supabase, outfit, hoy = isoLocal(new Da
     }
     const piezas = Object.values(outfit.piezas).filter(Boolean)
     const conRanura = piezas.map((p) => ({ prenda_id: p.id, ranura: huecoDe(p), z_index: RANURAS[huecoDe(p)].capa }))
-    let { error } = await supabase.from('conjuntos').insert([{ ...conjunto, conjunto_prenda: conRanura }])
-    // Base de datos sin la columna ranura: se guarda igual, sin imantación.
-    if (error) ({ error } = await supabase.from('conjuntos').insert([{ ...conjunto, conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id })) }]))
+    const { error } = await supabase.from('conjuntos').insert([{ ...conjunto, conjunto_prenda: conRanura }])
     if (error) throw new Error('No se pudo guardar el outfit')
   }
 

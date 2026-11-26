@@ -64,7 +64,7 @@ Si el proyecto ya tenía datos, ejecuta en este orden:
 1. `supabase/multiusuario.sql`: añade `user_id`, pone las políticas por dueño y limita el bucket a la carpeta de cada cuenta.
 2. `supabase/actualizacion-v3.sql`: añade semanas, la columna `ranura` del maniquí, la tabla `usos`, el destino y las fechas de la maleta, las cascadas y el bucket privado.
 
-3. `supabase/actualizacion-v4.sql`: añade a las prendas colores, temporada, abrigo, formalidad, largo, estampado, precio, el origen de las etiquetas y `archivada`, la columna `salida` (donar o vender), la escala y «por dentro» de cada prenda del maniquí, la columna `deseada` (lista de deseos) y la tabla `maleta_extras` (lista de la maleta). Si falta, la app sigue funcionando: la lista se guarda solo en el móvil.
+3. `supabase/actualizacion-v4.sql`: añade a las prendas colores, temporada, abrigo, formalidad, largo, estampado, precio, el origen de las etiquetas y `archivada`, la columna `salida` (donar o vender), la escala y «por dentro» de cada prenda del maniquí, la columna `deseada` (lista de deseos) y la tabla `maleta_extras` (lista de la maleta).
 4. `supabase/actualizacion-v5.sql`: deja un solo uso por prenda y día, añade la cuota diaria de las funciones de pago (`consumir_cuota`), las valoraciones y las suscripciones a avisos push. Va en una transacción: se aplica entera o no se aplica.
 
 Ejecuta el SQL antes de desplegar la versión nueva. La app aguanta sin algunas columnas (por ejemplo, guarda la posición aunque no exista `ranura`), pero la sección Semana necesita su tabla.

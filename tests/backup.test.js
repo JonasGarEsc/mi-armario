@@ -44,13 +44,6 @@ test('una copia nueva conserva etiquetas, origen y archivada, y descarta lo inv�
   assert.equal('estampado' in fila, false)
 })
 
-test('los intentos de importar un outfit van de lo completo a lo básico', async () => {
-  const { intentosDeGuardado } = await import('../src/lib/estadoPrenda.js')
-  const cp = { prenda_id: 'p', pos_x: 1, pos_y: 2, z_index: 3, ranura: 'torso', escala: 1.1, por_dentro: true }
-  // Completo (7 campos), sin escala ni «por dentro» (5) y sin hueco del maniquí (4).
-  assert.deepEqual(intentosDeGuardado(cp).map((i) => Object.keys(i).length), [7, 5, 4])
-})
-
 test('la lista de la maleta se remapea a la maleta y la prenda nuevas', () => {
   const fila = filaDeMaletaExtra(
     { id: 'viejo', maleta_id: 'm-vieja', prenda_id: 'p-vieja', texto: null, hecho: true },

@@ -53,28 +53,20 @@ export function etiquetasDePrenda(prenda) {
   return lista
 }
 
-// La consulta completa trae las piezas tal como se guardaron (posición, capa,
-// ranura). Si la base es antigua, se reintenta con lo mínimo para pintarlas.
+// La consulta trae las piezas tal como se guardaron (posición, capa, ranura).
 export const CONSULTA_OUTFITS = 'conjunto_id, conjuntos(id, nombre, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre)))))'
-export const CONSULTA_OUTFITS_BASICA = 'conjunto_id, conjuntos(id, nombre, conjunto_prenda(prenda_id, prendas(imagen_url)))'
 
 /** Outfits que contienen la prenda, sin repetir si sale en varias filas. */
 export async function consultarOutfitsDePrenda(supabase, prendaId) {
   if (!supabase || !prendaId) return []
 
-  try {
-    let { data } = await supabase.from('conjunto_prenda').select(CONSULTA_OUTFITS).eq('prenda_id', prendaId)
-    if (!data) {
-      ;({ data } = await supabase.from('conjunto_prenda').select(CONSULTA_OUTFITS_BASICA).eq('prenda_id', prendaId))
-    }
+  const { data, error } = await supabase.from('conjunto_prenda').select(CONSULTA_OUTFITS).eq('prenda_id', prendaId)
+  if (error) throw new Error('No se pudieron cargar los outfits de la prenda')
 
-    const vistos = new Map()
-    for (const fila of data || []) {
-      const conjunto = fila?.conjuntos
-      if (conjunto?.id && !vistos.has(conjunto.id)) vistos.set(conjunto.id, conjunto)
-    }
-    return [...vistos.values()]
-  } catch {
-    return []
+  const vistos = new Map()
+  for (const fila of data || []) {
+    const conjunto = fila?.conjuntos
+    if (conjunto?.id && !vistos.has(conjunto.id)) vistos.set(conjunto.id, conjunto)
   }
+  return [...vistos.values()]
 }

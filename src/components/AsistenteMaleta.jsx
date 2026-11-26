@@ -89,11 +89,9 @@ export default function AsistenteMaleta({ maleta, mostrarToast, onHecho }) {
         nombres.push(nombre)
         const piezas = Object.values(o.piezas).filter(Boolean)
         const base = { nombre, maleta_id: maleta.id, fecha: o.fecha }
-        let { error } = await supabase.from('conjuntos').insert([{
+        const { error } = await supabase.from('conjuntos').insert([{
           ...base, conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id, ranura: huecoDe(p), z_index: RANURAS[huecoDe(p)].capa })),
         }])
-        // Base de datos sin la columna ranura: se guarda igual.
-        if (error) ({ error } = await supabase.from('conjuntos').insert([{ ...base, conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id })) }]))
         if (error) throw new Error('No se pudo guardar un outfit')
         creados++
         existentes.push({ id: null, nombre, conjunto_prenda: piezas.map((p) => ({ prenda_id: p.id })) })
@@ -101,10 +99,11 @@ export default function AsistenteMaleta({ maleta, mostrarToast, onHecho }) {
 
       // Lo que no es ropa, a la lista de la maleta.
       const actual = await leerChecklist(supabase, maleta.id)
+      if (actual.error) throw new Error(actual.error)
       const extras = extrasDeViaje({
         dias, paisDestino: prevision && prevision !== 'cargando' ? prevision.pais : null, paisOrigen: paisDeCasa(),
       })
-      const nuevos = await anadirExtras(supabase, maleta.id, extras, { local: actual.local, extras: actual.extras })
+      const nuevos = await anadirExtras(supabase, maleta.id, extras, { extras: actual.extras })
 
       vibrar([40, 40])
       mostrarToast(`Maleta preparada: ${creados} outfits y ${nuevos?.length ?? 0} cosas en la lista${repetidos ? ` (${repetidos} ya estaban)` : ''}`, 'exito')

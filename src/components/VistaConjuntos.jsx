@@ -15,11 +15,11 @@ import CabeceraMaleta from './CabeceraMaleta'
 import ListaOutfits from './ListaOutfits'
 
 const CONSULTA_CONJUNTOS = 'id, nombre, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre))))'
-const CONSULTA_SIN_RANURA = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
 export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refresco = 0, recarga = 0, mostrarToast, setDialogoGlobal }) {
   const [maletas, setMaletas] = useState(() => leerCache('maletas') || [])
   const [conjuntos, setConjuntos] = useState([])
+  const [errorConjuntos, setErrorConjuntos] = useState('')
   const [cargando, setCargando] = useState(() => !leerCache('maletas'))
   const [busqueda, setBusqueda] = useState('')
   const [maletaActiva, setMaletaActiva] = useState(null)
@@ -124,11 +124,8 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
         const clave = `conjuntos_${maletaActiva.id}`
         const cache = leerCache(clave)
         if (cache) { setConjuntos(cache); setCargando(false); }
-        let { data } = await supabase.from('conjuntos').select(CONSULTA_CONJUNTOS).eq('maleta_id', maletaActiva.id).order('nombre')
-        if (!data) {
-          // Base de datos sin la columna ranura: se carga igual, sin imantación.
-          ;({ data } = await supabase.from('conjuntos').select(CONSULTA_SIN_RANURA).eq('maleta_id', maletaActiva.id).order('nombre'))
-        }
+        const { data, error } = await supabase.from('conjuntos').select(CONSULTA_CONJUNTOS).eq('maleta_id', maletaActiva.id).order('nombre')
+        setErrorConjuntos(error ? `No se pudieron leer los outfits: ${error.message}` : '')
         if (data) { setConjuntos(data); guardarCache(clave, data); }
       }
       setCargando(false)
@@ -207,21 +204,13 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
           mostrarToast("Outfit clonado", "exito")
         } else {
           const nombreFinal = nombreLibre(nuevoNombre, maletas.map(m => m.nombre))
-          let { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{
+          const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{
             nombre: nombreFinal,
             destino: item.destino || null,
             fecha_inicio: item.fecha_inicio || null,
             fecha_fin: item.fecha_fin || null,
           }]).select().single()
 
-          if (errM) {
-            // Base de datos sin las columnas de clima: la maleta se clona igual.
-            ;({ data: nuevaMaleta, error: errM } = await supabase
-              .from('maletas')
-              .insert([{ nombre: nombreFinal }])
-              .select()
-              .single())
-          }
           if (errM || !nuevaMaleta) return mostrarToast("Error al clonar maleta.", "error")
           const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index, ranura)').eq('maleta_id', item.id)
           if (conjuntosViejos?.length) {
@@ -270,6 +259,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
   function abrirMaleta(maleta) {
     const cache = leerCache(`conjuntos_${maleta.id}`)
     setConjuntos(cache || [])
+    setErrorConjuntos('')
     setCargando(!cache)
     setBusqueda('')
     setMaletaActiva(maleta)
@@ -278,6 +268,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
   function volver() {
     vibrar(20)
     setBusqueda('')
+    setErrorConjuntos('')
     setCargando(false)
     setMaletaActiva(null)
   }
@@ -320,6 +311,8 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
       ) : (
         <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Maletas</h2>
       )}
+
+      {errorConjuntos && <p role="alert" className="aviso-error mb-4">{errorConjuntos}</p>}
 
       <div className="relative mb-4 md:max-w-sm">
         <Icono nombre="buscar" className="w-5 h-5 absolute left-3.5 top-3.5 text-tenue pointer-events-none" />

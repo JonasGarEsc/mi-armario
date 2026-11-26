@@ -26,25 +26,14 @@ export const resumenPrenda = (p) => ({
 })
 
 export const CONSULTA_PRENDAS = '*, categorias(nombre, tipos(id, nombre)), usos(fecha)'
-export const CONSULTA_SIN_USOS = '*, categorias(nombre, tipos(id, nombre))'
 
-/**
- * Carga las prendas. Si la base aún no tiene la tabla/relación «usos», se
- * reintenta sin ella para que el armario siga funcionando.
- */
+/** Carga las prendas. Devuelve null si la consulta falla. */
 export async function consultarPrendas(supabase) {
   if (!supabase) return null
-  let { data } = await supabase
+  const { data } = await supabase
     .from('prendas')
     .select(CONSULTA_PRENDAS)
     .order('creado_en', { ascending: false })
-
-  if (!data) {
-    ;({ data } = await supabase
-      .from('prendas')
-      .select(CONSULTA_SIN_USOS)
-      .order('creado_en', { ascending: false }))
-  }
   return data || null
 }
 

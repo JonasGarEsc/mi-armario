@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { CONSULTA_PRENDAS, CONSULTA_SIN_USOS, consultarPrendas, crearAlmacenPrendas } from '../src/lib/almacen.js'
+import { CONSULTA_PRENDAS, consultarPrendas, crearAlmacenPrendas } from '../src/lib/almacen.js'
 
 const ids = (a) => a.obtener().prendas.map((p) => p.id)
 
@@ -139,27 +139,25 @@ test('cuando el borrado real termina, la prenda no vuelve con el refresco', asyn
   assert.deepEqual(ids(almacen), ['2'])
 })
 
-test('si la base no tiene usos, se reintenta sin ellos', async () => {
+test('si la consulta falla no se reintenta y se conserva lo que ya había', async () => {
   const consultas = []
   const supabase = {
     from: () => ({
       select: (columnas) => ({
         order: async () => {
           consultas.push(columnas)
-          return columnas === CONSULTA_PRENDAS
-            ? { data: null, error: { message: 'relation usos does not exist' } }
-            : { data: [{ id: 'sin-usos' }], error: null }
+          return { data: null, error: { message: 'relation usos does not exist' } }
         },
       }),
     }),
   }
 
-  assert.deepEqual(await consultarPrendas(supabase), [{ id: 'sin-usos' }])
-  assert.deepEqual(consultas, [CONSULTA_PRENDAS, CONSULTA_SIN_USOS])
+  assert.equal(await consultarPrendas(supabase), null)
+  assert.deepEqual(consultas, [CONSULTA_PRENDAS])
   assert.equal(await consultarPrendas(null), null)
 })
 
-test('si fallan las dos consultas se conserva lo que ya había', async () => {
+test('si falla la consulta se conserva lo que ya había', async () => {
   const almacen = crearAlmacenPrendas({
     leer: () => [{ id: 'cache' }],
     consultar: async () => null,

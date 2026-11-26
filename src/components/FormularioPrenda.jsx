@@ -185,7 +185,7 @@ export default function FormularioPrenda({ onExito, onVarias, deseo = false }) {
       if (errPrenda) {
         // Si la fila falla, la foto no se queda huérfana en el bucket.
         await borrarArchivo(subida.url)
-        throw new Error(deseo ? 'No se pudo guardar el deseo. ¿Has ejecutado actualizacion-v4.sql en Supabase?' : 'Error en base de datos al guardar la ropa.')
+        throw new Error(deseo ? 'No se pudo guardar el deseo.' : 'Error en base de datos al guardar la ropa.')
       }
 
       if (onExito) onExito()

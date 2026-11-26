@@ -164,29 +164,21 @@ export async function pedirEtiquetas(supabase, { ruta, foto } = {}) {
   }
 }
 
-/** Guarda etiquetas de una prenda. false si la base de datos aún no tiene las columnas. */
+/** Guarda etiquetas de una prenda. false si no se pudo guardar. */
 export async function guardarEtiquetas(supabase, prendaId, campos) {
   const { error } = await supabase.from('prendas').update(campos).eq('id', prendaId)
   return !error
 }
 
-const conValores = (etiquetas) => Object.values(etiquetas).some((v) => v !== null && v !== undefined)
-
-/**
- * Inserta una prenda con sus etiquetas. Si la base de datos aún no tiene las
- * columnas (falta ejecutar actualizacion-v4.sql), la guarda sin ellas.
- * Devuelve el error, o null si fue bien.
- */
+/** Inserta una prenda con sus etiquetas. Devuelve el error, o null si fue bien. */
 export async function insertarPrenda(supabase, base, etiquetas) {
-  let { error } = await supabase.from('prendas').insert([{ ...base, ...etiquetas }])
-  if (error && conValores(etiquetas)) ({ error } = await supabase.from('prendas').insert([base]))
+  const { error } = await supabase.from('prendas').insert([{ ...base, ...etiquetas }])
   return error || null
 }
 
 /** Como insertarPrenda, pero actualizando una prenda existente. */
 export async function actualizarPrenda(supabase, id, base, etiquetas) {
-  let { error } = await supabase.from('prendas').update({ ...base, ...etiquetas }).eq('id', id)
-  if (error && conValores(etiquetas)) ({ error } = await supabase.from('prendas').update(base).eq('id', id))
+  const { error } = await supabase.from('prendas').update({ ...base, ...etiquetas }).eq('id', id)
   return error || null
 }
 

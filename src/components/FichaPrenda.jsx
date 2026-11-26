@@ -29,14 +29,21 @@ export default function FichaPrenda({ prenda, mostrarToast, onEditar, onQueMePon
 
   const [outfits, setOutfits] = useState([])
   const [cargandoOutfits, setCargandoOutfits] = useState(true)
+  const [errorOutfits, setErrorOutfits] = useState(false)
   const [anotando, setAnotando] = useState(false)
 
   useEffect(() => {
     let vivo = true
     setCargandoOutfits(true)
+    setErrorOutfits(false)
     consultarOutfitsDePrenda(supabase, viva.id).then((lista) => {
       if (!vivo) return
       setOutfits(lista)
+      setCargandoOutfits(false)
+    }).catch(() => {
+      if (!vivo) return
+      setOutfits([])
+      setErrorOutfits(true)
       setCargandoOutfits(false)
     })
     return () => { vivo = false }
@@ -109,6 +116,8 @@ export default function FichaPrenda({ prenda, mostrarToast, onEditar, onQueMePon
           <div role="status" aria-label="Cargando outfits" className="flex gap-2">
             {[0, 1, 2].map((i) => <div key={i} className="esqueleto shrink-0 w-32 aspect-square" />)}
           </div>
+        ) : errorOutfits ? (
+          <p role="alert" className="aviso-error">No se pudieron cargar los outfits.</p>
         ) : outfits.length === 0 ? (
           <p className="text-sm text-tenue">Todavía no está en ningún outfit.</p>
         ) : (

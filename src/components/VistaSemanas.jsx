@@ -15,7 +15,6 @@ import Icono from './Icono'
 import LienzoOutfit from './LienzoOutfit'
 
 const CONSULTA_CONJUNTOS = 'id, nombre, fecha, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre))))'
-const CONSULTA_SIN_RANURA = 'id, nombre, fecha, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
 
 export default function VistaSemanas({ activa = false, recarga = 0, onCrearSemana, onQueMePongo, onAnadirOutfit, mostrarToast, setDialogoGlobal }) {
   const [semanas, setSemanas] = useState(() => leerCache('semanas') || [])
@@ -87,22 +86,14 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
         setCargando(true)
       }
 
-      let { data } = await supabase
+      const { data, error } = await supabase
         .from('conjuntos')
         .select(CONSULTA_CONJUNTOS)
         .eq('semana_id', semanaActiva.id)
         .order('nombre')
 
-      if (!data) {
-        // Base de datos sin la columna ranura: se carga igual, sin imantación.
-        ;({ data } = await supabase
-          .from('conjuntos')
-          .select(CONSULTA_SIN_RANURA)
-          .eq('semana_id', semanaActiva.id)
-          .order('nombre'))
-      }
-
       if (!vivo) return
+      setErrorBase(error ? `No se pudieron leer los outfits de la semana: ${error.message}` : '')
       if (data) {
         setConjuntos(data)
         guardarCache(clave, data)
@@ -347,7 +338,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
         </>
       )}
 
-      {errorBase && !semanaActiva && (
+      {errorBase && (
         <div role="alert" className="aviso-error mb-4 flex flex-col items-start gap-2">
           <p className="wrap-break-word">{errorBase}</p>
           <button

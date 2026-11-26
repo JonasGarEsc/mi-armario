@@ -1,5 +1,4 @@
 import { contarCopia, importarCopia, leerTabla } from './backup.js'
-import { esTablaAusente } from './valoraciones.js'
 import { vibrar } from './vibrar.js'
 
 const TABLAS = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras', 'valoraciones']
@@ -9,11 +8,7 @@ export async function exportarDatos(supabase, mostrarToast) {
   const copia = { exportado_en: new Date().toISOString(), version: 4 }
   for (const tabla of TABLAS) {
     const { data, error } = await leerTabla(supabase, tabla)
-    if (error) {
-      // Base de datos antigua sin la lista de la maleta o sin las valoraciones: se copia el resto.
-      if ((tabla === 'maleta_extras' || tabla === 'valoraciones') && esTablaAusente(error)) continue
-      return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
-    }
+    if (error) return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
     copia[tabla] = data
   }
   const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }))

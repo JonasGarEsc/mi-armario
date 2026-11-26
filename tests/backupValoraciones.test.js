@@ -49,12 +49,7 @@ test('todas las filas de un lote llevan las mismas claves y solo las suyas', asy
   assert.deepEqual(lotes[0].opciones, { onConflict: 'user_id,clave' })
 })
 
-test('restaurar sin tabla de valoraciones no rompe la copia', async () => {
-  for (const code of ['42P01', 'PGRST205']) {
-    const supabase = { from: () => ({ upsert: async () => ({ error: { code } }) }) }
-    assert.deepEqual(await importarValoraciones(supabase, [{ clave: 'a', valor: 1 }]), { guardadas: 0, omitidas: 0 })
-  }
-
+test('si falla una valoración, se cuenta como omitida', async () => {
   const roto = { from: () => ({ upsert: async () => ({ error: { code: '23505' } }) }) }
   assert.deepEqual(await importarValoraciones(roto, [{ clave: 'a', valor: 1 }]), { guardadas: 0, omitidas: 1 })
 })
