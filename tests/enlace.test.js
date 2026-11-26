@@ -107,3 +107,8 @@ test('la respuesta de la función se convierte en nombre, precio y foto', () => 
   assert.equal(archivoDeBase64('', 'image/png'), null)
   assert.equal(archivoDeBase64(btoa('x'), 'image/png').name, 'enlace.png')
 })
+
+test('rechaza 6to4 y NAT64', () => {
+  assert.equal(esDireccionProhibida('2002:7f00:1::'), true)
+  assert.equal(esDireccionProhibida('64:ff9b::a00:1'), true)
+})

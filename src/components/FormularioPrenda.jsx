@@ -222,6 +222,7 @@ export default function FormularioPrenda({ onExito, onVarias, deseo = false }) {
               placeholder="https://tienda.example/producto"
               value={enlace}
               onChange={(e) => { setEnlace(e.target.value); setAvisoEnlace('') }}
+              onKeyDown={(e) => { if (e.key === 'Enter') traerDatos(e) }}
               className="campo"
             />
             <button type="button" onClick={traerDatos} disabled={trayendoEnlace} className="boton boton-secundario shrink-0">
