@@ -104,7 +104,7 @@ function TarjetaPrenda({
 // La pestaña (Mi ropa / Quiero) se recuerda aunque la galería se vuelva a montar al guardar algo.
 let vistaRecordada = 'ropa'
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAbrirFicha, onAnadirPrenda, onAnadirDeseo, onVerOutfitsDeseo, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal, onCambio }) {
+export default function GaleriaArmario({ limpiarSeleccion, onCrearConjunto, onEditarPrenda, onAbrirFicha, onAnadirPrenda, onAnadirDeseo, onVerOutfitsDeseo, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal, onCambio }) {
   const { prendas, cargando } = usePrendas()
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [seleccionadas, setSeleccionadas] = useState([])
@@ -123,6 +123,8 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAbri
     })
     setMenuAbierto(actual => (actual && !ids.has(actual) ? null : actual))
   }, [prendas])
+
+  useEffect(() => { setSeleccionadas([]) }, [limpiarSeleccion])
 
   useEffect(() => { setLimiteVisibles(24) }, [busqueda, filtroCategoria, filtros])
 

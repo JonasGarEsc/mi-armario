@@ -268,6 +268,8 @@ async function main() {
       await dialogo().locator('#nombreConjunto').fill('Look de prueba')
       await dialogo().getByRole('button', { name: 'Guardar', exact: true }).click()
       await pagina.getByText('Outfit guardado', { exact: true }).waitFor()
+      // La selección no puede seguir activa al volver al armario.
+      await pagina.getByRole('button', { name: 'Crear outfit con 2 prendas', exact: true, includeHidden: true }).waitFor({ state: 'detached' })
       await pagina.getByText('París', { exact: true }).first().waitFor()
     })
 

@@ -376,7 +376,6 @@ function svgPrenda(forma, color) {
     </filter>
   </defs>
   <g filter="url(#sombra)">${cuerpos[forma] || cuerpos.camiseta}</g>
-  <rect width="400" height="500" fill="url(#luz)" opacity=".55"/>
 </svg>`
 }
 

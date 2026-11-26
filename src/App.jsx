@@ -136,7 +136,7 @@ function BarraSecciones({ respaldo, onIr, onHoy }) {
     <nav aria-label="Secciones" className="md:hidden shrink-0 bg-superficie border-t border-linea pb-safe">
       <div className="grid grid-cols-4">
         <button onClick={onHoy} className="h-16 flex flex-col items-center justify-center gap-0.5 text-sm text-tenue">
-          <Icono nombre="calendario" />
+          <Icono nombre="sol" />
           Hoy
         </button>
         {SECCIONES.map(s => (
@@ -225,6 +225,7 @@ function Armario({ sesion }) {
   
   const [prendaAEditar, setPrendaAEditar] = useState(null)
   const [prendaFicha, setPrendaFicha] = useState(null)
+  const [outfitsGuardados, setOutfitsGuardados] = useState(0)
   const [prendasParaConjunto, setPrendasParaConjunto] = useState([])
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
   const [objetivoSemana, setObjetivoSemana] = useState(null)
@@ -511,6 +512,7 @@ function Armario({ sesion }) {
     
     vibrar([50, 50])
     mostrarToast("Outfit guardado", "exito")
+    setOutfitsGuardados(n => n + 1)
     cerrarModal()
     recargarVistas()
     setPestañaActiva('conjuntos')
@@ -614,7 +616,7 @@ function Armario({ sesion }) {
           <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
               <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
-              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAbrirFicha={abrirFicha} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} onCambio={recargarVistas} />
+              <GaleriaArmario limpiarSeleccion={outfitsGuardados} onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAbrirFicha={abrirFicha} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} onCambio={recargarVistas} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
               <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} onPrepararMaleta={prepararMaleta} refresco={refrescoMaleta} recarga={actualizaciones} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} />
