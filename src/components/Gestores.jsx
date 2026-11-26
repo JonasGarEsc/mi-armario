@@ -87,9 +87,8 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
               const idsPrendas = (prendasAsociadas || []).map(p => p.id)
               const urls = (prendasAsociadas || []).map(p => p.imagen_url)
 
-              // Primero la base de datos: si algo falla, las fotos siguen ahí.
+              // Primero la base de datos: la cascada borra sus outfits, usos y maleta.
               if (idsPrendas.length > 0) {
-                await supabase.from('conjunto_prenda').delete().in('prenda_id', idsPrendas)
                 const { error: errPrendas } = await supabase.from('prendas').delete().in('id', idsPrendas)
                 if (errPrendas) return mostrarToast("No se pudieron eliminar los artículos", "error")
               }

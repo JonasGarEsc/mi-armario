@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { supabase } from '../supabase'
 import { esDelArmario } from '../lib/filtros'
-import { guardarResuelto, usosPorAnadir } from '../lib/uso'
+import { guardarResuelto, insertarUsos, usosPorAnadir } from '../lib/uso'
 import { vibrar } from '../lib/vibrar'
 import { etiquetaDia, desdeISO } from '../lib/fechas'
 import { usePrendas } from '../lib/almacen'
@@ -22,7 +22,7 @@ export default function ConfirmarUso({ outfit, mostrarToast, onHecho }) {
     setGuardando(true)
     const { data: usos } = await supabase.from('usos').select('prenda_id, fecha').eq('fecha', outfit.fecha)
     const nuevos = usosPorAnadir(elegidas, outfit.fecha, usos || [])
-    const { error } = nuevos.length ? await supabase.from('usos').insert(nuevos) : { error: null }
+    const error = await insertarUsos(supabase, nuevos)
     setGuardando(false)
     if (error) return mostrarToast('No se pudo anotar el uso', 'error')
     guardarResuelto(outfit.id)

@@ -4,12 +4,13 @@ import { vibrar } from '../lib/vibrar'
 import { etiquetaFechaCorta, isoLocal } from '../lib/fechas'
 import { PUNTO_FAMILIA } from '../lib/colores'
 import { escribir } from '../lib/offline'
-import { CAMPOS_ETIQUETA, insertarPrenda } from '../lib/etiquetas'
 import {
   FAMILIAS_COLOR, GRUPOS_FORMALIDAD, TEMPORADAS, filtrarPrendas, hayFiltros, sinFiltros, ultimaVez,
 } from '../lib/filtros'
 import { borrarArchivo } from '../lib/imagenes'
-import { actualizarPrenda, quitarPrenda, reponerPrenda, usePrendas } from '../lib/almacen'
+import {
+  actualizarPrenda, confirmarBorradoPrenda, conservarPrenda, ocultarPrenda, quitarPrenda, reponerPrenda, usePrendas,
+} from '../lib/almacen'
 import BotonQueMePongo from './BotonQueMePongo'
 import Icono from './Icono'
 import ListaDeseos from './ListaDeseos'
@@ -94,53 +95,52 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
         : '¿Eliminar esta prenda?',
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
-      onConfirm: async () => {
-        // Primero se pinta: la prenda desaparece al instante y luego se guarda.
-        quitarPrenda(prenda.id)
-        setSeleccionadas(seleccionadas.filter(sel => sel !== prenda.id))
+      onConfirm: () => {
+        // Se oculta al instante, pero la fila sigue en la base hasta que pase el plazo:
+        // deshacer es simplemente no borrar (sin perder escala, «por dentro», usos ni maleta).
+        ocultarPrenda(prenda.id)
+        setSeleccionadas(actuales => actuales.filter(sel => sel !== prenda.id))
         vibrar([50, 50])
 
-        if (relaciones.length > 0) {
-          const { error: errRel } = await supabase.from('conjunto_prenda').delete().eq('prenda_id', prenda.id)
-          if (errRel) {
-            reponerPrenda(prenda)
+        let resuelto = false
+        let temporizador = null
+        const soltarAvisos = () => document.removeEventListener('visibilitychange', alOcultar)
+        const conservar = () => {
+          if (resuelto) return
+          resuelto = true
+          clearTimeout(temporizador)
+          soltarAvisos()
+          conservarPrenda(prenda.id)
+        }
+        const borrar = async () => {
+          if (resuelto) return
+          resuelto = true
+          clearTimeout(temporizador)
+          soltarAvisos()
+          const { error } = await supabase.from('prendas').delete().eq('id', prenda.id)
+          if (error) {
+            // Vuelve tal cual estaba y se avisa: nunca se queda a medias.
+            conservarPrenda(prenda.id)
             return mostrarToast('No se pudo eliminar la prenda', 'error')
           }
+          confirmarBorradoPrenda(prenda.id)
+          onCambio?.()
+          // La foto solo se borra cuando la fila ya no está.
+          await borrarArchivo(prenda.imagen_url)
         }
-        const { error } = await supabase.from('prendas').delete().eq('id', prenda.id)
-        if (error) {
-          reponerPrenda(prenda)
-          if (relaciones.length > 0) await supabase.from('conjunto_prenda').insert(relaciones)
-          return mostrarToast('No se pudo eliminar la prenda', 'error')
-        }
+        // Si se sale de la app antes del plazo, se borra ya. Si no llega a enviarse, la prenda sigue ahí.
+        const alOcultar = () => { if (document.visibilityState === 'hidden') borrar() }
+        document.addEventListener('visibilitychange', alOcultar)
+        temporizador = setTimeout(borrar, 7000)
 
-        onCambio?.()
-
-        // La foto se borra 7 s después. Mientras el aviso siga en pantalla, se puede deshacer.
-        let deshecho = false
         mostrarToast('Prenda eliminada', 'info', {
           texto: 'Deshacer',
-          onClick: async () => {
-            deshecho = true
-            const fila = { id: prenda.id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: prenda.categoria_id }
-            // Con sus etiquetas (color, largo...); sin ellas si la base aún no las tiene.
-            const etiquetas = { ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, prenda[c] ?? null])), etiquetas_auto: prenda.etiquetas_auto ?? null, archivada: prenda.archivada ?? false, salida: prenda.salida ?? null, deseada: prenda.deseada ?? false }
-            const errRecuperar = await insertarPrenda(supabase, fila, etiquetas)
-            if (errRecuperar) return mostrarToast('No se pudo recuperar la prenda', 'error')
-
-            // También vuelven sus outfits y sus usos, no solo la ficha.
-            if (relaciones.length > 0) await supabase.from('conjunto_prenda').insert(relaciones)
-            const usos = (prenda.usos || [])
-              .filter(u => u.fecha)
-              .map(u => ({ prenda_id: prenda.id, fecha: u.fecha }))
-            if (usos.length > 0) await supabase.from('usos').insert(usos)
-
-            reponerPrenda(prenda)
-            onCambio?.()
+          onClick: () => {
+            if (resuelto) return
+            conservar()
             mostrarToast('Prenda recuperada', 'exito')
-          }
+          },
         })
-        setTimeout(() => { if (!deshecho) borrarArchivo(prenda.imagen_url) }, 7500)
       }
     })
   }
@@ -149,6 +149,9 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
     setMenuAbierto(null)
     const hoy = isoLocal(new Date())
     const usosAntes = prenda.usos || []
+    if (usosAntes.some(u => u.fecha === hoy)) {
+      return mostrarToast('Ya está anotado que te lo pusiste hoy', 'info')
+    }
     // Se pinta al instante; sin conexión la cola lo enviará al volver la red.
     actualizarPrenda(prenda.id, { usos: [...usosAntes, { fecha: hoy }] })
     vibrar(20)

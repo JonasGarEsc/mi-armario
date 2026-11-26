@@ -1,13 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { crearColaOffline, ejecutarOperacion, esErrorDeRed } from '../src/lib/colaOffline.js'
+import { crearColaOffline, ejecutarOperacion, esErrorDeRed, esErrorTemporal } from '../src/lib/colaOffline.js'
 
 const almacenEnMemoria = (inicial = []) => {
   const a = { datos: inicial, leer: () => a.datos, guardar: (l) => { a.datos = l } }
   return a
 }
 const red = { message: 'TypeError: Failed to fetch' }
-const rechazo = { message: 'duplicate key value', code: '23505' }
+const duplicado = { message: 'duplicate key value', code: '23505' }
+const rechazo = { message: 'violates foreign key constraint', code: '23503' }
 const op = (n) => ({ tabla: 'usos', accion: 'insert', datos: { n } })
 
 function entorno({ linea = true, respuestas = [] } = {}) {
@@ -30,6 +31,18 @@ test('reconoce los errores de red y no confunde un rechazo del servidor', () => 
   assert.equal(esErrorDeRed({ message: 'Load failed' }), true)
   assert.equal(esErrorDeRed(rechazo), false)
   assert.equal(esErrorDeRed(null), false)
+})
+
+test('sesión caducada, 5xx, 429 y red son temporales; un rechazo de datos no', () => {
+  assert.equal(esErrorTemporal({ message: 'JWT expired', status: 401 }), true)
+  assert.equal(esErrorTemporal({ code: 'PGRST301', message: 'JWT expired' }), true)
+  assert.equal(esErrorTemporal({ message: 'Internal Server Error', status: 500 }), true)
+  assert.equal(esErrorTemporal({ message: 'Service Unavailable', status: 503 }), true)
+  assert.equal(esErrorTemporal({ message: 'Too Many Requests', status: 429 }), true)
+  assert.equal(esErrorTemporal(red), true)
+  assert.equal(esErrorTemporal(rechazo), false)
+  assert.equal(esErrorTemporal({ message: 'invalid input syntax', status: 400 }), false)
+  assert.equal(esErrorTemporal(null), false)
 })
 
 test('con conexión, la acción se hace al momento', async () => {
@@ -62,6 +75,54 @@ test('si la red falla a mitad, lo que queda se conserva', async () => {
   estado.linea = true
   assert.deepEqual(await cola.vaciar(), { enviadas: 1, descartadas: 0, quedan: 2 })
   assert.deepEqual(cola.pendientes().map((p) => p.datos.n), [2, 3])
+})
+
+test('una sesión caducada o un 5xx conserva la cola y se reintenta después', async () => {
+  const { cola, estado } = entorno({
+    linea: false,
+    respuestas: [{ error: { message: 'JWT expired', status: 401 } }, null, null],
+  })
+  await cola.enviar(op(1)); await cola.enviar(op(2))
+  estado.linea = true
+  assert.deepEqual(await cola.vaciar(), { enviadas: 0, descartadas: 0, quedan: 2 })
+  assert.deepEqual(cola.pendientes().map((p) => p.datos.n), [1, 2])
+  // Al reintentar (red, reapertura o sesión refrescada) entran las dos.
+  assert.deepEqual(await cola.vaciar(), { enviadas: 2, descartadas: 0, quedan: 0 })
+  assert.deepEqual(estado.enviadas, [1, 2])
+})
+
+test('un 429 también se conserva para más tarde', async () => {
+  const { cola, estado } = entorno({ linea: false, respuestas: [{ error: { message: 'Too Many Requests', status: 429 } }] })
+  await cola.enviar(op(1))
+  estado.linea = true
+  assert.deepEqual(await cola.vaciar(), { enviadas: 0, descartadas: 0, quedan: 1 })
+  assert.equal(cola.cuantas(), 1)
+})
+
+test('un 401 al enviar sin cola se encola en vez de perderse', async () => {
+  const { cola, estado } = entorno({ respuestas: [{ error: { message: 'JWT expired', status: 401 } }] })
+  assert.equal(await cola.enviar(op(1)), 'encolada')
+  assert.equal(cola.cuantas(), 1)
+  assert.deepEqual(estado.enviadas, [])
+})
+
+test('al descartar un rechazo definitivo se avisa con el número', async () => {
+  const { cola, estado } = entorno({ linea: false, respuestas: [{ error: rechazo }] })
+  const avisos = []
+  cola.suscribirDescartes((n) => avisos.push(n))
+  await cola.enviar(op(1))
+  estado.linea = true
+  assert.deepEqual(await cola.vaciar(), { enviadas: 0, descartadas: 1, quedan: 0 })
+  assert.deepEqual(avisos, [1])
+})
+
+test('un uso repetido (23505) cuenta como hecho y no se descarta', async () => {
+  const { cola, estado } = entorno({ linea: false, respuestas: [{ error: duplicado }] })
+  await cola.enviar(op(1))
+  estado.linea = true
+  assert.deepEqual(await cola.vaciar(), { enviadas: 1, descartadas: 0, quedan: 0 })
+  assert.equal(cola.cuantas(), 0)
+  assert.deepEqual(estado.enviadas, [])
 })
 
 test('un rechazo del servidor se descarta y no bloquea las demás', async () => {
@@ -142,4 +203,10 @@ test('sin firma nueva se usa la última guardada, aunque haya caducado, antes qu
   assert.equal(elegirUrl(null, 'vieja', 'base'), 'vieja')
   assert.equal(elegirUrl(null, undefined, 'base'), 'base')
   assert.equal(elegirUrl(null, null, null), null)
+})
+
+test('un 503 o un 429 se reconocen por el estado de la respuesta', () => {
+  assert.equal(esErrorTemporal({ message: 'x' }, 503), true)
+  assert.equal(esErrorTemporal({ message: 'x' }, 429), true)
+  assert.equal(esErrorTemporal({ message: 'violates check constraint', code: '23514' }, 400), false)
 })

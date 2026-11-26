@@ -44,6 +44,27 @@ export function usosPorAnadir(prendaIds, fechaISO, usos) {
   return [...new Set(prendaIds)].filter((id) => !ya.has(id)).map((prenda_id) => ({ prenda_id, fecha: fechaISO }))
 }
 
+/** Postgres devuelve 23505 al repetir el índice único de una prenda y un día. */
+export const esUsoDuplicado = (error) => Boolean(error) && String(error.code) === '23505'
+
+/**
+ * Inserta usos sin que un duplicado tumbe el lote: si el servidor choca con el
+ * índice único, se reintenta fila a fila para conservar los demás. Devuelve el
+ * error real o null (un duplicado cuenta como éxito: ya estaba anotado).
+ */
+export async function insertarUsos(supabase, filas) {
+  if (!filas || filas.length === 0) return null
+  let { error } = await supabase.from('usos').insert(filas)
+  if (!error || !esUsoDuplicado(error)) return error || null
+  if (filas.length === 1) return null
+  let fallo = null
+  for (const fila of filas) {
+    const { error: err } = await supabase.from('usos').insert([fila])
+    if (err && !esUsoDuplicado(err)) fallo = err
+  }
+  return fallo
+}
+
 // --- Respuestas ya dadas (en el móvil) ---------------------------------------
 
 const CLAVE = 'armario_uso_resuelto'

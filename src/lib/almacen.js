@@ -55,6 +55,9 @@ export async function consultarPrendas(supabase) {
 export function crearAlmacenPrendas({ consultar, leer = () => null, guardar = () => {}, resumen = resumenPrenda } = {}) {
   let estado = { prendas: [], cargando: true, cargada: false, error: null }
   const oyentes = new Set()
+  // Prendas ocultas a la espera del borrado real (~7 s para deshacer). Un refresco
+  // del servidor no debe devolverlas a la vista mientras sigan pendientes.
+  const ocultas = new Map()
   let pedido = 0
   let revision = 0
   let enCurso = null
@@ -74,7 +77,7 @@ export function crearAlmacenPrendas({ consultar, leer = () => null, guardar = ()
     leido = true
     const guardadas = leer()
     if (Array.isArray(guardadas)) {
-      estado = { prendas: guardadas, cargando: false, cargada: false, error: null }
+      estado = { prendas: guardadas.filter((p) => !ocultas.has(p.id)), cargando: false, cargada: false, error: null }
       emitir()
     }
   }
@@ -97,6 +100,7 @@ export function crearAlmacenPrendas({ consultar, leer = () => null, guardar = ()
       if (miPedido !== pedido || miRevision !== revision) return estado
 
       if (Array.isArray(nuevas)) {
+        nuevas = nuevas.filter((p) => !ocultas.has(p.id))
         // Si nada cambió se conserva la misma lista: las propuestas en pantalla no se recalculan.
         const igual = JSON.stringify(nuevas) === JSON.stringify(estado.prendas)
         estado = { prendas: igual ? estado.prendas : nuevas, cargando: false, cargada: true, error: null }
@@ -119,6 +123,7 @@ export function crearAlmacenPrendas({ consultar, leer = () => null, guardar = ()
     revision++
     enCurso = null
     leido = false
+    ocultas.clear()
     estado = { prendas: [], cargando: true, cargada: false, error: null }
     leerGuardado()
     emitir()
@@ -159,6 +164,39 @@ export function crearAlmacenPrendas({ consultar, leer = () => null, guardar = ()
     return true
   }
 
+  /** Esconde la prenda al instante, pero sin borrarla: aún se puede deshacer. */
+  function ocultar(id) {
+    revision++
+    const anterior = estado.prendas.find((p) => p.id === id)
+    if (!anterior || ocultas.has(id)) return null
+    ocultas.set(id, anterior)
+    estado = { ...estado, prendas: estado.prendas.filter((p) => p.id !== id) }
+    guardarAhora()
+    emitir()
+    return anterior
+  }
+
+  /** Deshacer el borrado: la prenda vuelve tal cual estaba (nunca se llegó a borrar). */
+  function conservar(id) {
+    const prenda = ocultas.get(id)
+    if (!prenda) return false
+    ocultas.delete(id)
+    revision++
+    if (!estado.prendas.some((p) => p.id === id)) {
+      estado = { ...estado, prendas: [prenda, ...estado.prendas] }
+    }
+    guardarAhora()
+    emitir()
+    return true
+  }
+
+  /** El borrado real ya fue bien: la prenda deja de estar pendiente (no vuelve). */
+  function confirmarBorrado(id) {
+    if (!ocultas.has(id)) return false
+    ocultas.delete(id)
+    return true
+  }
+
   // Lo guardado se pinta en el primer render, antes de que llegue la red.
   leerGuardado()
 
@@ -172,6 +210,9 @@ export function crearAlmacenPrendas({ consultar, leer = () => null, guardar = ()
     actualizar,
     quitar,
     reponer,
+    ocultar,
+    conservar,
+    confirmarBorrado,
   }
 }
 
@@ -206,3 +247,6 @@ export const reiniciarPrendas = () => almacen.reiniciar()
 export const actualizarPrenda = (id, cambios) => almacen.actualizar(id, cambios)
 export const quitarPrenda = (id) => almacen.quitar(id)
 export const reponerPrenda = (prenda) => almacen.reponer(prenda)
+export const ocultarPrenda = (id) => almacen.ocultar(id)
+export const conservarPrenda = (id) => almacen.conservar(id)
+export const confirmarBorradoPrenda = (id) => almacen.confirmarBorrado(id)

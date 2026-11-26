@@ -1,12 +1,14 @@
 import { nombreLibre } from './nombres.js'
 import { CAMPOS_ETIQUETA, normalizarEtiquetas } from './etiquetas.js'
 import { intentosDeGuardado, limitarEscala } from './estadoPrenda.js'
+import { insertarUsos } from './uso.js'
 
 // Restaurar una copia: se añade a lo que ya hay, sin borrar nada.
 // Los ids se regeneran y las relaciones se vuelven a atar por nombre o por id
-// antiguo, así que también sirve para pasar un armario a otra cuenta.
+// antiguo. La copia solo guarda la dirección de cada foto, no el archivo, y las
+// fotos son privadas de cada cuenta: fuera de la cuenta original se restauran sin foto.
 
-export const TABLAS_COPIA = ['tipos', 'categorias', 'maletas', 'semanas', 'prendas', 'conjuntos', 'conjunto_prenda', 'usos']
+export const TABLAS_COPIA = ['tipos', 'categorias', 'maletas', 'semanas', 'prendas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras']
 
 const CAMPOS_EXTRA = [...CAMPOS_ETIQUETA, 'etiquetas_auto', 'archivada', 'salida', 'deseada']
 
@@ -23,6 +25,15 @@ export function filaDePrenda(prenda, id, categoriaId) {
 }
 
 const sinExtras = (fila) => Object.fromEntries(Object.entries(fila).filter(([k]) => !CAMPOS_EXTRA.includes(k)))
+
+/** Fila de `maleta_extras` con la maleta y la prenda ya remapeadas a sus ids nuevos. */
+export function filaDeMaletaExtra(extra, id, maletaId, prendaId) {
+  if (!extra || !maletaId) return null
+  const texto = typeof extra.texto === 'string' && extra.texto.trim() ? extra.texto : null
+  if (!texto && !prendaId) return null
+  // Todas las filas con las mismas claves: en un lote, la que falte llega como null.
+  return { id, maleta_id: maletaId, texto, prenda_id: prendaId || null, hecho: extra.hecho === true }
+}
 
 function enLotes(lista, tam = 200) {
   const lotes = []
@@ -56,7 +67,7 @@ const minusculas = (texto) => String(texto || '').trim().toLowerCase()
 
 export async function importarCopia(supabase, crudo) {
   const copia = normalizarCopia(crudo)
-  const resumen = { tipos: 0, categorias: 0, maletas: 0, semanas: 0, prendas: 0, conjuntos: 0, usos: 0, omitidos: 0 }
+  const resumen = { tipos: 0, categorias: 0, maletas: 0, semanas: 0, prendas: 0, conjuntos: 0, usos: 0, maleta_extras: 0, omitidos: 0 }
   const nuevoId = () => crypto.randomUUID()
 
   // --- Tipos -------------------------------------------------------------
@@ -303,8 +314,30 @@ export async function importarCopia(supabase, crudo) {
 
   for (const lote of enLotes(filasUsos)) {
     const filas = lote.map((fila) => (fila.fecha ? fila : { prenda_id: fila.prenda_id }))
-    const { error } = await supabase.from('usos').insert(filas)
+    // Un uso que ya existía (misma prenda y día) cuenta como restaurado.
+    const error = await insertarUsos(supabase, filas)
     if (!error) resumen.usos += filas.length
+  }
+
+  // --- Lista de la maleta ------------------------------------------------
+  const filasExtras = []
+  for (const extra of copia.maleta_extras) {
+    const maletaNueva = extra?.maleta_id ? mapaMaletas.get(extra.maleta_id) : null
+    const prendaNueva = extra?.prenda_id ? mapaPrendas.get(extra.prenda_id) : null
+    if (!maletaNueva || (extra?.prenda_id && !prendaNueva)) {
+      resumen.omitidos++
+      continue
+    }
+    const fila = filaDeMaletaExtra(extra, nuevoId(), maletaNueva, prendaNueva)
+    if (fila) filasExtras.push(fila)
+    else resumen.omitidos++
+  }
+
+  for (const lote of enLotes(filasExtras)) {
+    // Base de datos antigua sin `maleta_extras`: la copia se restaura sin la lista.
+    const { error } = await supabase.from('maleta_extras').insert(lote)
+    if (!error) resumen.maleta_extras += lote.length
+    else resumen.omitidos += lote.length
   }
 
   return resumen

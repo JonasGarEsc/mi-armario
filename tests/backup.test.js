@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { contarCopia, filaDePrenda, normalizarCopia } from '../src/lib/backup.js'
+import { contarCopia, filaDeMaletaExtra, filaDePrenda, normalizarCopia } from '../src/lib/backup.js'
 
 test('una copia vacía se normaliza con todas las tablas', () => {
   const copia = normalizarCopia({ prendas: [], conjuntos: [] })
   assert.deepEqual(copia.prendas, [])
   assert.deepEqual(copia.semanas, [])
   assert.deepEqual(copia.usos, [])
+  assert.deepEqual(copia.maleta_extras, [])
 })
 
 test('un archivo cualquiera no pasa por copia', () => {
@@ -48,4 +49,21 @@ test('los intentos de importar un outfit van de lo completo a lo básico', async
   const cp = { prenda_id: 'p', pos_x: 1, pos_y: 2, z_index: 3, ranura: 'torso', escala: 1.1, por_dentro: true }
   // Completo (7 campos), sin escala ni «por dentro» (5) y sin hueco del maniquí (4).
   assert.deepEqual(intentosDeGuardado(cp).map((i) => Object.keys(i).length), [7, 5, 4])
+})
+
+test('la lista de la maleta se remapea a la maleta y la prenda nuevas', () => {
+  const fila = filaDeMaletaExtra(
+    { id: 'viejo', maleta_id: 'm-vieja', prenda_id: 'p-vieja', texto: null, hecho: true },
+    'nuevo', 'm-nueva', 'p-nueva',
+  )
+  assert.deepEqual(fila, { id: 'nuevo', maleta_id: 'm-nueva', texto: null, prenda_id: 'p-nueva', hecho: true })
+})
+
+test('las cosas de texto de la maleta se restauran y las rotas se omiten', () => {
+  assert.deepEqual(
+    filaDeMaletaExtra({ texto: '  Cargador  ' }, 'n', 'm', null),
+    { id: 'n', maleta_id: 'm', texto: '  Cargador  ', prenda_id: null, hecho: false },
+  )
+  assert.equal(filaDeMaletaExtra({ texto: 'Cargador' }, 'n', null, null), null)
+  assert.equal(filaDeMaletaExtra({ prenda_id: 'p' }, 'n', 'm', null), null)
 })

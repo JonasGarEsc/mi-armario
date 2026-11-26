@@ -7,6 +7,7 @@ import { nombreLibre } from '../lib/nombres'
 import { RANURAS } from '../lib/maniqui'
 import { semanaNuevaPara, semanaParaFecha } from '../lib/semanas'
 import { OCASIONES, huecoDe, sugerirOutfits } from '../lib/sugerir'
+import { insertarUsos } from '../lib/uso'
 import { vibrar } from '../lib/vibrar'
 import { usePrendas } from '../lib/almacen'
 import LienzoOutfit from './LienzoOutfit'
@@ -122,7 +123,11 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
       const usos = Object.values(outfit.piezas).filter(Boolean)
         .filter((p) => !(p.usos || []).some((u) => u.fecha === hoy))
         .map((p) => ({ prenda_id: p.id, fecha: hoy }))
-      if (usos.length) await supabase.from('usos').insert(usos)
+      // Un duplicado cuenta como éxito; cualquier otro fallo se avisa (antes se ignoraba).
+      if (usos.length) {
+        const errorUsos = await insertarUsos(supabase, usos)
+        if (errorUsos) throw new Error('No se pudo anotar el uso de las prendas')
+      }
 
       vibrar([40, 40])
       mostrarToast(yaEsta ? 'Ese outfit ya estaba en tu semana; anotado el uso' : 'Outfit de hoy guardado en tu semana', 'exito')

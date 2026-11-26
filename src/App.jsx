@@ -83,6 +83,8 @@ export default function App() {
       if (evento === 'PASSWORD_RECOVERY') setRecuperando(true)
       cambiarEspacio(nueva)
       setSesion(nueva ?? null)
+      // Al refrescar la sesión, lo que quedó pendiente por un 401/JWT caducado se reintenta.
+      if (evento === 'TOKEN_REFRESHED') void colaOffline.vaciar()
     })
 
     supabase.auth.getSession().then(({ data }) => {
@@ -161,6 +163,10 @@ function IndicadorConexion({ mostrarToast }) {
   const [enviando, setEnviando] = useState(false)
   const aviso = useRef(mostrarToast)
   aviso.current = mostrarToast
+
+  useEffect(() => colaOffline.suscribirDescartes((n) => {
+    aviso.current(`${n} ${n === 1 ? 'cambio' : 'cambios'} no se ${n === 1 ? 'pudo' : 'pudieron'} guardar y se ${n === 1 ? 'ha' : 'han'} descartado`, 'error')
+  }), [])
 
   useEffect(() => {
     // La cola es de esta cuenta: se lee al entrar y se vacía al volver la red.
@@ -274,11 +280,15 @@ function Armario({ sesion }) {
 
   // Copia de seguridad manual: todo el armario en un JSON que se descarga.
   async function exportarDatos() {
-    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos']
+    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras']
     const copia = { exportado_en: new Date().toISOString(), version: 4 }
     for (const tabla of tablas) {
       const { data, error } = await leerTabla(supabase, tabla)
-      if (error) return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
+      if (error) {
+        // Base de datos antigua sin la lista de la maleta: se copia el resto.
+        if (tabla === 'maleta_extras' && ['42P01', 'PGRST205'].includes(error.code)) continue
+        return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
+      }
       copia[tabla] = data
     }
     const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }))
@@ -695,7 +705,7 @@ function Armario({ sesion }) {
                       <input type="file" accept=".json,application/json" onChange={alElegirCopia} className="sr-only" />
                       <Icono nombre="lista" />
                     </label>
-                    <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada.</p>
+                    <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada. Las fotos no van dentro de la copia y solo se restaura bien en la misma cuenta (las fotos son privadas de cada cuenta).</p>
                     <div>
                       <label htmlFor="ciudadClima" className="etiqueta">Mi ciudad (para el tiempo de hoy)</label>
                       <input id="ciudadClima" type="text" autoComplete="off" placeholder="Madrid" defaultValue={ciudadGuardada()} onBlur={(e) => guardarCiudad(e.target.value)} className="campo" />

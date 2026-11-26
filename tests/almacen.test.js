@@ -104,6 +104,41 @@ test('actualizar, quitar y reponer se reflejan al momento y en la caché', () =>
   assert.deepEqual(ids(almacen), ['1'])
 })
 
+test('una prenda oculta para borrar no reaparece al refrescar y deshacer la conserva', async () => {
+  let datos = [{ id: '1' }, { id: '2' }]
+  const almacen = crearAlmacenPrendas({
+    leer: () => structuredClone(datos),
+    consultar: async () => structuredClone(datos),
+    resumen: (p) => p,
+  })
+
+  assert.deepEqual(ids(almacen), ['1', '2'])
+  assert.equal(almacen.ocultar('1').id, '1')
+  assert.deepEqual(ids(almacen), ['2'])
+
+  // El servidor aún no la ha borrado (está pendiente): el refresco no la devuelve.
+  await almacen.refrescar()
+  assert.deepEqual(ids(almacen), ['2'])
+
+  assert.equal(almacen.conservar('1'), true)
+  assert.deepEqual(ids(almacen).sort(), ['1', '2'])
+})
+
+test('cuando el borrado real termina, la prenda no vuelve con el refresco', async () => {
+  let datos = [{ id: '1' }, { id: '2' }]
+  const almacen = crearAlmacenPrendas({
+    leer: () => structuredClone(datos),
+    consultar: async () => structuredClone(datos),
+    resumen: (p) => p,
+  })
+
+  almacen.ocultar('1')
+  assert.equal(almacen.confirmarBorrado('1'), true)
+  datos = [{ id: '2' }]
+  await almacen.refrescar()
+  assert.deepEqual(ids(almacen), ['2'])
+})
+
 test('si la base no tiene usos, se reintenta sin ellos', async () => {
   const consultas = []
   const supabase = {
