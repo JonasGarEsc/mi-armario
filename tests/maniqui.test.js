@@ -27,3 +27,10 @@ test('fuera del cuerpo la prenda queda libre', () => {
   assert.equal(dentroDelManiqui(50, 50), true)
   assert.equal(dentroDelManiqui(2, 50), false)
 })
+
+test('a los lados del maniquí hay sitio para dejar la ropa quitada', () => {
+  assert.equal(dentroDelManiqui(20, 30), false)
+  assert.equal(dentroDelManiqui(80, 75), false)
+  assert.equal(dentroDelManiqui(36, 40), true) // sobre un brazo
+  assert.equal(dentroDelManiqui(50, 92), true) // sobre los pies
+})

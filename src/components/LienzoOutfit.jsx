@@ -17,7 +17,7 @@ const PIE = 'M44.4 88c-.8 2.5-2.4 4.8-2.8 6.4.6 1 4.6 1.1 6.1.2.2-2.1-.1-4.6-.3-
 const BRAZO = 'M40.2 19.8C39.2 20.4 38.6 21.6 38.2 23.4L36.4 33.6C36 36.5 35.3 41.5 34.6 46.4L36.7 46.7C37.5 42 38.3 37 38.7 34.4L41 27.4Z'
 const MANO = 'M34.6 46.2c-.9 1.9-1.2 4.2-.6 5.8.6.9 2 .6 2.5-.5l.3-5Z'
 
-function Maniqui() {
+function Maniqui({ resaltado = false }) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const piel = `${uid}-piel`
   const sombra = `${uid}-sombra`
@@ -60,13 +60,24 @@ function Maniqui() {
       </defs>
 
       <ellipse cx="50" cy="95" rx="13" ry="2.6" fill={`url(#${sombra})`} />
-      <use href={`#${cuerpo}`} fill="#9d9386" stroke="#9d9386" strokeWidth="0.6" strokeLinejoin="round" />
+      {/* Mientras arrastras una prenda encima, el maniquí se ilumina: al
+          soltarla se imantará a su sitio. */}
+      <use
+        href={`#${cuerpo}`}
+        strokeWidth={resaltado ? 1.8 : 0.6}
+        strokeLinejoin="round"
+        style={{
+          fill: resaltado ? 'var(--acento)' : '#9d9386',
+          stroke: resaltado ? 'var(--acento)' : '#9d9386',
+          transition: 'stroke-width 150ms, fill 150ms, stroke 150ms',
+        }}
+      />
       <use href={`#${cuerpo}`} fill={`url(#${piel})`} />
     </svg>
   )
 }
 
-function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
+function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado, onSobreCuerpo }) {
   const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? Math.min(20 + index * 7, 70) })
   const [ranura, setRanura] = useState(cp.ranura || null)
   const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
@@ -79,10 +90,19 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
     if (e.button !== undefined && e.button !== 0) return
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = rect.left - cont.left
-    const y = rect.top - cont.top
+    const tam = cont.width * TAMANO_LIBRE
 
-    offset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    // Una prenda puesta ocupa su hueco; al cogerla pasa a tamaño suelto,
+    // centrada bajo el dedo para que no pegue un salto.
+    if (ranura) offset.current = { x: tam / 2, y: tam / 2 }
+    else offset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    const { x, y } = limitarPosicion(
+      e.clientX - cont.left - offset.current.x,
+      e.clientY - cont.top - offset.current.y,
+      cont.width,
+      cont.height,
+      tam,
+    )
     posRef.current = { x, y }
     setPos({ x, y })
     setRanura(null)
@@ -110,17 +130,25 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
     )
     posRef.current = nueva
     setPos(nueva)
+    onSobreCuerpo?.(sobreElManiqui(e, cont))
   }
+
+  // Lo que decide si se imanta es dónde está el dedo, no la foto.
+  const sobreElManiqui = (e, cont) =>
+    dentroDelManiqui(
+      ((e.clientX - cont.left) / cont.width) * 100,
+      ((e.clientY - cont.top) / cont.height) * 100,
+    )
 
   const alSoltar = (e) => {
     if (!arrastrando) return
     setArrastrando(false)
+    onSobreCuerpo?.(false)
     try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ya no estaba */ }
 
     const cont = e.currentTarget.parentElement.getBoundingClientRect()
-    const tam = cont.width * TAMANO_LIBRE
-    const centroX = ((posRef.current.x + tam / 2) / cont.width) * 100
-    const centroY = ((posRef.current.y + tam / 2) / cont.height) * 100
+    const dedoX = ((e.clientX - cont.left) / cont.width) * 100
+    const dedoY = ((e.clientY - cont.top) / cont.height) * 100
 
     const prenda = cp.prendas
     const inferida = inferirRanura(
@@ -128,8 +156,8 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
       prenda?.categorias?.tipos?.nombre,
       prenda?.nombre,
     )
-    const elegida = dentroDelManiqui(centroX, centroY)
-      ? (inferida || ranuraMasCercana(centroX, centroY))
+    const elegida = dentroDelManiqui(dedoX, dedoY)
+      ? (inferida || ranuraMasCercana(dedoX, dedoY))
       : null
 
     if (elegida) {
@@ -186,6 +214,7 @@ function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
 export default function LienzoOutfit({ conjunto, onGuardarEstado }) {
   const prendas = (conjunto.conjunto_prenda || []).filter((cp) => cp.prendas)
   const [maxZ, setMaxZ] = useState(() => Math.max(10, ...prendas.map((cp) => cp.z_index || 0)))
+  const [sobreCuerpo, setSobreCuerpo] = useState(false)
 
   return (
     <div
@@ -193,7 +222,7 @@ export default function LienzoOutfit({ conjunto, onGuardarEstado }) {
       data-sin-swipe
       className="relative z-0 w-full aspect-square overflow-hidden bg-foto"
     >
-      <Maniqui />
+      <Maniqui resaltado={sobreCuerpo} />
       {prendas.map((cp, index) => (
         <PrendaArrastrable
           key={cp.prenda_id}
@@ -202,6 +231,7 @@ export default function LienzoOutfit({ conjunto, onGuardarEstado }) {
           maxZ={maxZ}
           setMaxZ={setMaxZ}
           onGuardarEstado={onGuardarEstado}
+          onSobreCuerpo={setSobreCuerpo}
         />
       ))}
     </div>

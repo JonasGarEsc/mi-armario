@@ -48,6 +48,7 @@ export const RANURAS = {
 const CROP = CUERPO.ombligo - 5.5 // un top acaba por encima del ombligo
 const CADERA = 46 // camiseta: tapa la cinturilla del pantalón
 const RODILLA = CUERPO.rodilla
+const TOBILLERO = CUERPO.tobillo - 5.5 // 3/4: queda justo por encima del tobillo
 
 export const VESTIR = {
   torso: {
@@ -110,10 +111,10 @@ export const VESTIR = {
     largos: [
       [/bermuda/, 61],
       [/\bshorts?\b|corto|bañador|banador/, 53],
-      [/pirata|capri|3\/4|culotte|tobiller|cropped/, 77],
+      [/pirata|capri|3\/4|culotte|tobiller|cropped/, TOBILLERO],
       [/legging|malla|largo/, CUERPO.tobillo],
     ],
-    posibles: [53, 61, 77, CUERPO.tobillo],
+    posibles: [53, 61, TOBILLERO, CUERPO.tobillo],
     defecto: CUERPO.tobillo,
     proporcion: 17.5,
     filas: [0, 0.06], percentil: 0.5, ancho: 18.6, envoltura: 0.8, anchoMax: 36,
@@ -163,7 +164,14 @@ export function ranuraMasCercana(x, y) {
   return mejor
 }
 
-/** ¿El punto (en %) cae sobre el cuerpo? Fuera de ahí la prenda queda libre. */
+/**
+ * ¿El punto (en %) cae sobre el maniquí? Es la silueta con un poco de margen
+ * para que sea fácil acertar con el dedo; fuera, la prenda queda suelta.
+ */
 export function dentroDelManiqui(x, y) {
-  return x >= 12 && x <= 88 && y >= 0 && y <= 100
+  if (y < 0 || y > 97) return false
+  const dx = Math.abs(x - 50)
+  if (y < 16) return dx <= 8 // cabeza
+  if (y < 58) return dx <= 17 // hombros, brazos y manos
+  return dx <= 11 // piernas y pies
 }
