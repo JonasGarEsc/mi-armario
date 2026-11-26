@@ -4,129 +4,18 @@ import { vibrar } from '../lib/vibrar'
 import { guardarEstadoPrenda } from '../lib/estadoPrenda'
 import { useChecklistMaleta } from '../lib/useChecklistMaleta'
 import { leerCache, guardarCache } from '../lib/cache'
-import { desdeISO, etiquetaFechaCorta, isoLocal } from '../lib/fechas'
 import { nombreLibre } from '../lib/nombres'
 import { esperarImagenes, generarPng, generarPngDeElemento } from '../lib/exportar'
 import { compartirConAviso } from '../lib/compartirUi'
+import { cacheMaletas, resumenMaleta } from '../lib/maletas'
 import Icono from './Icono'
-import EstadoVacio from './EstadoVacio'
 import ResumenMaleta from './ResumenMaleta'
-import Miniatura from './Miniatura'
-import LienzoOutfit from './LienzoOutfit'
+import ListaMaletas from './ListaMaletas'
+import CabeceraMaleta from './CabeceraMaleta'
+import ListaOutfits from './ListaOutfits'
 
 const CONSULTA_CONJUNTOS = 'id, nombre, conjunto_prenda(*, prendas(*, categorias(nombre, tipos(nombre))))'
 const CONSULTA_SIN_RANURA = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(*, categorias(nombre, tipos(nombre))))'
-
-function resumenMaleta(maleta) {
-  const urls = []
-  for (const conjunto of maleta.conjuntos || []) {
-    for (const cp of conjunto.conjunto_prenda || []) {
-      const url = cp.prendas?.imagen_url
-      if (url && !urls.includes(url)) urls.push(url)
-    }
-  }
-  return {
-    id: maleta.id,
-    nombre: maleta.nombre,
-    destino: maleta.destino ?? null,
-    fecha_inicio: maleta.fecha_inicio ?? null,
-    fecha_fin: maleta.fecha_fin ?? null,
-    outfits: maleta.conjuntos?.length || 0,
-    imagenes: urls.slice(0, 8),
-  }
-}
-
-const cacheMaletas = (lista) => lista.map((m) => (Array.isArray(m.conjuntos) ? resumenMaleta(m) : m))
-
-function WidgetClima({ maleta }) {
-  const [clima, setClima] = useState(null)
-  const [cargando, setCargando] = useState(true)
-  const destino = (maleta?.destino || maleta?.nombre || '').replace(/[0-9]/g, '').trim()
-  const inicio = maleta?.fecha_inicio
-  const fin = maleta?.fecha_fin
-
-  useEffect(() => {
-    let montado = true
-
-    async function obtenerClima() {
-      setCargando(true)
-      setClima(null)
-      if (!destino || destino.length < 3) {
-        setCargando(false)
-        return
-      }
-
-      const hoy = new Date()
-      const tope = new Date()
-      tope.setDate(tope.getDate() + 15)
-
-      let desde = hoy
-      let hasta = hoy
-      if (inicio) {
-        desde = desdeISO(inicio)
-        hasta = fin ? desdeISO(fin) : desde
-        if (desde > tope) {
-          if (montado) {
-            setClima({ futuro: true })
-            setCargando(false)
-          }
-          return
-        }
-        if (hasta > tope) hasta = tope
-      }
-
-      try {
-        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destino)}&count=1&language=es&format=json`)
-        const geoData = await geoRes.json()
-        if (!geoData.results?.length) return
-
-        const { latitude, longitude, name } = geoData.results[0]
-        const params = new URLSearchParams({
-          latitude,
-          longitude,
-          daily: 'temperature_2m_max,temperature_2m_min',
-          timezone: 'auto',
-          start_date: isoLocal(desde),
-          end_date: isoLocal(hasta),
-        })
-        const tiempoRes = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
-        const tiempo = await tiempoRes.json()
-        if (!tiempo.daily?.time?.length) return
-
-        const i = Math.max(0, tiempo.daily.time.indexOf(isoLocal(desde)))
-        if (montado) {
-          setClima({
-            nombre: name,
-            fecha: tiempo.daily.time[i],
-            max: tiempo.daily.temperature_2m_max[i],
-            min: tiempo.daily.temperature_2m_min[i],
-          })
-        }
-      } catch {
-        // Sin previsión no pasa nada: la línea se queda vacía.
-      }
-      if (montado) setCargando(false)
-    }
-
-    obtenerClima()
-    return () => { montado = false }
-  }, [destino, inicio, fin])
-
-  // La línea mide lo mismo cargando, sin dato y con dato: nada salta al llegar el clima.
-  return (
-    <div className="h-6 flex items-center text-sm text-tenue">
-      {cargando ? (
-        <div className="esqueleto h-3 w-40" />
-      ) : clima?.futuro ? (
-        <p className="truncate">La previsión llegará más cerca de la fecha.</p>
-      ) : clima ? (
-        <p className="truncate">
-          {clima.nombre}: {etiquetaFechaCorta(clima.fecha)} · máx {Math.round(clima.max)}°, mín {Math.round(clima.min)}°
-        </p>
-      ) : null}
-    </div>
-  )
-}
 
 export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refresco = 0, recarga = 0, mostrarToast, setDialogoGlobal }) {
   const [maletas, setMaletas] = useState(() => leerCache('maletas') || [])
@@ -136,18 +25,11 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
   const [maletaActiva, setMaletaActiva] = useState(null)
   const [editandoNombre, setEditandoNombre] = useState(null)
   const [abriendoId, setAbriendoId] = useState(null)
-  const [checklistAbierta, setChecklistAbierta] = useState(false)
-  const [nuevaCosa, setNuevaCosa] = useState('')
   const [resumenAbierto, setResumenAbierto] = useState(false)
   const lista = useChecklistMaleta(maletaActiva?.id, refresco)
   const temporizadorMaleta = useRef(null)
 
   useEffect(() => () => clearTimeout(temporizadorMaleta.current), [])
-
-  useEffect(() => {
-    setChecklistAbierta(false)
-    setNuevaCosa('')
-  }, [maletaActiva?.id])
 
   // La tapa se abre y, al terminar el giro, se entra. Con movimiento reducido, directo.
   function entrarMaleta(m) {
@@ -283,7 +165,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
 
   function solicitarClonar(tipo, item, e) {
     if (e) e.stopPropagation()
-    
+
     // Almacenamos valores temporales para los inputs
     let idMaletaDestino = maletaActiva?.id || (maletas.length > 0 ? maletas[0].id : '')
     let nuevoNombre = `${item.nombre} (Copia)`
@@ -321,7 +203,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
             }))
           }])
           if (error) return mostrarToast("Error al clonar.", "error")
-          if (idMaletaDestino == maletaActiva?.id) setMaletaActiva({...maletaActiva}) 
+          if (idMaletaDestino == maletaActiva?.id) setMaletaActiva({...maletaActiva})
           mostrarToast("Outfit clonado", "exito")
         } else {
           const nombreFinal = nombreLibre(nuevoNombre, maletas.map(m => m.nombre))
@@ -406,26 +288,6 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
   }
 
 
-  const extraerImagenesMaleta = (maleta) => {
-    // La caché guarda un resumen (hasta 8 fotos y el total), no el árbol entero.
-    if (Array.isArray(maleta.imagenes)) {
-      return { imagenes: maleta.imagenes.slice(0, 8), total: maleta.outfits ?? maleta.imagenes.length }
-    }
-    if (!maleta.conjuntos) return { imagenes: [], total: 0 }
-    const urls = []
-    maleta.conjuntos.forEach(c => {
-      if (c.conjunto_prenda) {
-        c.conjunto_prenda.forEach(cp => {
-          if (cp.prendas?.imagen_url && !urls.includes(cp.prendas.imagen_url)) {
-            urls.push(cp.prendas.imagen_url)
-          }
-        })
-      }
-    })
-    // Dentro de la maleta caben ocho fotos; el total cuenta todas las prendas.
-    return { imagenes: urls.slice(0, 8), total: urls.length }
-  }
-
   const prendasDeLaMaleta = (() => {
     const unicas = new Map()
     conjuntos.forEach(c => {
@@ -436,110 +298,25 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
     return [...unicas.values()]
   })()
 
-  const hechas = lista.marcadas.filter(id => prendasDeLaMaleta.some(p => p.id === id)).length
-    + lista.extras.filter(e => e.hecho).length
-  const totalLista = prendasDeLaMaleta.length + lista.extras.length
-
-  function alternarChecklist(id) {
-    vibrar(8)
-    lista.alternarPrenda(id)
-  }
-
-  async function anadirCosa(e) {
-    e.preventDefault()
-    const n = await lista.anadir(nuevaCosa)
-    if (n === -1) return mostrarToast('No se pudo añadir a la lista', 'error')
-    if (n === 0 && nuevaCosa.trim()) mostrarToast('Eso ya está en la lista', 'info')
-    setNuevaCosa('')
-    vibrar(8)
-  }
-
   const itemsFiltrados = !maletaActiva ? maletas.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase())) : conjuntos.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
 
   return (
     <div key={maletaActiva?.id || 'lista'} className={`flex flex-col flex-1 shrink-0 ${maletaActiva ? 'entra' : ''}`}>
       {maletaActiva ? (
-        <div className="mb-3">
-          <div className="flex items-center gap-1 min-h-12">
-            <button onClick={volver} aria-label="Volver a las maletas" className="boton-icono -ml-3">
-              <Icono nombre="volver" />
-            </button>
-            <h2 className="flex-1 min-w-0 flex">
-              {nombreEditable('maleta', maletaActiva.id, maletaActiva.nombre, 'titular min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
-            </h2>
-            <button onClick={() => { vibrar(20); setResumenAbierto(true) }} disabled={resumenAbierto || conjuntos.length === 0} aria-label={`Compartir imagen resumen de ${maletaActiva.nombre}`} className="boton-icono disabled:opacity-40">
-              <Icono nombre="compartir" />
-            </button>
-            <button onClick={(e) => solicitarClonar('maleta', maletaActiva, e)} aria-label={`Duplicar ${maletaActiva.nombre}`} className="boton-icono">
-              <Icono nombre="duplicar" />
-            </button>
-            <button onClick={(e) => solicitarEliminar('maleta', maletaActiva.id, e)} aria-label={`Eliminar ${maletaActiva.nombre}`} className="boton-icono -mr-2">
-              <Icono nombre="borrar" />
-            </button>
-          </div>
-          <WidgetClima maleta={maletaActiva} />
-
-          {lista.listo && (
-            <div className="mt-1">
-              <button
-                onClick={() => setChecklistAbierta(!checklistAbierta)}
-                aria-expanded={checklistAbierta}
-                className="min-h-9 flex items-center gap-2 text-sm font-semibold text-acento"
-              >
-                <Icono nombre="lista" className="w-4 h-4" />
-                Lista de la maleta · {hechas}/{totalLista}
-              </button>
-
-              {checklistAbierta && (
-                <ul className="mt-2 rounded-xl border border-linea divide-y divide-linea overflow-hidden">
-                  {prendasDeLaMaleta.map(prenda => {
-                    const hecha = lista.marcadas.includes(prenda.id)
-                    return (
-                      <li key={prenda.id}>
-                        <label className="flex items-center gap-3 px-3 py-2 min-h-11 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={hecha}
-                            onChange={() => alternarChecklist(prenda.id)}
-                            className="w-5 h-5 shrink-0 accent-acento"
-                          />
-                          <span className={`flex-1 min-w-0 truncate text-sm ${hecha ? 'line-through text-tenue' : ''}`}>{prenda.nombre}</span>
-                          <span className="w-8 h-8 shrink-0 rounded bg-foto p-0.5">
-                            <Miniatura url={prenda.imagen_url} alt="" className="w-full h-full object-contain" />
-                          </span>
-                        </label>
-                      </li>
-                    )
-                  })}
-                  {lista.extras.map(extra => (
-                    <li key={extra.id} className="flex items-center gap-1 pl-3">
-                      <label className="flex-1 min-w-0 flex items-center gap-3 py-2 min-h-11 cursor-pointer">
-                        <input type="checkbox" checked={extra.hecho} onChange={() => { vibrar(8); lista.alternarExtra(extra.id) }} className="w-5 h-5 shrink-0 accent-acento" />
-                        <span className={`flex-1 min-w-0 truncate text-sm ${extra.hecho ? 'line-through text-tenue' : ''}`}>{extra.texto}</span>
-                      </label>
-                      <button onClick={() => lista.quitar(extra.id)} aria-label={`Quitar ${extra.texto} de la lista`} className="boton-icono w-11! h-11! text-tenue">
-                        <Icono nombre="cerrar" className="w-4 h-4" />
-                      </button>
-                    </li>
-                  ))}
-                  <li>
-                    <form onSubmit={anadirCosa} className="flex items-center gap-2 p-2">
-                      <input value={nuevaCosa} onChange={(e) => setNuevaCosa(e.target.value)} aria-label="Añadir a la lista" placeholder="Añadir: cargador, neceser…" autoComplete="off" className="campo flex-1 min-w-0 min-h-11!" />
-                      <button type="submit" disabled={!nuevaCosa.trim()} className="boton boton-secundario min-h-11! px-4!">Añadir</button>
-                    </form>
-                  </li>
-                </ul>
-              )}
-            </div>
-          )}
-
-          {maletaActiva.fecha_inicio && (
-            <button onClick={() => onPrepararMaleta?.(maletaActiva)} className="boton boton-secundario w-full mt-3">
-              <Icono nombre="maleta" className="w-5 h-5" />
-              Prepárala por mí
-            </button>
-          )}
-        </div>
+        <CabeceraMaleta
+          maleta={maletaActiva}
+          nombreEditable={nombreEditable}
+          onVolver={volver}
+          resumenAbierto={resumenAbierto}
+          hayConjuntos={conjuntos.length > 0}
+          onCompartirResumen={() => { vibrar(20); setResumenAbierto(true) }}
+          onClonar={(e) => solicitarClonar('maleta', maletaActiva, e)}
+          onEliminar={(e) => solicitarEliminar('maleta', maletaActiva.id, e)}
+          lista={lista}
+          prendas={prendasDeLaMaleta}
+          onPreparar={onPrepararMaleta}
+          mostrarToast={mostrarToast}
+        />
       ) : (
         <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Maletas</h2>
       )}
@@ -549,156 +326,30 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
         <input type="search" autoComplete="off" aria-label="Buscar" placeholder={!maletaActiva ? 'Buscar maleta' : 'Buscar outfit'} value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo pl-11!" />
       </div>
 
-      {cargando ? (
-        <div role="status" aria-label="Cargando" className={maletaActiva ? 'grid grid-cols-1 md:grid-cols-2 gap-5' : 'rejilla'}>
-          {maletaActiva
-            ? <div className="esqueleto h-114 md:h-139" />
-            : [0, 1].map(i => <div key={i}><div className="esqueleto aspect-[2/3] w-[86%] max-w-52 mx-auto mt-8 mb-3" /><div className="h-12 mt-2 flex flex-col items-center justify-center gap-2"><div className="esqueleto h-3 w-2/3" /><div className="esqueleto h-3 w-1/3" /></div></div>)}
-        </div>
-      ) : itemsFiltrados.length === 0 ? (
-        <EstadoVacio
-          dibujo="maleta"
-          titulo={busqueda ? 'Nada coincide con la búsqueda' : maletaActiva ? 'Esta maleta está vacía' : 'Todavía no hay maletas'}
-          texto={busqueda
-            ? 'Prueba con otro nombre.'
-            : maletaActiva
-              ? 'Elige prendas en el armario y crea un outfit para esta maleta.'
-              : 'Crea una, elige prendas del armario y monta los outfits dentro.'}
-          accionTexto={!busqueda && !maletaActiva ? 'Nueva maleta' : undefined}
-          onAccion={!busqueda && !maletaActiva ? onCrearMaleta : undefined}
+      {maletaActiva ? (
+        <ListaOutfits
+          items={itemsFiltrados}
+          busqueda={busqueda}
+          cargando={cargando}
+          nombreEditable={nombreEditable}
+          onCompartir={(conj) => exportarOutfit(conj.id, conj.nombre)}
+          onClonar={(conj, e) => solicitarClonar('outfit', conj, e)}
+          onEliminar={(id, e) => solicitarEliminar('outfit', id, e)}
+          onGuardarEstado={actualizarEstado}
         />
-      ) : !maletaActiva ? (
-        <div className="rejilla mb-4">
-          {itemsFiltrados.map((m) => {
-            const { imagenes, total } = extraerImagenesMaleta(m)
-            const columnas = imagenes.length > 2 ? 2 : 1
-            const filas = Math.ceil(imagenes.length / columnas)
-            // Cada pieza es mayor que su hueco: así se pisan como ropa doblada.
-            // De cinco en adelante, filas ordenadas: solape leve y casi sin giro.
-            const llena = imagenes.length > 4
-            const ancho = columnas === 1 ? 100 : llena ? 52 : 62
-            const alto = filas === 1 ? 100 : 100 / filas + (llena ? 3 : 14)
-            const outfits = m.outfits ?? (m.conjuntos?.length || 0)
-            const abierta = abriendoId === m.id
-            return (
-              <button key={m.id} onClick={() => entrarMaleta(m)} aria-label={`Abrir ${m.nombre}`} className="min-w-0 self-start text-center rounded-xl">
-                <span className={`maleta relative w-[86%] max-w-52 mx-auto pt-8 pb-3 ${abierta ? 'abierta' : ''}`}>
-                  <span className="maleta-suelo absolute -inset-x-3 -bottom-0.5 h-5" aria-hidden="true" />
-                  {/* Asa telescópica, patas y ruedas: van en la carcasa trasera, no se mueven con la tapa. */}
-                  <span className="absolute left-1/2 -translate-x-1/2 top-1 w-[46%] h-8" aria-hidden="true">
-                    <span className="maleta-barra absolute left-2 top-2 bottom-0 w-1.5" />
-                    <span className="maleta-barra absolute right-2 top-2 bottom-0 w-1.5" />
-                    <span className="maleta-goma absolute left-1 bottom-0 w-3.5 h-1.5 rounded-t-sm" />
-                    <span className="maleta-goma absolute right-1 bottom-0 w-3.5 h-1.5 rounded-t-sm" />
-                    <span className="maleta-goma absolute inset-x-0 top-0 h-3.5 rounded-full" />
-                    <span className="maleta-metal absolute left-1/2 -translate-x-1/2 top-1 w-5 h-1.5 rounded-full" />
-                  </span>
-                  {['left-[11%]', 'right-[11%]'].map(lado => (
-                    <span key={lado} className={`absolute ${lado} bottom-0 w-6 h-4`} aria-hidden="true">
-                      <span className="maleta-goma absolute inset-x-1 top-0 h-2 rounded-b-sm" />
-                      <span className="maleta-rueda absolute left-0.5 bottom-0 w-2.5 h-2.5 rounded-full" />
-                      <span className="maleta-rueda absolute right-0.5 bottom-0 w-2.5 h-2.5 rounded-full" />
-                    </span>
-                  ))}
-
-                  <span className="maleta-cuerpo relative block aspect-[2/3]">
-                    {/* Asa lateral con su etiqueta de cuero. */}
-                    <span className="maleta-goma absolute -right-1 top-[24%] w-2 h-[16%] rounded-r-[4px]" aria-hidden="true" />
-                    <span className="maleta-etiqueta absolute -right-2 top-[38%] w-3 h-[11%] rounded-[2px]" aria-hidden="true" />
-
-                    {/* Carcasa trasera y forro: la ropa doblada se ve al abrir la tapa. */}
-                    <span className="maleta-carcasa absolute inset-0 rounded-[14px] p-[5%]">
-                      <span className="maleta-interior relative block w-full h-full rounded-[9px] overflow-hidden">
-                        {imagenes.length === 0 && (
-                          <>
-                            <span className="maleta-correa absolute -inset-x-4 top-1/2 h-3 -translate-y-1/2 rotate-[52deg]" />
-                            <span className="maleta-correa absolute -inset-x-4 top-1/2 h-3 -translate-y-1/2 -rotate-[52deg]" />
-                            <span className="maleta-metal absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-5 rounded" />
-                          </>
-                        )}
-                        <span className="absolute inset-1.5">
-                          {imagenes.map((url, i) => {
-                            const fila = Math.floor(i / columnas)
-                            // Si la última fila queda coja, la prenda suelta va centrada.
-                            const suelta = columnas === 2 && i === imagenes.length - 1 && i % 2 === 0
-                            return (
-                              <span key={url} className="maleta-prenda absolute" style={{
-                                left: `${suelta ? (100 - ancho) / 2 : (i % columnas) * (100 - ancho)}%`,
-                                top: `${filas > 1 ? fila * (100 - alto) / (filas - 1) : 0}%`,
-                                width: `${ancho}%`,
-                                height: `${alto}%`,
-                                '--giro': `${llena ? (i % 2 ? 1 : -1) : [-2, 1.5, 2.5, -1.5][i]}deg`,
-                                '--retardo': `${120 + fila * 50}ms`,
-                              }}>
-                                <Miniatura url={url} alt="" className="w-full h-full object-contain" />
-                              </span>
-                            )
-                          })}
-                        </span>
-                      </span>
-                    </span>
-
-                    {/* Tapa con bisagra a la izquierda: cara exterior y forro por detrás. */}
-                    <span className="maleta-tapa absolute inset-0" aria-hidden="true">
-                      <span className="maleta-reverso absolute inset-0 rounded-[14px]">
-                        <span className="maleta-bolsillo absolute inset-x-3 bottom-3 h-[46%] rounded-lg" />
-                      </span>
-                      <span className="maleta-cara maleta-carcasa absolute inset-0 rounded-[14px] overflow-hidden">
-                        {/* Acanalado del aluminio y junta del perímetro. */}
-                        <span className="maleta-costillas absolute inset-x-[8%] inset-y-[5%]" />
-                        <span className="maleta-junta absolute inset-[3.5%] rounded-[11px]" />
-                        {/* Cierre con candado, encastrado en el borde que se abre. */}
-                        <span className="maleta-cierre absolute right-[5%] top-[44%] w-[11%] h-[12%] rounded-[3px]">
-                          <span className="maleta-metal absolute inset-x-[22%] top-[18%] h-[26%] rounded-[2px]" />
-                          <span className="maleta-ruedecillas absolute inset-x-[22%] bottom-[16%] h-[30%] rounded-[1px]" />
-                        </span>
-                      </span>
-                    </span>
-
-                    {/* Bisagras sobre el eje de giro. */}
-                    <span className="maleta-bisagra absolute -left-[3px] top-[15%] w-[5px] h-[9%] rounded-[2px]" aria-hidden="true" />
-                    <span className="maleta-bisagra absolute -left-[3px] bottom-[15%] w-[5px] h-[9%] rounded-[2px]" aria-hidden="true" />
-                  </span>
-                </span>
-                <span className="block mt-2 font-semibold leading-6 truncate">{m.nombre}</span>
-                <span className="block text-sm leading-6 text-tenue truncate">{outfits === 1 ? '1 outfit' : `${outfits} outfits`}{total > 0 && `, ${total === 1 ? '1 prenda' : `${total} prendas`}`}</span>
-              </button>
-            )
-          })}
-        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
-          {itemsFiltrados.map((conj) => (
-            <article key={conj.id} className="min-w-0 rounded-xl border border-linea bg-superficie overflow-hidden isolate">
-              <div className="flex items-center pl-4 pr-1 h-14 border-b border-linea">
-                <h3 className="flex-1 min-w-0 flex">
-                  {nombreEditable('outfit', conj.id, conj.nombre, 'min-h-11 max-w-full text-lg font-semibold')}
-                </h3>
-                <button onClick={() => exportarOutfit(conj.id, conj.nombre)} aria-label={`Compartir imagen de ${conj.nombre}`} className="boton-icono">
-                  <Icono nombre="compartir" className="w-5 h-5" />
-                </button>
-                <button onClick={(e) => solicitarClonar('outfit', conj, e)} aria-label={`Duplicar ${conj.nombre}`} className="boton-icono">
-                  <Icono nombre="duplicar" className="w-5 h-5" />
-                </button>
-                <button onClick={(e) => solicitarEliminar('outfit', conj.id, e)} aria-label={`Eliminar ${conj.nombre}`} className="boton-icono">
-                  <Icono nombre="borrar" className="w-5 h-5" />
-                </button>
-              </div>
-
-              <LienzoOutfit conjunto={conj} onGuardarEstado={actualizarEstado} ampliado />
-            </article>
-          ))}
-        </div>
+        <ListaMaletas
+          items={itemsFiltrados}
+          busqueda={busqueda}
+          cargando={cargando}
+          abriendoId={abriendoId}
+          hayMaletas={maletas.length > 0}
+          onEntrar={entrarMaleta}
+          onCrearMaleta={onCrearMaleta}
+        />
       )}
 
       {resumenAbierto && maletaActiva && <ResumenMaleta maleta={maletaActiva} conjuntos={conjuntos} onListo={resumenListo} />}
-
-      {!maletaActiva && !cargando && maletas.length > 0 && (
-        <button onClick={onCrearMaleta} className="accion boton boton-primario">
-          <Icono nombre="mas" className="w-5 h-5" />
-          Nueva maleta
-        </button>
-      )}
     </div>
   )
 }

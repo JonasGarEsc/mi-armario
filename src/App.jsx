@@ -1,17 +1,13 @@
-import { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react'
-import { useArrastrarHoja } from './lib/useArrastrarHoja'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useDeslizarPaneles } from './lib/useDeslizarPaneles'
-import { fijarSeccionVisual, useSeccionVisual } from './lib/seccionVisual'
+import { fijarSeccionVisual } from './lib/seccionVisual'
 import { crearGestorAtras } from './lib/atras'
 import { refrescarPrendas, reiniciarPrendas } from './lib/almacen'
 import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import VistaSemanas from './components/VistaSemanas'
 import AvisoUso from './components/AvisoUso'
-import { resumenCarga } from './lib/cargaMasiva'
-import { colaOffline, useConexion } from './lib/offline'
-import { useCargaMasiva } from './lib/cargaMasivaApp'
-import { ciudadGuardada, guardarCiudad } from './lib/clima'
+import { colaOffline } from './lib/offline'
 import Icono from './components/Icono'
 import Acceso from './components/Acceso'
 import NuevaContrasena from './components/NuevaContrasena'
@@ -21,38 +17,17 @@ import { fijarEspacio } from './lib/cache'
 import { vibrar } from './lib/vibrar'
 import { nombreLibre } from './lib/nombres'
 import { etiquetaDia } from './lib/fechas'
-import { contarCopia, importarCopia, leerTabla } from './lib/backup'
-import { esTablaAusente } from './lib/valoraciones'
+import { exportarDatos, restaurarCopia } from './lib/copiaSeguridad'
 import { conTiempoLimite } from './lib/conTiempo'
 import { desactivar } from './lib/push'
-
-// Todo lo que solo se ve dentro de una hoja pesa y se descarga al abrirla:
-// el motor de recorte, las estadísticas, la carga masiva, etc.
-const FormularioPrenda = lazy(() => import('./components/FormularioPrenda'))
-const FormularioEdicion = lazy(() => import('./components/FormularioEdicion'))
-const FormularioMaleta = lazy(() => import('./components/FormularioMaleta'))
-const FormularioSemana = lazy(() => import('./components/FormularioSemana'))
-const SelectorPrendas = lazy(() => import('./components/SelectorPrendas'))
-const EtiquetarArmario = lazy(() => import('./components/EtiquetarArmario'))
-const QueMePongo = lazy(() => import('./components/QueMePongo'))
-const AsistenteMaleta = lazy(() => import('./components/AsistenteMaleta'))
-const Estadisticas = lazy(() => import('./components/Estadisticas'))
-const CargaMasiva = lazy(() => import('./components/CargaMasiva'))
-const OutfitsConDeseo = lazy(() => import('./components/OutfitsConDeseo'))
-const ConfirmarUso = lazy(() => import('./components/ConfirmarUso'))
-const Gestores = lazy(() => import('./components/Gestores'))
-const ResumenUsos = lazy(() => import('./components/ResumenUsos'))
-const FichaPrenda = lazy(() => import('./components/FichaPrenda'))
-const VistaHoy = lazy(() => import('./components/VistaHoy'))
-const AvisoDiario = lazy(() => import('./components/AvisoDiario'))
+import { SECCIONES } from './lib/secciones'
+import { TituloSeccion, BarraSecciones, NavegacionEscritorio } from './components/Navegacion'
+import { PantallaCarga, IndicadorCarga, IndicadorConexion } from './components/Indicadores'
+import Hoja from './components/Hoja'
+import ContenidoHoja from './components/ContenidoHoja'
+import DialogoGlobal from './components/DialogoGlobal'
 
 const LIMITE_DESACTIVAR_MS = 4000
-
-const SECCIONES = [
-  { id: 'ropa', nombre: 'Armario', icono: 'percha' },
-  { id: 'conjuntos', nombre: 'Maletas', icono: 'maleta' },
-  { id: 'semana', nombre: 'Semana', icono: 'calendario' }
-]
 
 // Pinta el tema en el documento: lo usan el armario (elige el usuario) y el acceso (elige el sistema).
 function pintarTema(oscuro) {
@@ -123,106 +98,15 @@ export default function App() {
   return <Armario key={sesion.user?.id || 'sesion'} sesion={sesion} />
 }
 
-// La barra de pestañas y el título leen la sección visible por su cuenta:
-// al deslizar se actualizan solos, sin re-renderizar el armario entero.
-function TituloSeccion({ respaldo }) {
-  const activa = useSeccionVisual(respaldo)
-  return SECCIONES.find(s => s.id === activa)?.nombre ?? null
-}
-
-function BarraSecciones({ respaldo, onIr, onHoy }) {
-  const activa = useSeccionVisual(respaldo)
-  return (
-    <nav aria-label="Secciones" className="md:hidden shrink-0 bg-superficie border-t border-linea pb-safe">
-      <div className="grid grid-cols-4">
-        <button onClick={onHoy} className="h-16 flex flex-col items-center justify-center gap-0.5 text-sm text-tenue">
-          <Icono nombre="sol" />
-          Hoy
-        </button>
-        {SECCIONES.map(s => (
-          <button key={s.id} onClick={() => onIr(s.id)} aria-current={activa === s.id ? 'page' : undefined} className={`h-16 flex flex-col items-center justify-center gap-0.5 text-sm ${activa === s.id ? 'text-acento font-semibold' : 'text-tenue'}`}>
-            <Icono nombre={s.icono} />
-            {s.nombre}
-          </button>
-        ))}
-      </div>
-    </nav>
-  )
-}
-
-// Pastilla flotante mientras hay fotos preparándose o por revisar: abre la hoja de subida masiva.
-function IndicadorCarga({ oculto, onAbrir }) {
-  const items = useCargaMasiva()
-  useEffect(() => {
-    // Con fotos sin guardar, el navegador avisa antes de cerrar la pestaña.
-    if (items.length === 0) return undefined
-    const avisar = (e) => { e.preventDefault() }
-    window.addEventListener('beforeunload', avisar)
-    return () => window.removeEventListener('beforeunload', avisar)
-  }, [items.length])
-  if (items.length === 0 || oculto) return null
-  const r = resumenCarga(items)
-  return (
-    <button onClick={onAbrir} className="aparece fixed z-40 left-1/2 -translate-x-1/2 bottom-24 md:bottom-6 min-h-11 px-4 rounded-full bg-tinta text-papel text-sm font-semibold shadow-(--sombra)">
-      {r.activas > 0 ? `Preparando fotos · ${r.terminadas}/${r.total}` : `${r.listas} ${r.listas === 1 ? 'prenda' : 'prendas'} por revisar`}
-    </button>
-  )
-}
-
-// «Sin conexión» y cuántos cambios esperan a enviarse. Al volver la red se envían solos.
-function IndicadorConexion({ mostrarToast }) {
-  const { enLinea, pendientes } = useConexion()
-  const [enviando, setEnviando] = useState(false)
-  const aviso = useRef(mostrarToast)
-  aviso.current = mostrarToast
-
-  useEffect(() => colaOffline.suscribirDescartes((n) => {
-    aviso.current(`${n} ${n === 1 ? 'cambio' : 'cambios'} no se ${n === 1 ? 'pudo' : 'pudieron'} guardar y se ${n === 1 ? 'ha' : 'han'} descartado`, 'error')
-  }), [])
-
-  useEffect(() => {
-    // La cola es de esta cuenta: se lee al entrar y se vacía al volver la red.
-    let vivo = true
-    const sincronizar = async () => {
-      if (colaOffline.cuantas() === 0) return
-      setEnviando(true)
-      const r = await colaOffline.vaciar()
-      if (!vivo) return
-      setEnviando(false)
-      if (r.enviadas > 0) aviso.current(`${r.enviadas} ${r.enviadas === 1 ? 'cambio sincronizado' : 'cambios sincronizados'}`, 'exito')
-    }
-    colaOffline.recargar()
-    sincronizar()
-    window.addEventListener('online', sincronizar)
-    return () => { vivo = false; window.removeEventListener('online', sincronizar) }
-  }, [])
-
-  if (enLinea && pendientes === 0) return null
-  return (
-    <p role="status" className="aparece fixed z-50 left-1/2 -translate-x-1/2 top-[max(0.5rem,env(safe-area-inset-top))] mt-1 px-3 min-h-8 flex items-center rounded-full bg-tinta text-papel text-xs font-semibold shadow-(--sombra) pointer-events-none">
-      {!enLinea ? 'Sin conexión' : enviando ? 'Enviando cambios…' : 'Cambios por enviar'}
-      {pendientes > 0 && ` · ${pendientes} por enviar`}
-    </p>
-  )
-}
-
-function PantallaCarga() {
-  return (
-    <div className="h-dvh grid place-items-center bg-papel">
-      <div role="status" aria-label="Cargando" className="esqueleto h-10 w-40" />
-    </div>
-  )
-}
-
 // El armario se monta ya con sesión: cada consulta va filtrada por RLS al usuario.
 
 function Armario({ sesion }) {
   const [pestañaActiva, setPestañaActiva] = useState('ropa')
   const [actualizaciones, setActualizaciones] = useState(0)
-  
+
   const [modalActivo, setModalActivo] = useState(null)
   const [modalVisible, setModalVisible] = useState(false)
-  
+
   const [prendaAEditar, setPrendaAEditar] = useState(null)
   const [prendaFicha, setPrendaFicha] = useState(null)
   const [outfitsGuardados, setOutfitsGuardados] = useState(0)
@@ -237,7 +121,7 @@ function Armario({ sesion }) {
   const [refrescoMaleta, setRefrescoMaleta] = useState(0)
 
   const [toasts, setToasts] = useState([])
-  
+
   const [datosMenu, setDatosMenu] = useState(null)
   const [filtroActual, setFiltroActual] = useState(null)
   const hojaRef = useRef(null)
@@ -293,61 +177,13 @@ function Armario({ sesion }) {
   const cerrarToast = (id) => setToasts(prev => prev.filter(t => t.id !== id))
 
   // Copia de seguridad manual: todo el armario en un JSON que se descarga.
-  async function exportarDatos() {
-    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos', 'maleta_extras', 'valoraciones']
-    const copia = { exportado_en: new Date().toISOString(), version: 4 }
-    for (const tabla of tablas) {
-      const { data, error } = await leerTabla(supabase, tabla)
-      if (error) {
-        // Base de datos antigua sin la lista de la maleta o sin las valoraciones: se copia el resto.
-        if ((tabla === 'maleta_extras' || tabla === 'valoraciones') && esTablaAusente(error)) continue
-        return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
-      }
-      copia[tabla] = data
-    }
-    const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `perletta-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    mostrarToast('Copia descargada', 'exito')
-  }
+  const descargarCopia = () => exportarDatos(supabase, mostrarToast)
 
-  async function alElegirCopia(e) {
+  const alElegirCopia = (e) => {
     const archivo = e.target.files?.[0]
     e.target.value = ''
     if (!archivo) return
-
-    let crudo
-    try {
-      crudo = JSON.parse(await archivo.text())
-    } catch {
-      return mostrarToast('Ese archivo no es una copia válida', 'error')
-    }
-
-    let cuenta
-    try {
-      cuenta = contarCopia(crudo)
-    } catch (error) {
-      return mostrarToast(error.message, 'error')
-    }
-
-    solicitarConfirmacionGlobal({
-      mensaje: `¿Restaurar la copia? Se añadirán ${cuenta.prendas} prendas y ${cuenta.conjuntos} outfits a lo que ya tienes.`,
-      esDestructivo: false,
-      textoConfirmar: 'Restaurar',
-      onConfirm: async () => {
-        try {
-          const resumen = await importarCopia(supabase, crudo)
-          vibrar([50, 50])
-          mostrarToast(`Copia restaurada: ${resumen.prendas} prendas y ${resumen.conjuntos} outfits`, 'exito')
-          recargarVistas()
-        } catch (error) {
-          mostrarToast(error.message || 'No se pudo restaurar la copia', 'error')
-        }
-      },
-    })
+    void restaurarCopia(supabase, archivo, { mostrarToast, solicitarConfirmacionGlobal, recargarVistas })
   }
 
   // Refresca lo compartido (prendas) y avisa a las vistas persistentes (maletas, semanas).
@@ -362,7 +198,7 @@ function Armario({ sesion }) {
     abrirModal('asistente_maleta')
     vibrar(30)
   }
-  
+
   const abrirModal = (tipo, { inmediato = false } = {}) => {
     if (!modalActivo) origenFoco.current = document.activeElement
     setModalActivo(tipo)
@@ -465,7 +301,6 @@ function Armario({ sesion }) {
     onPrevisualizar: (i) => { fijarSeccionVisual(SECCIONES[i].id); vibrar(30) },
     onCambiar: (i) => setPestañaActiva(SECCIONES[i].id),
   })
-  const asaRef = useArrastrarHoja(hojaRef, () => cerrarModal(), !!modalActivo)
 
   function iniciarEdicion(prenda) {
     setPrendaAEditar(prenda)
@@ -495,7 +330,7 @@ function Armario({ sesion }) {
     e.preventDefault()
     const nombre = e.target.nombreConjunto.value.trim()
     const maleta_id = e.target.maletaId.value
-    
+
     const { data: conjuntosExistentes, error: errConsulta } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id)').eq('maleta_id', maleta_id)
     if (errConsulta) return mostrarToast('No se pudo comprobar duplicados', 'error')
     if (esDuplicado(conjuntosExistentes, prendasParaConjunto)) return mostrarToast('Esa combinación ya existe', 'error')
@@ -509,7 +344,7 @@ function Armario({ sesion }) {
       conjunto_prenda: prendasParaConjunto.map(prenda_id => ({ prenda_id }))
     }])
     if (error) return mostrarToast("Error al guardar", "error")
-    
+
     vibrar([50, 50])
     mostrarToast("Outfit guardado", "exito")
     setOutfitsGuardados(n => n + 1)
@@ -561,7 +396,6 @@ function Armario({ sesion }) {
     vibrar(15)
   }
 
-  const chip = (activo) => `min-h-11 px-4 rounded-full ${activo ? 'bg-acento text-sobre-acento font-semibold' : 'bg-lamina text-tinta'}`
   const panel = 'relative w-1/3 min-w-0 h-full flex flex-col overflow-y-auto overscroll-y-contain sin-barra px-4 md:px-8 pt-2 md:pt-8 pb-4 md:pb-8 touch-pan-y'
 
   return (
@@ -591,14 +425,7 @@ function Armario({ sesion }) {
               <span className="hidden md:inline">Perletta</span>
             </h1>
 
-            <nav aria-label="Secciones" className="hidden md:flex gap-1 mr-auto ml-6">
-              <button onClick={abrirHoy} className="min-h-11 px-4 rounded-xl font-medium text-tenue hover:text-tinta">Hoy</button>
-              {SECCIONES.map(s => (
-                <button key={s.id} onClick={() => irA(s.id)} aria-current={pestañaActiva === s.id ? 'page' : undefined} className={`min-h-11 px-4 rounded-xl font-medium ${pestañaActiva === s.id ? 'bg-lamina text-tinta' : 'text-tenue hover:text-tinta'}`}>
-                  {s.nombre}
-                </button>
-              ))}
-            </nav>
+            <NavegacionEscritorio activa={pestañaActiva} onIr={irA} onHoy={abrirHoy} />
 
             <button onClick={() => { abrirModal('ajustes'); vibrar(20) }} aria-label="Ajustes" className="boton-icono -mr-2">
               <Icono nombre="ajustes" />
@@ -641,201 +468,44 @@ function Armario({ sesion }) {
       </div>
 
       {modalActivo && (
-        <div className="fixed inset-0 z-80 flex flex-col justify-end md:justify-center md:items-center md:p-6" inert={!!dialogoGlobal}>
-          <div onClick={cerrarModal} className={`absolute inset-0 bg-velo transition-opacity duration-300 ease-ios ${modalVisible ? 'opacity-100' : 'opacity-0'}`} />
-          <div ref={hojaRef} tabIndex={-1} role="dialog" aria-modal="true" className={`relative w-full md:max-w-lg max-h-[92dvh] md:max-h-[88dvh] flex flex-col bg-superficie rounded-t-3xl md:rounded-3xl pb-safe transition-[translate,opacity] duration-300 ease-ios ${modalVisible ? 'translate-y-0 opacity-100' : 'translate-y-full md:translate-y-4 md:opacity-0'}`}>
-            <div ref={asaRef} className="shrink-0 h-7 flex items-center justify-center touch-none cursor-grab">
-              <div className="w-10 h-1 rounded-full bg-linea md:hidden" />
-            </div>
-            <button onClick={cerrarModal} aria-label="Cerrar" className="boton-icono absolute! top-4 right-3 z-10">
-              <Icono nombre="cerrar" />
-            </button>
-
-            <div data-hoja-contenido className="min-h-0 overflow-y-auto overscroll-contain px-5 md:px-7 pt-1 pb-6">
-              {/* Un solo Suspense: el asa, el velo y la X quedan fuera y siguen
-                  funcionando aunque el contenido de la hoja llegue tarde. */}
-              <Suspense fallback={<div role="status" aria-label="Cargando" className="flex flex-col gap-4"><div className="esqueleto h-8 w-48" />{[0, 1, 2, 3].map(i => <div key={i} className="esqueleto h-18" />)}</div>}>
-                {modalActivo === 'ficha' && prendaFicha && (
-                  <FichaPrenda
-                    prenda={prendaFicha}
-                    mostrarToast={mostrarToast}
-                    onEditar={(prenda) => { setPrendaAEditar(prenda); abrirModal('editar') }}
-                    onQueMePongo={(prenda) => { setPrendaFijada(prenda.id); abrirModal('que_me_pongo') }}
-                  />
-                )}
-                {modalActivo === 'formulario' && (
-                  <FormularioPrenda deseo={modoDeseo} onVarias={() => abrirModal('carga_masiva')} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast(modoDeseo ? 'Añadido a tus deseos' : 'Prenda añadida', 'exito') }} />
-                )}
-                {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
-                {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={(maleta) => {
-                  cerrarModal(); recargarVistas(); vibrar([50, 50])
-                  mostrarToast('Maleta creada', 'exito', maleta?.fecha_inicio ? { texto: 'Prepárala por mí', onClick: () => prepararMaleta(maleta) } : null)
-                }} onCancelar={cerrarModal} />}
-                {modalActivo === 'confirmar_uso' && usoPendiente && (
-                  <ConfirmarUso outfit={usoPendiente} mostrarToast={mostrarToast} onHecho={() => { cerrarModal(); recargarVistas() }} />
-                )}
-                {modalActivo === 'asistente_maleta' && maletaAsistente && (
-                  <AsistenteMaleta
-                    maleta={maletaAsistente}
-                    mostrarToast={mostrarToast}
-                    onHecho={() => { cerrarModal(); setRefrescoMaleta(n => n + 1); setPestañaActiva('conjuntos') }}
-                  />
-                )}
-                {modalActivo === 'crear_semana' && <FormularioSemana onExito={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana'); vibrar([50, 50]); mostrarToast("Semana creada", "exito") }} onCancelar={cerrarModal} />}
-                {modalActivo === 'elegir_prendas' && objetivoSemana && (
-                  <SelectorPrendas
-                    fecha={objetivoSemana.fecha}
-                    nombreSemana={objetivoSemana.semana.nombre}
-                    onGuardar={crearOutfitSemana}
-                    onCancelar={cerrarModal}
-                  />
-                )}
-
-                {modalActivo === 'crear_conjunto' && (
-                  <form onSubmit={guardarConjunto} className="flex flex-col gap-4">
-                    <h2 className="titulo-hoja">Guardar outfit</h2>
-                    <div>
-                      <label htmlFor="maletaId" className="etiqueta">Maleta</label>
-                      <select id="maletaId" name="maletaId" required className="campo">
-                        {maletasDisponibles.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="nombreConjunto" className="etiqueta">Nombre</label>
-                      <input id="nombreConjunto" type="text" name="nombreConjunto" autoComplete="off" required placeholder="Casual día 1" className="campo" />
-                    </div>
-                    <button type="submit" className="boton boton-primario mt-2">Guardar</button>
-                  </form>
-                )}
-
-                {modalActivo === 'filtros' && (
-                  <div className="flex flex-col gap-5">
-                    <h2 className="titulo-hoja">Filtrar</h2>
-                    <button onClick={() => aplicarFiltro(null)} aria-pressed={!filtroActual} className={`self-start ${chip(!filtroActual)}`}>Todo</button>
-                    {!datosMenu && <div role="status" aria-label="Cargando" className="flex gap-2">{[0, 1, 2].map(i => <div key={i} className="esqueleto h-11 w-24" />)}</div>}
-                    {datosMenu?.map(tipo => (
-                      <div key={tipo.id}>
-                        <h3 className="etiqueta">{tipo.nombre}</h3>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {tipo.categorias.length === 0 && <span className="text-sm text-tenue">Sin prendas</span>}
-                          {tipo.categorias.map(cat => (
-                            <button key={cat.id} onClick={() => aplicarFiltro(cat)} aria-pressed={filtroActual?.id === cat.id} className={chip(filtroActual?.id === cat.id)}>{cat.nombre}</button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-linea">
-                      <button onClick={() => abrirModal('tipos')} className="boton boton-secundario">Tipos</button>
-                      <button onClick={() => abrirModal('categorias')} className="boton boton-secundario">Categorías</button>
-                    </div>
-                  </div>
-                )}
-
-                {modalActivo === 'que_me_pongo' && (
-                  <QueMePongo
-                    key={prendaFijada || 'libre'}
-                    prendaInicial={prendaFijada}
-                    mostrarToast={mostrarToast}
-                    onHecho={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana') }}
-                  />
-                )}
-
-                {modalActivo === 'hoy' && (
-                  <VistaHoy
-                    mostrarToast={mostrarToast}
-                    onHecho={() => { cerrarModal(); recargarVistas() }}
-                  />
-                )}
-
-                {modalActivo === 'deseo_outfits' && deseoElegido && <OutfitsConDeseo deseo={deseoElegido} />}
-
-                {modalActivo === 'carga_masiva' && (
-                  <CargaMasiva
-                    mostrarToast={mostrarToast}
-                    onGuardadas={(vacia) => { recargarVistas(); if (vacia) cerrarModal() }}
-                  />
-                )}
-
-                {modalActivo === 'estadisticas' && (
-                  <Estadisticas
-                    mostrarToast={mostrarToast}
-                    onCambio={recargarVistas}
-                    onProponer={(id) => { setPrendaFijada(id); abrirModal('que_me_pongo') }}
-                  />
-                )}
-
-                {modalActivo === 'ajustes' && (
-                  <div className="flex flex-col gap-3">
-                    <h2 className="titulo-hoja mb-2">Ajustes</h2>
-                    <button role="switch" aria-checked={temaOscuro} onClick={() => { setTemaOscuro(!temaOscuro); vibrar(30) }} className="boton boton-secundario justify-between!">
-                      Tema oscuro
-                      <span aria-hidden="true" className={`w-11 h-6 rounded-full p-0.5 ${temaOscuro ? 'bg-acento' : 'bg-tenue'}`}>
-                        <span className={`block w-5 h-5 rounded-full bg-superficie transition-transform duration-200 ${temaOscuro ? 'translate-x-5' : ''}`} />
-                      </span>
-                    </button>
-                    <button onClick={() => { cerrarModal(); exportarDatos() }} className="boton boton-secundario justify-between!">
-                      Descargar copia de seguridad
-                      <Icono nombre="descargar" />
-                    </button>
-                    <label className="boton boton-secundario justify-between! cursor-pointer">
-                      Restaurar copia de seguridad
-                      <input type="file" accept=".json,application/json" onChange={alElegirCopia} className="sr-only" />
-                      <Icono nombre="lista" />
-                    </label>
-                    <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada. Las fotos no van dentro de la copia y solo se restaura bien en la misma cuenta (las fotos son privadas de cada cuenta).</p>
-                    <div>
-                      <label htmlFor="ciudadClima" className="etiqueta">Mi ciudad (para el tiempo de hoy)</label>
-                      <input id="ciudadClima" type="text" autoComplete="off" placeholder="Madrid" defaultValue={ciudadGuardada()} onBlur={(e) => guardarCiudad(e.target.value)} className="campo" />
-                      <p className="text-sm text-tenue mt-1">Se usa si no das permiso de ubicación.</p>
-                    </div>
-                    <AvisoDiario mostrarToast={mostrarToast} />
-                    <button onClick={() => abrirModal('estadisticas')} className="boton boton-secundario justify-between!">
-                      Mi armario en números
-                      <Icono nombre="lista" />
-                    </button>
-                    <EtiquetarArmario onTerminado={recargarVistas} />
-                    <ResumenUsos />
-                    <div className="pt-3 mt-1 border-t border-linea">
-                      <p className="text-sm text-tenue mb-2 truncate">Sesión: {sesion.user?.email}</p>
-                      <button onClick={cerrarSesion} className="boton boton-secundario w-full justify-between!">
-                        Cerrar sesión
-                        <Icono nombre="salir" />
-                      </button>
-                    </div>
-                    <p className="text-sm text-tenue pt-2">Perletta v3</p>
-                  </div>
-                )}
-
-                {/* Le inyectamos las variables a Gestores */}
-                {(modalActivo === 'tipos' || modalActivo === 'categorias') && <Gestores key={modalActivo} seccion={modalActivo} onCambio={recargarVistas} setDialogoGlobal={solicitarConfirmacionGlobal} mostrarToast={mostrarToast} />}
-              </Suspense>
-            </div>
-          </div>
-        </div>
+        <Hoja hojaRef={hojaRef} visible={modalVisible} onCerrar={cerrarModal} bloqueada={!!dialogoGlobal}>
+          <ContenidoHoja
+            modalActivo={modalActivo}
+            prendaFicha={prendaFicha}
+            prendaAEditar={prendaAEditar}
+            modoDeseo={modoDeseo}
+            usoPendiente={usoPendiente}
+            maletaAsistente={maletaAsistente}
+            objetivoSemana={objetivoSemana}
+            maletasDisponibles={maletasDisponibles}
+            deseoElegido={deseoElegido}
+            prendaFijada={prendaFijada}
+            filtroActual={filtroActual}
+            datosMenu={datosMenu}
+            temaOscuro={temaOscuro}
+            sesion={sesion}
+            mostrarToast={mostrarToast}
+            cerrarModal={cerrarModal}
+            abrirModal={abrirModal}
+            recargarVistas={recargarVistas}
+            prepararMaleta={prepararMaleta}
+            guardarConjunto={guardarConjunto}
+            crearOutfitSemana={crearOutfitSemana}
+            aplicarFiltro={aplicarFiltro}
+            exportarDatos={descargarCopia}
+            alElegirCopia={alElegirCopia}
+            cerrarSesion={cerrarSesion}
+            solicitarConfirmacionGlobal={solicitarConfirmacionGlobal}
+            setTemaOscuro={setTemaOscuro}
+            setPrendaAEditar={setPrendaAEditar}
+            setPrendaFijada={setPrendaFijada}
+            setRefrescoMaleta={setRefrescoMaleta}
+            setPestañaActiva={setPestañaActiva}
+          />
+        </Hoja>
       )}
 
-      {/* PORTAL GLOBAL DE CONFIRMACIONES (Doble comprobación en cascada) */}
-      {dialogoGlobal && (
-        <div className="fixed inset-0 bg-velo z-200 flex items-center justify-center p-4">
-          <div role="alertdialog" aria-modal="true" aria-labelledby="titulo-dialogo" className="aparece bg-superficie rounded-3xl p-5 w-full max-w-sm max-h-full overflow-y-auto">
-            <h3 id="titulo-dialogo" className="text-xl font-bold leading-snug mb-5 min-w-0 wrap-break-word">{dialogoGlobal.mensaje}</h3>
-            {dialogoGlobal.contenidoAdicional}
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => {
-                  const fn = dialogoGlobal.onConfirm;
-                  setDialogoGlobal(null);
-                  if(fn) fn();
-                }}
-                className={`boton w-full ${dialogoGlobal.esDestructivo ? 'boton-peligro' : 'boton-primario'}`}
-              >
-                {dialogoGlobal.textoConfirmar || 'Confirmar'}
-              </button>
-              <button autoFocus onClick={() => setDialogoGlobal(null)} className="boton boton-secundario w-full">Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {dialogoGlobal && <DialogoGlobal dialogo={dialogoGlobal} onCerrar={() => setDialogoGlobal(null)} />}
 
     </div>
   )
