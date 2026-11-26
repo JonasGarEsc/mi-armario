@@ -53,7 +53,7 @@ begin
           select array_agg(a.attname order by a.attname)
           from pg_attribute a
           where a.attrelid = rel.oid and a.attnum = any (con.conkey)
-        ) = array['nombre']
+        ) = array['nombre']::name[]
     loop
       execute format('alter table public.%I drop constraint %I', t, c.conname);
     end loop;
