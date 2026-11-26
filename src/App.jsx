@@ -301,9 +301,9 @@ export default function App() {
             <div className="flex items-end justify-between gap-4 mb-6 md:mb-8 shrink-0">
               <h2 className="font-display text-3xl md:text-6xl leading-none">Armario</h2>
               <div className="flex items-center gap-3 md:gap-4 pb-1">
-                <button onClick={() => { abrirModal('tipos'); vibrar(30); }} className="text-[13px] md:text-sm text-tenue hover:text-tinta active:opacity-60 transition-colors touch-manipulation">Tipos</button>
-                <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="text-[13px] md:text-sm text-tenue hover:text-tinta active:opacity-60 transition-colors touch-manipulation">Categorías</button>
-                <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="bg-tinta text-papel text-[13px] md:text-sm px-4 md:px-5 py-2.5 md:py-3 active:opacity-80 transition-opacity touch-manipulation">Añadir prenda</button>
+                <button onClick={() => { abrirModal('tipos'); vibrar(30); }} className="text-[12px] md:text-sm text-tenue hover:text-tinta active:opacity-60 transition-colors touch-manipulation whitespace-nowrap">Tipos</button>
+                <button onClick={() => { abrirModal('categorias'); vibrar(30); }} className="text-[12px] md:text-sm text-tenue hover:text-tinta active:opacity-60 transition-colors touch-manipulation whitespace-nowrap">Categorías</button>
+                <button onClick={() => { abrirModal('formulario'); vibrar(30); }} className="bg-tinta text-papel text-[13px] md:text-sm px-3 md:px-5 py-2.5 md:py-3 active:opacity-80 transition-opacity touch-manipulation whitespace-nowrap"><span className="sm:hidden">Añadir</span><span className="hidden sm:inline">Añadir prenda</span></button>
               </div>
             </div>
             <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30); }} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />

@@ -343,7 +343,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
         ) : (
           <div className="flex items-end justify-between gap-4">
             <h2 className="font-display text-3xl md:text-6xl leading-none">Maletas</h2>
-            <button onClick={onCrearMaleta} className="shrink-0 bg-tinta text-papel text-[13px] md:text-sm px-4 md:px-5 py-2.5 md:py-3 mb-0.5 active:opacity-80 transition-opacity touch-manipulation">Nueva maleta</button>
+            <button onClick={onCrearMaleta} className="shrink-0 bg-tinta text-papel text-[13px] md:text-sm px-4 md:px-5 py-2.5 md:py-3 mb-0.5 active:opacity-80 transition-opacity touch-manipulation"><span className="sm:hidden">Nueva</span><span className="hidden sm:inline">Nueva maleta</span></button>
           </div>
         )}
 
