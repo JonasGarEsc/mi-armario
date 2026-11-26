@@ -1,14 +1,14 @@
-Gestor de armario y outfits que funciona como app instalable (PWA).
-**Demo:** https://mi-armario-u82z.vercel.app
+﻿Gestor de armario y outfits que funciona como app instalable (PWA).
+**Demo:** https://mi-armario-sooty.vercel.app
 
 ## Funcionalidad
-- Añadir prendas con recorte de fondo automático
-- Compresión de imágenes en el navegador
-- Organización de outfits
-- Instalable como PWA y con caché offline
+- AÃ±adir prendas con recorte de fondo automÃ¡tico
+- CompresiÃ³n de imÃ¡genes en el navegador
+- OrganizaciÃ³n de outfits
+- Instalable como PWA y con cachÃ© offline
 
 ## Stack
-React 19 · Vite · Tailwind CSS 4 · Supabase (Postgres) · vite-plugin-pwa
+React 19 Â· Vite Â· Tailwind CSS 4 Â· Supabase (Postgres) Â· vite-plugin-pwa
 
-## Cómo ejecutarlo
+## CÃ³mo ejecutarlo
 npm install && npm run dev
