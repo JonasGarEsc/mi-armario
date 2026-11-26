@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Armario Virtual',
         short_name: 'Perletta',
@@ -26,9 +26,10 @@ export default defineConfig({
           }
         ]
       },
-      // Ampliación del límite de caché para el motor de IA
+      // El motor de IA (23 MB de wasm) no se precachea: se descarga al usar el recorte.
       workbox: {
-        maximumFileSizeToCacheInBytes: 30000000
+        globIgnores: ['**/ort*'],
+        maximumFileSizeToCacheInBytes: 5000000
       }
     })
   ],

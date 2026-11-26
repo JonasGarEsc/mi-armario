@@ -32,7 +32,7 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
     if (seccion === 'tipos') {
       await supabase.from('tipos').insert([{ nombre: nom }])
     } else {
-      if (!tipoRelacionado) return alert("Selecciona un tipo base.")
+      if (!tipoRelacionado) return mostrarToast("Selecciona un tipo base.", "error")
       await supabase.from('categorias').insert([{ nombre: nom, tipo_id: tipoRelacionado }])
     }
     
@@ -80,21 +80,22 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
             esDestructivo: true,
             textoConfirmar: 'Sí, eliminar todo',
             onConfirm: async () => {
-              if (cantidad > 0) {
-                // 1. Borrar todas las imágenes físicas del servidor Storage
-                const archivos = prendasAsociadas.map(p => p.imagen_url.split('/').pop())
-                if (archivos.length > 0) {
-                  await supabase.storage.from('prendas').remove(archivos)
-                }
-                
-                // 2. Borrar las relaciones en la base de datos (Conjuntos y la ropa en sí)
-                const idsPrendas = prendasAsociadas.map(p => p.id)
+              const idsPrendas = (prendasAsociadas || []).map(p => p.id)
+              const archivos = (prendasAsociadas || []).map(p => p.imagen_url.split('/').pop())
+
+              // Primero la base de datos: si algo falla, las fotos siguen ahí.
+              if (idsPrendas.length > 0) {
                 await supabase.from('conjunto_prenda').delete().in('prenda_id', idsPrendas)
-                await supabase.from('prendas').delete().in('id', idsPrendas)
+                const { error: errPrendas } = await supabase.from('prendas').delete().in('id', idsPrendas)
+                if (errPrendas) return mostrarToast("No se pudieron eliminar los artículos", "error")
               }
               
-              // 3. Finalmente borrar la categoría (Prenda) de la lista de gestión
+              // Después la categoría (Prenda) y, solo si eso fue bien, los archivos.
               const { error } = await supabase.from('categorias').delete().eq('id', item.id)
+
+              if (!error && archivos.length > 0) {
+                await supabase.storage.from('prendas').remove(archivos)
+              }
               
               if (error) {
                 mostrarToast("Error al eliminar", "error")

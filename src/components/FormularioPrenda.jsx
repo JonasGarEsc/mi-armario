@@ -49,13 +49,9 @@ export default function FormularioPrenda({ onExito }) {
 
       if (quitarFondo) {
         setEstadoProceso('Recortando fondo (IA)...')
-        
-        // FIX 2: Obligamos a la librería a usar el CDN seguro oficial, saltándose el bloqueo de iOS
-        const configuracionIA = {
-          publicPath: "https://static.imgly.com/@imgly/background-removal-data/1.4.5/dist/"
-        }
-        
-        const blobSinFondo = await removeBackground(archivoProcesado, configuracionIA)
+        // Sin publicPath: la librería usa el CDN de su propia versión (1.7.0).
+        // Fijarlo a 1.4.5 descuadraba los modelos con la librería instalada.
+        const blobSinFondo = await removeBackground(archivoProcesado)
         archivoProcesado = new File([blobSinFondo], `recorte-${Date.now()}.png`, { type: 'image/png' })
       }
 

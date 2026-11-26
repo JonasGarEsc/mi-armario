@@ -7,6 +7,7 @@ import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import Gestores from './components/Gestores'
 import { supabase } from './supabase'
+import { esDuplicado } from './lib/outfits'
 
 export const vibrar = (ms = 50) => {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms)
@@ -49,6 +50,7 @@ export default function App() {
   }, [temaOscuro])
 
   useEffect(() => {
+    if (!menuLateralVisible) return
     async function cargarDatosMenu() {
       const { data: tipos } = await supabase.from('tipos').select('*').order('nombre')
       const { data: categorias } = await supabase.from('categorias').select('*').order('nombre')
@@ -60,25 +62,8 @@ export default function App() {
          setDatosMenu(menuEstructurado)
       }
     }
-    if (menuLateralVisible && datosMenu.length === 0) {
-      cargarDatosMenu()
-    }
+    cargarDatosMenu()
   }, [menuLateralVisible, actualizaciones])
-
-  useEffect(() => {
-    const temporizadorLimpieza = setTimeout(async () => {
-      try {
-        const { data: prendas } = await supabase.from('prendas').select('imagen_url')
-        if (!prendas) return
-        const urlsActivas = prendas.map(p => p.imagen_url.split('/').pop())
-        const { data: archivos } = await supabase.storage.from('prendas').list()
-        if (!archivos) return
-        const archivosBorrables = archivos.filter(a => a.name !== '.emptyFolderPlaceholder' && !urlsActivas.includes(a.name)).map(a => a.name)
-        if (archivosBorrables.length > 0) await supabase.storage.from('prendas').remove(archivosBorrables)
-      } catch (error) { console.error("Fallo silencioso en limpieza.") }
-    }, 5000)
-    return () => clearTimeout(temporizadorLimpieza)
-  }, [])
 
   const mostrarToast = (mensaje, tipo = 'info') => {
     const id = Date.now()
@@ -156,18 +141,18 @@ export default function App() {
     e.preventDefault()
     const nombre = e.target.nombreConjunto.value.trim()
     const maleta_id = e.target.maletaId.value
-    const idsOrdenados = [...prendasParaConjunto].sort().join(',')
     
-    const { data: conjuntosExistentes } = await supabase.from('conjuntos').select('id, conjunto_prenda(prenda_id)').eq('maleta_id', maleta_id)
-    const esDuplicado = conjuntosExistentes.some(conj => conj.conjunto_prenda.map(cp => cp.prenda_id).sort().join(',') === idsOrdenados)
+    const { data: conjuntosExistentes, error: errConsulta } = await supabase.from('conjuntos').select('id, conjunto_prenda(prenda_id)').eq('maleta_id', maleta_id)
+    if (errConsulta) return mostrarToast('No se pudo comprobar duplicados', 'error')
+    if (esDuplicado(conjuntosExistentes, prendasParaConjunto)) return mostrarToast('Esa combinación ya existe', 'error')
 
-    if (esDuplicado) return mostrarToast('Esa combinación ya existe', 'error')
-
-    const { data: conj, error } = await supabase.from('conjuntos').insert([{ nombre, maleta_id }]).select().single()
+    // Una sola llamada: si falla, no queda un outfit vacío.
+    const { error } = await supabase.from('conjuntos').insert([{
+      nombre,
+      maleta_id,
+      conjunto_prenda: prendasParaConjunto.map(prenda_id => ({ prenda_id }))
+    }])
     if (error) return mostrarToast("Error al guardar", "error")
-
-    const relaciones = prendasParaConjunto.map(id => ({ conjunto_id: conj.id, prenda_id: id }))
-    await supabase.from('conjunto_prenda').insert(relaciones)
     
     vibrar([50, 50])
     mostrarToast("Outfit guardado", "exito")

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../App'
+import { leerCache, guardarCache } from '../lib/cache'
 
 export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostrarToast, filtroCategoria, setDialogoGlobal }) {
   const [prendas, setPrendas] = useState([])
@@ -12,11 +13,11 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
 
   useEffect(() => {
     async function obtenerPrendas() {
-      const cache = localStorage.getItem('cache_prendas')
-      if (cache) { setPrendas(JSON.parse(cache)); setCargando(false); }
+      const cache = leerCache('prendas')
+      if (cache) { setPrendas(cache); setCargando(false); }
       
-      const { data } = await supabase.from('prendas').select('*, categorias(nombre, tipos(nombre))').order('creado_en', { ascending: false })
-      if (data) { setPrendas(data); localStorage.setItem('cache_prendas', JSON.stringify(data)); }
+      const { data } = await supabase.from('prendas').select('*, categorias(nombre, tipos(id, nombre))').order('creado_en', { ascending: false })
+      if (data) { setPrendas(data); guardarCache('prendas', data); }
       setCargando(false)
     }
     obtenerPrendas()
@@ -54,12 +55,13 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, mostra
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
-        await supabase.from('prendas').delete().eq('id', id)
+        const { error } = await supabase.from('prendas').delete().eq('id', id)
+        if (error) return mostrarToast('No se pudo eliminar la prenda', 'error')
         const nombreArchivo = urlImagen.split('/').pop()
         await supabase.storage.from('prendas').remove([nombreArchivo])
         const nuevasPrendas = prendas.filter(p => p.id !== id)
         setPrendas(nuevasPrendas)
-        localStorage.setItem('cache_prendas', JSON.stringify(nuevasPrendas))
+        guardarCache('prendas', nuevasPrendas)
         setSeleccionadas(seleccionadas.filter(sel => sel !== id))
         vibrar([50, 50])
         mostrarToast("Prenda eliminada", "info")

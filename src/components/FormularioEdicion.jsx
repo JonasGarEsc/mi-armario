@@ -5,7 +5,9 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
   const [tipos, setTipos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [tipoSeleccionado, setTipoSeleccionado] = useState(prenda.categorias?.tipos?.id || '')
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(prenda.categoria_id || '')
   const [guardando, setGuardando] = useState(false)
+  const [errorFormulario, setErrorFormulario] = useState('')
 
   useEffect(() => {
     async function cargarListas() {
@@ -22,18 +24,18 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
   async function manejarEdicion(e) {
     e.preventDefault()
     setGuardando(true)
+    setErrorFormulario('')
     const nuevoNombre = e.target.nombrePrenda.value.trim()
-    const nuevaCategoriaId = e.target.categoria.value
 
-    if (!nuevoNombre || !nuevaCategoriaId) {
-      alert('Faltan datos obligatorios.')
+    if (!nuevoNombre || !categoriaSeleccionada) {
+      setErrorFormulario('Faltan datos obligatorios.')
       setGuardando(false)
       return
     }
 
-    const { error } = await supabase.from('prendas').update({ nombre: nuevoNombre, categoria_id: nuevaCategoriaId }).eq('id', prenda.id)
+    const { error } = await supabase.from('prendas').update({ nombre: nuevoNombre, categoria_id: categoriaSeleccionada }).eq('id', prenda.id)
 
-    if (error) alert('Error al actualizar prenda.')
+    if (error) setErrorFormulario('Error al actualizar la prenda.')
     else onExito()
     
     setGuardando(false)
@@ -42,6 +44,12 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
   return (
     <form onSubmit={manejarEdicion} className="flex flex-col gap-5 text-left pb-4">
       <h2 className="text-2xl font-bold tracking-tight mb-2">Editar Prenda</h2>
+
+      {errorFormulario && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-100 in-[.modo-oscuro]:bg-red-900/30 border border-red-200 in-[.modo-oscuro]:border-red-800 text-red-700 in-[.modo-oscuro]:text-red-400">
+          <span className="text-sm font-semibold">{errorFormulario}</span>
+        </div>
+      )}
       
       <div className="flex justify-center mb-2">
         <div className="w-32 h-32 p-2 bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 rounded-xl border border-neutral-200 in-[.modo-oscuro]:border-neutral-800">
@@ -57,14 +65,14 @@ export default function FormularioEdicion({ prenda, onExito, onCancelar }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Tipo</label>
-          <select value={tipoSeleccionado} onChange={(e) => setTipoSeleccionado(e.target.value)} required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm">
+          <select value={tipoSeleccionado} onChange={(e) => { setTipoSeleccionado(e.target.value); setCategoriaSeleccionada('') }} required className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors text-sm">
             <option value="">Seleccionar...</option>
             {tipos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm font-semibold mb-2 text-neutral-700 in-[.modo-oscuro]:text-neutral-300">Prenda Específica</label>
-          <select name="categoria" defaultValue={prenda.categoria_id} required disabled={!tipoSeleccionado} className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors disabled:opacity-50 text-sm">
+          <select name="categoria" value={categoriaSeleccionada} onChange={(e) => setCategoriaSeleccionada(e.target.value)} required disabled={!tipoSeleccionado} className="w-full p-4 rounded-xl bg-neutral-100 in-[.modo-oscuro]:bg-neutral-900 border border-transparent focus:border-neutral-300 in-[.modo-oscuro]:focus:border-neutral-700 outline-none transition-colors disabled:opacity-50 text-sm">
             <option value="">Seleccionar...</option>
             {categoriasFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
