@@ -26,6 +26,8 @@ export default defineConfig({
       },
       // El motor de IA (23 MB de wasm) no se precachea: se descarga al usar el recorte.
       workbox: {
+        // Los eventos push viven en public/push-sw.js y se suman al SW de Workbox.
+        importScripts: ['push-sw.js'],
         globIgnores: ['**/ort*'],
         maximumFileSizeToCacheInBytes: 5000000,
         runtimeCaching: [

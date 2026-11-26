@@ -105,6 +105,71 @@ supabase functions deploy leer-enlace
 
 No necesita secretos. Exige sesión iniciada y comparte la cuota diaria de `consumir_cuota` (50 lecturas al día por cuenta; 100 para el etiquetado con IA).
 
+## Aviso por la mañana (Web Push)
+
+Una Edge Function llamada cada hora envía, a la hora local que elija cada cuenta, una propuesta con una prenda de arriba y otra de abajo (o un vestido). Si hay coordenadas mira el tiempo con Open-Meteo; si no, propone sin tiempo. Las prendas archivadas o deseadas no entran, y cada consulta filtra siempre por el `user_id` de la suscripción.
+
+La tabla `avisos_push` ya la crea `supabase/actualizacion-v5.sql`. La interfaz de Ajustes usa `src/lib/push.js` (`soportado`, `estado`, `activar` y `desactivar`); la lógica de la propuesta está en `supabase/functions/aviso-diario/seleccion.js`.
+
+1. Genera el par de claves VAPID (no hace falta añadir nada a `package.json`):
+   ```
+   npx web-push generate-vapid-keys
+   ```
+   Guarda la **pública** y la **privada**. La privada no va nunca al navegador.
+
+2. En Vercel, añade `VITE_VAPID_PUBLICA` con la clave pública y vuelve a desplegar. Sin esa variable la app no ofrece activar los avisos:
+   ```
+   VITE_VAPID_PUBLICA=<clave-publica-vapid>
+   ```
+
+3. Guarda los secretos de la función en Supabase (usa un correo o URL de contacto real):
+   ```
+   supabase secrets set \
+     CRON_SECRETO=<cadena-larga-y-aleatoria> \
+     VAPID_PUBLICA=<clave-publica-vapid> \
+     VAPID_PRIVADA=<clave-privada-vapid> \
+     VAPID_CONTACTO=mailto:tu@correo.com
+   ```
+
+4. Despliega sin verificación de JWT: la autenticación es la cabecera `x-cron-secreto`, que se compara en tiempo constante. Sin `CRON_SECRETO` configurado la función responde cerrada.
+   ```
+   supabase functions deploy aviso-diario --no-verify-jwt
+   ```
+
+5. Programa la llamada cada hora con `pg_cron` y `pg_net`. En el **SQL Editor**, sustituye `<REFERENCIA>` (la de tu proyecto) y `<CRON_SECRETO>` (el mismo del paso 3):
+   ```sql
+   create extension if not exists pg_cron;
+   create extension if not exists pg_net;
+
+   select vault.create_secret('<CRON_SECRETO>', 'cron_secreto', 'Cabecera del cron de aviso-diario');
+
+   select cron.schedule(
+     'aviso-diario-cada-hora',
+     '0 * * * *',
+     $$
+     select net.http_post(
+       url := 'https://<REFERENCIA>.supabase.co/functions/v1/aviso-diario',
+       headers := jsonb_build_object(
+         'Content-Type', 'application/json',
+         'x-cron-secreto', (
+           select decrypted_secret from vault.decrypted_secrets where name = 'cron_secreto'
+         )
+       ),
+       body := '{}'::jsonb,
+       timeout_milliseconds := 60000
+     );
+     $$
+   );
+   ```
+   Para cambiar la hora o quitarlo:
+   ```sql
+   select cron.unschedule('aviso-diario-cada-hora');
+   ```
+
+En iPhone y iPad los avisos solo funcionan con la app añadida a la pantalla de inicio; `estado()` de `src/lib/push.js` devuelve el mensaje para explicarlo. Si el permiso está denegado, también indica cómo volver a activarlo en los ajustes del navegador. El service worker abre `/?vista=hoy` al tocar la notificación.
+
+La función valida que el endpoint sea `https` y de un servicio push conocido (`fcm.googleapis.com`, `*.push.services.mozilla.com`, `*.push.apple.com` o `*.notify.windows.com`) antes de enviar. Marca `ultimo_envio` de forma atómica antes del envío para no duplicar el aviso, y borra las suscripciones que el servicio responde con 404 o 410.
+
 ## Comprobar
 
 ```
@@ -127,6 +192,8 @@ src/lib/etiquetas.js        etiquetas de las prendas: validación y llamadas a S
 src/lib/vestir.js           cómo cae cada prenda sobre el maniquí
 src/lib/sugerir.js          propuestas de outfit (clima, rotación, color, formalidad)
 src/lib/clima.js            tiempo de hoy y previsión de un viaje con Open-Meteo
+src/lib/push.js             activar y desactivar los avisos push del móvil
+public/push-sw.js           eventos push y notificationclick del service worker
 src/lib/capsula.js          maleta mínima: un outfit distinto por día con las menos prendas
 src/lib/checklistMaleta.js  lista de la maleta en la base de datos
 src/lib/cargaMasiva.js      cola de subida masiva de fotos
@@ -141,6 +208,7 @@ supabase/actualizacion-v4.sql  etiquetas de las prendas
 supabase/actualizacion-v5.sql  cuotas, valoraciones y avisos push
 supabase/functions/etiquetar-prenda/  visión con IA (Edge Function)
 supabase/functions/leer-enlace/       lectura de enlaces de tiendas (Edge Function)
+supabase/functions/aviso-diario/      propuesta del día por Web Push (Edge Function)
 supabase/multiusuario.sql   cuentas separadas y políticas por dueño
 ```
 
