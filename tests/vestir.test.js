@@ -15,8 +15,16 @@ const camiseta = { x: 0.25, y: 0.2, w: 0.5, h: 0.6, relacion: 1, perfil: perfil(
 test('una camiseta cuelga del cuello y acaba en la cadera, no en las rodillas', () => {
   const p = vestirPrenda(camiseta, 'torso', ['Camiseta adidas', 'Camisetas', 'Ropa'])
   assert.ok(cerca(cima(camiseta, p), CUERPO.cuello))
-  assert.ok(cerca(bajo(camiseta, p), 44))
+  assert.ok(bajo(camiseta, p) >= 46 - 1e-9 && bajo(camiseta, p) <= 46 * 1.08)
   assert.ok(bajo(camiseta, p) < CUERPO.entrepierna)
+})
+
+test('las mangas de la camiseta cubren los hombros del maniquí', () => {
+  // Fila de hombros (con mangas) solo un poco más ancha que el cuerpo.
+  const p3 = Array.from({ length: 40 }, (_, i) => (i < 12 ? 0.42 : 0.36))
+  const c = { ...camiseta, perfil: p3 }
+  const p = vestirPrenda(c, 'torso', ['Camiseta'])
+  assert.ok(0.42 * p.w >= VESTIR.torso.hombros.ancho * 0.97)
 })
 
 test('un top acaba por encima del ombligo', () => {

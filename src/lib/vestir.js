@@ -11,7 +11,7 @@ import { VESTIR } from './maniqui.js'
 
 // Cuánto puede apartarse la foto de sus proporciones naturales (alto/ancho
 // relativo, ya contada la envoltura). 1 = sin deformar.
-export const DEFORMACION = [0.7, 1.35]
+export const DEFORMACION = [0.6, 1.35]
 
 /**
  * Anchura de la prenda (fracción del ancho de la foto) en un tramo de su
@@ -84,6 +84,10 @@ export function vestirPrenda(caja, ranura, textos = []) {
   // Ancho: lo que mide el cuerpo de la prenda debe coincidir con el maniquí.
   const medida = medirAnchura(caja, regla.filas[0], regla.filas[1], regla.percentil)
   let anchoFoto = medida ? regla.ancho / medida : null
+  // ...y la parte de los hombros, con las mangas, debe cubrir los del maniquí.
+  const h = regla.hombros
+  const medidaHombros = h ? medirAnchura(caja, h.filas[0], h.filas[1], h.percentil) : null
+  if (anchoFoto && medidaHombros) anchoFoto = Math.max(anchoFoto, h.ancho / medidaHombros)
 
   // Largo: por el nombre; si no lo dice, el largo realista más parecido al
   // que tendría la foto sin deformar.
@@ -97,15 +101,19 @@ export function vestirPrenda(caja, ranura, textos = []) {
       bajo = regla.defecto
     }
   }
-  const altoFoto = ((bajo - regla.arriba) / caja.h) // alto de la foto entera
+  let altoFoto = (bajo - regla.arriba) / caja.h // alto de la foto entera
+  const anchoNatural = () => altoFoto * relacion * envoltura
 
   // Sin perfil, se respetan las proporciones de la foto.
-  const anchoNatural = altoFoto * relacion * envoltura
-  if (!anchoFoto) anchoFoto = anchoNatural
+  if (!anchoFoto) anchoFoto = anchoNatural()
 
-  // Que no se vea aplastada ni estirada.
+  // Que no se vea aplastada ni estirada. Si para tapar los hombros haría
+  // falta aplastarla de más, antes se alarga un poco (hasta un 8 %).
   const [menos, mas] = DEFORMACION
-  anchoFoto = Math.min(anchoNatural / menos, Math.max(anchoNatural / mas, anchoFoto))
+  if (medidaHombros && anchoFoto > anchoNatural() / menos) {
+    altoFoto *= Math.min(1.08, Math.sqrt(anchoFoto / (anchoNatural() / menos)))
+  }
+  anchoFoto = Math.min(anchoNatural() / menos, Math.max(anchoNatural() / mas, anchoFoto))
   if (caja.w * anchoFoto > regla.anchoMax) anchoFoto = regla.anchoMax / caja.w
 
   return {

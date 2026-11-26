@@ -41,10 +41,12 @@ export const RANURAS = {
 //    (el cuerpo sin mangas, la cinturilla...) y cuánto debe medir puesta
 //  - envoltura: puesta, la prenda rodea el cuerpo y de frente se ve más
 //    estrecha que en la foto plana
+//  - hombros: la parte alta de la prenda (con el arranque de las mangas)
+//    debe cubrir hombros y brazos del maniquí: es un ancho mínimo
 //  - anchoMax: tope de anchura total (mangas incluidas)
 //  - zona + ancla: calzado y gorros caben en una zona sin deformarse
 const CROP = CUERPO.ombligo - 5.5 // un top acaba por encima del ombligo
-const CADERA = 44 // camiseta: tapa la cinturilla del pantalón
+const CADERA = 46 // camiseta: tapa la cinturilla del pantalón
 const RODILLA = CUERPO.rodilla
 
 export const VESTIR = {
@@ -61,6 +63,7 @@ export const VESTIR = {
     defecto: CADERA,
     proporcion: 17.7,
     filas: [0.45, 0.85], percentil: 0.2, ancho: 19.6, envoltura: 0.82, anchoMax: 40,
+    hombros: { filas: [0.04, 0.3], percentil: 0.9, ancho: 25.5 },
   },
   abrigo: {
     arriba: CUERPO.cuello - 0.6,
@@ -75,6 +78,7 @@ export const VESTIR = {
     defecto: 47,
     proporcion: 26.5,
     filas: [0.4, 0.8], percentil: 0.2, ancho: 22.4, envoltura: 0.85, anchoMax: 46,
+    hombros: { filas: [0.04, 0.3], percentil: 0.9, ancho: 27 },
   },
   vestido: {
     arriba: CUERPO.cuello + 0.4,
