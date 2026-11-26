@@ -13,6 +13,9 @@ const trazos = {
   duplicar: 'M9 9h10v11H9zM5 15V4h10',
   borrar: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
   salir: 'M15 12H4m4-4l-4 4 4 4M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4',
+  calendario: 'M7 3v3m10-3v3M4 9h16M5 6h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z',
+  compartir: 'M12 15V4m0 0L8 8m4-4l4 4M5 14v5a1 1 0 001 1h12a1 1 0 001-1v-5',
+  lista: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
 }
 
 export default function Icono({ nombre, className = 'w-6 h-6' }) {

@@ -1,108 +1,124 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
-import { vibrar } from '../App'
-import { toPng } from 'html-to-image'
+import { vibrar } from '../lib/vibrar'
 import { leerCache, guardarCache } from '../lib/cache'
-import { limitarPosicion } from '../lib/outfits'
+import { desdeISO, etiquetaFechaCorta, isoLocal } from '../lib/fechas'
+import { nombreLibre } from '../lib/nombres'
+import { compartirArchivo, descargar, generarPng } from '../lib/exportar'
 import Icono from './Icono'
 import Miniatura from './Miniatura'
+import LienzoOutfit from './LienzoOutfit'
 
-function WidgetClima({ destino }) {
+const CONSULTA_CONJUNTOS = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
+const CONSULTA_SIN_RANURA = 'id, nombre, conjunto_prenda(conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas(id, nombre, imagen_url, categorias(nombre, tipos(nombre))))'
+
+function resumenMaleta(maleta) {
+  const urls = []
+  for (const conjunto of maleta.conjuntos || []) {
+    for (const cp of conjunto.conjunto_prenda || []) {
+      const url = cp.prendas?.imagen_url
+      if (url && !urls.includes(url)) urls.push(url)
+    }
+  }
+  return {
+    id: maleta.id,
+    nombre: maleta.nombre,
+    destino: maleta.destino ?? null,
+    fecha_inicio: maleta.fecha_inicio ?? null,
+    fecha_fin: maleta.fecha_fin ?? null,
+    outfits: maleta.conjuntos?.length || 0,
+    imagenes: urls.slice(0, 8),
+  }
+}
+
+const cacheMaletas = (lista) => lista.map((m) => (Array.isArray(m.conjuntos) ? resumenMaleta(m) : m))
+
+function WidgetClima({ maleta }) {
   const [clima, setClima] = useState(null)
   const [cargando, setCargando] = useState(true)
+  const destino = (maleta?.destino || maleta?.nombre || '').replace(/[0-9]/g, '').trim()
+  const inicio = maleta?.fecha_inicio
+  const fin = maleta?.fecha_fin
 
   useEffect(() => {
     let montado = true
+
     async function obtenerClima() {
       setCargando(true)
-      const ciudadPura = destino.replace(/[0-9]/g, '').trim()
-      if (!ciudadPura || ciudadPura.length < 3) {
-        if(montado) setCargando(false)
+      setClima(null)
+      if (!destino || destino.length < 3) {
+        setCargando(false)
         return
       }
-      try {
-        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(ciudadPura)}&count=1&language=es&format=json`)
-        const geoData = await geoRes.json()
-        if (geoData.results?.length > 0) {
-          const { latitude, longitude, name } = geoData.results[0]
-          const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=1`)
-          const weatherData = await weatherRes.json()
-          if (montado) setClima({ nombre: name, max: weatherData.daily.temperature_2m_max[0], min: weatherData.daily.temperature_2m_min[0] })
+
+      const hoy = new Date()
+      const tope = new Date()
+      tope.setDate(tope.getDate() + 15)
+
+      let desde = hoy
+      let hasta = hoy
+      if (inicio) {
+        desde = desdeISO(inicio)
+        hasta = fin ? desdeISO(fin) : desde
+        if (desde > tope) {
+          if (montado) {
+            setClima({ futuro: true })
+            setCargando(false)
+          }
+          return
         }
-      } catch { console.error('Error API clima') }
-      if(montado) setCargando(false)
+        if (hasta > tope) hasta = tope
+      }
+
+      try {
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destino)}&count=1&language=es&format=json`)
+        const geoData = await geoRes.json()
+        if (!geoData.results?.length) return
+
+        const { latitude, longitude, name } = geoData.results[0]
+        const params = new URLSearchParams({
+          latitude,
+          longitude,
+          daily: 'temperature_2m_max,temperature_2m_min',
+          timezone: 'auto',
+          start_date: isoLocal(desde),
+          end_date: isoLocal(hasta),
+        })
+        const tiempoRes = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+        const tiempo = await tiempoRes.json()
+        if (!tiempo.daily?.time?.length) return
+
+        const i = Math.max(0, tiempo.daily.time.indexOf(isoLocal(desde)))
+        if (montado) {
+          setClima({
+            nombre: name,
+            fecha: tiempo.daily.time[i],
+            max: tiempo.daily.temperature_2m_max[i],
+            min: tiempo.daily.temperature_2m_min[i],
+          })
+        }
+      } catch {
+        // Sin previsión no pasa nada: la línea se queda vacía.
+      }
+      if (montado) setCargando(false)
     }
+
     obtenerClima()
     return () => { montado = false }
-  }, [destino])
+  }, [destino, inicio, fin])
 
   // La línea mide lo mismo cargando, sin dato y con dato: nada salta al llegar el clima.
   return (
     <div className="h-6 flex items-center text-sm text-tenue">
-      {cargando ? <div className="esqueleto h-3 w-40" /> : clima && <p className="truncate">{clima.nombre}: máxima {clima.max}°, mínima {clima.min}°</p>}
-    </div>
-  )
-}
-
-function PrendaArrastrable({ cp, index, maxZ, setMaxZ, onGuardarEstado }) {
-  const [pos, setPos] = useState({ x: cp.pos_x ?? 40, y: cp.pos_y ?? (index * 90 + 20) })
-  const [zIndex, setZIndex] = useState(cp.z_index ?? 1)
-  const [isDragging, setIsDragging] = useState(false)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-
-  const posRef = useRef(pos)
-  const zRef = useRef(zIndex)
-  const timerRef = useRef(null)
-  useEffect(() => { posRef.current = pos }, [pos])
-  useEffect(() => { zRef.current = zIndex }, [zIndex])
-  useEffect(() => () => clearTimeout(timerRef.current), [])
-
-  const handlePointerDown = (e) => {
-    vibrar(15)
-    const rect = e.currentTarget.getBoundingClientRect()
-    setOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-    const nuevoZ = maxZ + 1
-    setZIndex(nuevoZ)
-    setMaxZ(nuevoZ)
-    setIsDragging(true)
-    e.currentTarget.setPointerCapture(e.pointerId)
-  }
-
-  const handlePointerMove = (e) => {
-    if (!isDragging) return
-    const contenedor = e.currentTarget.parentElement.getBoundingClientRect()
-
-    const itemSize = window.innerWidth >= 768 ? 128 : 112
-    const nueva = limitarPosicion(
-      e.clientX - contenedor.left - offset.x,
-      e.clientY - contenedor.top - offset.y,
-      contenedor.width,
-      contenedor.height,
-      itemSize
-    )
-    setPos(nueva)
-  }
-
-  const handlePointerUp = (e) => {
-    if (!isDragging) return
-    setIsDragging(false)
-    e.currentTarget.releasePointerCapture(e.pointerId)
-    // Clave por conjunto: la misma prenda puede estar en dos outfits a la vez.
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      onGuardarEstado(cp.conjunto_id, cp.prenda_id, posRef.current.x, posRef.current.y, zRef.current)
-    }, 800)
-  }
-
-  return (
-    <div
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      style={{ transform: `translate(${pos.x}px, ${pos.y}px)`, touchAction: 'none', zIndex: isDragging ? maxZ + 2 : zIndex }}
-      className={`absolute w-28 h-28 md:w-32 md:h-32 flex items-center justify-center select-none ${isDragging ? 'scale-110 cursor-grabbing' : 'transition-transform duration-200 ease-suave cursor-grab'}`}
-    >
-      <img src={cp.prendas.imagen_url} loading="lazy" draggable="false" className="max-w-full max-h-full object-contain pointer-events-none drop-shadow-sm select-none" alt="Ropa" />
+      {cargando ? (
+        <div className="esqueleto h-3 w-40" />
+      ) : clima?.futuro ? (
+        <p className="truncate">La previsión llegará más cerca de la fecha.</p>
+      ) : clima ? (
+        <p className="truncate">
+          {clima.nombre}: {etiquetaFechaCorta(clima.fecha)} · máx {Math.round(clima.max)}°, mín {Math.round(clima.min)}°
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -113,12 +129,24 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
   const [cargando, setCargando] = useState(() => !leerCache('maletas'))
   const [busqueda, setBusqueda] = useState('')
   const [maletaActiva, setMaletaActiva] = useState(null)
-  const [maxZ, setMaxZ] = useState(10)
   const [editandoNombre, setEditandoNombre] = useState(null)
   const [abriendoId, setAbriendoId] = useState(null)
+  const [checklistAbierta, setChecklistAbierta] = useState(false)
+  const [marcadas, setMarcadas] = useState([])
   const temporizadorMaleta = useRef(null)
 
   useEffect(() => () => clearTimeout(temporizadorMaleta.current), [])
+
+  useEffect(() => {
+    if (!maletaActiva) {
+      setMarcadas([])
+      setChecklistAbierta(false)
+      return
+    }
+    const guardadas = leerCache(`checklist_${maletaActiva.id}`)
+    setMarcadas(Array.isArray(guardadas) ? guardadas : [])
+    setChecklistAbierta(false)
+  }, [maletaActiva])
 
   // La tapa se abre y, al terminar el giro, se entra. Con movimiento reducido, directo.
   function entrarMaleta(m) {
@@ -144,12 +172,15 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     const lista = tipo === 'maleta' ? maletas : conjuntos
     if (lista.find(x => x.id === id)?.nombre === nombre) return
 
+    const repetido = lista.some(x => x.id !== id && x.nombre.toLowerCase() === nombre.toLowerCase())
+    if (repetido) return mostrarToast(tipo === 'maleta' ? 'Ya tienes una maleta con ese nombre' : 'Ese nombre ya existe en esta maleta', 'error')
+
     const { error } = await supabase.from(tipo === 'maleta' ? 'maletas' : 'conjuntos').update({ nombre }).eq('id', id)
     if (error) return mostrarToast('No se pudo cambiar el nombre', 'error')
 
     if (tipo === 'maleta') {
       const nuevas = maletas.map(m => m.id === id ? { ...m, nombre } : m)
-      setMaletas(nuevas); guardarCache('maletas', nuevas)
+      setMaletas(nuevas); guardarCache('maletas', cacheMaletas(nuevas))
       if (maletaActiva?.id === id) setMaletaActiva({ ...maletaActiva, nombre })
     } else {
       const nuevos = conjuntos.map(c => c.id === id ? { ...c, nombre } : c)
@@ -189,12 +220,20 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
         const cache = leerCache('maletas')
         if (cache) { setMaletas(cache); setCargando(false); }
         const { data } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
-        if (data) { setMaletas(data); guardarCache('maletas', data); }
+        if (data) {
+          setMaletas(data)
+          guardarCache('maletas', data.map(resumenMaleta))
+        }
       } else {
-        const cache = leerCache(`conjuntos_${maletaActiva.id}`)
+        const clave = `conjuntos_${maletaActiva.id}`
+        const cache = leerCache(clave)
         if (cache) { setConjuntos(cache); setCargando(false); }
-        const { data } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda ( conjunto_id, prenda_id, pos_x, pos_y, z_index, prendas ( id, imagen_url, categorias ( nombre ) ) )').eq('maleta_id', maletaActiva.id).order('nombre')
-        if (data) { setConjuntos(data); guardarCache(`conjuntos_${maletaActiva.id}`, data); }
+        let { data } = await supabase.from('conjuntos').select(CONSULTA_CONJUNTOS).eq('maleta_id', maletaActiva.id).order('nombre')
+        if (!data) {
+          // Base de datos sin la columna ranura: se carga igual, sin imantación.
+          ;({ data } = await supabase.from('conjuntos').select(CONSULTA_SIN_RANURA).eq('maleta_id', maletaActiva.id).order('nombre'))
+        }
+        if (data) { setConjuntos(data); guardarCache(clave, data); }
       }
       setCargando(false)
     }
@@ -209,12 +248,17 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
         if (tipo === 'maleta') {
+          const { data: suyos } = await supabase.from('conjuntos').select('id').eq('maleta_id', id)
+          const ids = (suyos || []).map(c => c.id)
+          if (ids.length > 0) await supabase.from('conjunto_prenda').delete().in('conjunto_id', ids)
+          await supabase.from('conjuntos').delete().eq('maleta_id', id)
           const { error } = await supabase.from('maletas').delete().eq('id', id)
           if (error) return mostrarToast('No se pudo eliminar', 'error')
           const nuevas = maletas.filter(m => m.id !== id)
-          setMaletas(nuevas); guardarCache('maletas', nuevas)
+          setMaletas(nuevas); guardarCache('maletas', cacheMaletas(nuevas))
           setMaletaActiva(null)
         } else {
+          await supabase.from('conjunto_prenda').delete().eq('conjunto_id', id)
           const { error } = await supabase.from('conjuntos').delete().eq('id', id)
           if (error) return mostrarToast('No se pudo eliminar', 'error')
           const nuevos = conjuntos.filter(c => c.id !== id)
@@ -255,33 +299,50 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
       ),
       onConfirm: async () => {
         if (tipo === 'outfit') {
+          const { data: nombresDestino } = await supabase.from('conjuntos').select('nombre').eq('maleta_id', idMaletaDestino)
+          const nombreFinal = nombreLibre(nuevoNombre, (nombresDestino || []).map(n => n.nombre))
           // Una sola llamada con las relaciones anidadas.
           const { error } = await supabase.from('conjuntos').insert([{
-            nombre: nuevoNombre,
+            nombre: nombreFinal,
             maleta_id: idMaletaDestino,
             conjunto_prenda: item.conjunto_prenda.map(cp => ({
-              prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
+              prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index, ranura: cp.ranura || null
             }))
           }])
           if (error) return mostrarToast("Error al clonar.", "error")
           if (idMaletaDestino == maletaActiva?.id) setMaletaActiva({...maletaActiva}) 
           mostrarToast("Outfit clonado", "exito")
         } else {
-          const { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{ nombre: nuevoNombre }]).select().single()
+          const nombreFinal = nombreLibre(nuevoNombre, maletas.map(m => m.nombre))
+          let { data: nuevaMaleta, error: errM } = await supabase.from('maletas').insert([{
+            nombre: nombreFinal,
+            destino: item.destino || null,
+            fecha_inicio: item.fecha_inicio || null,
+            fecha_fin: item.fecha_fin || null,
+          }]).select().single()
+
+          if (errM) {
+            // Base de datos sin las columnas de clima: la maleta se clona igual.
+            ;({ data: nuevaMaleta, error: errM } = await supabase
+              .from('maletas')
+              .insert([{ nombre: nombreFinal }])
+              .select()
+              .single())
+          }
           if (errM || !nuevaMaleta) return mostrarToast("Error al clonar maleta.", "error")
-          const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index)').eq('maleta_id', item.id)
+          const { data: conjuntosViejos } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id, pos_x, pos_y, z_index, ranura)').eq('maleta_id', item.id)
           if (conjuntosViejos?.length) {
             const { error: errC } = await supabase.from('conjuntos').insert(conjuntosViejos.map(c => ({
               nombre: c.nombre,
               maleta_id: nuevaMaleta.id,
               conjunto_prenda: (c.conjunto_prenda || []).map(cp => ({
-                prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index
+                prenda_id: cp.prenda_id, pos_x: cp.pos_x, pos_y: cp.pos_y, z_index: cp.z_index, ranura: cp.ranura || null
               }))
             })))
             if (errC) return mostrarToast("Error al clonar los outfits", "error")
           }
           const { data: listaMaletas } = await supabase.from('maletas').select('*, conjuntos(id, conjunto_prenda(prendas(imagen_url)))').order('nombre')
-          if (listaMaletas) { setMaletas(listaMaletas); guardarCache('maletas', listaMaletas) }
+          if (listaMaletas) { setMaletas(listaMaletas); guardarCache('maletas', listaMaletas.map(resumenMaleta)) }
           setMaletaActiva(null)
           mostrarToast("Maleta clonada", "exito")
         }
@@ -292,21 +353,21 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
 
   async function exportarOutfit(id, nombre) {
     vibrar(30)
-    const elemento = document.getElementById(`lienzo-${id}`)
-    if (!elemento) return
     try {
-      const dataUrl = await toPng(elemento, { cacheBust: true, pixelRatio: 2, skipFonts: true })
-      if (navigator.share) {
-        const res = await fetch(dataUrl)
-        const blob = await res.blob()
-        const file = new File([blob], `Outfit_${nombre.replace(/\s+/g, '_')}.png`, { type: 'image/png' })
-        await navigator.share({ files: [file], title: `Outfit: ${nombre}` })
-      } else {
-        const a = document.createElement('a')
-        a.href = dataUrl; a.download = `Outfit_${nombre.replace(/\s+/g, '_')}.png`; a.click()
-      }
+      const { dataUrl, file } = await generarPng(id, nombre)
+      descargar(dataUrl, nombre)
+      const puedeCompartir = navigator.canShare?.({ files: [file] })
+      mostrarToast('Imagen descargada', 'exito', puedeCompartir
+        ? {
+            texto: 'Compartir',
+            onClick: () => compartirArchivo(file, nombre)
+              .catch(() => mostrarToast('No se pudo compartir', 'error')),
+          }
+        : null)
       vibrar([30, 30])
-    } catch { mostrarToast("Error al exportar", "error") }
+    } catch {
+      mostrarToast("Error al exportar", "error")
+    }
   }
 
   function abrirMaleta(maleta) {
@@ -324,12 +385,32 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     setMaletaActiva(null)
   }
 
-  async function actualizarEstado(conjuntoId, prendaId, x, y, z) {
-    await supabase.from('conjunto_prenda').update({ pos_x: x, pos_y: y, z_index: z }).match({ conjunto_id: conjuntoId, prenda_id: prendaId })
+  async function actualizarEstado(conjuntoId, prendaId, x, y, z, ranura) {
+    const fila = { pos_x: x, pos_y: y, z_index: z }
+    if (ranura !== undefined) fila.ranura = ranura
+
+    let { error } = await supabase
+      .from('conjunto_prenda')
+      .update(fila)
+      .match({ conjunto_id: conjuntoId, prenda_id: prendaId })
+
+    if (error && 'ranura' in fila) {
+      // Base de datos sin la columna ranura: se guarda la posición igual.
+      delete fila.ranura
+      ;({ error } = await supabase
+        .from('conjunto_prenda')
+        .update(fila)
+        .match({ conjunto_id: conjuntoId, prenda_id: prendaId }))
+    }
+    if (error) mostrarToast('No se pudo guardar la posición', 'error')
   }
 
   const extraerImagenesMaleta = (maleta) => {
-    if (!maleta.conjuntos) return []
+    // La caché guarda un resumen (hasta 8 fotos y el total), no el árbol entero.
+    if (Array.isArray(maleta.imagenes)) {
+      return { imagenes: maleta.imagenes.slice(0, 8), total: maleta.outfits ?? maleta.imagenes.length }
+    }
+    if (!maleta.conjuntos) return { imagenes: [], total: 0 }
     const urls = []
     maleta.conjuntos.forEach(c => {
       if (c.conjunto_prenda) {
@@ -342,6 +423,26 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
     })
     // Dentro de la maleta caben ocho fotos; el total cuenta todas las prendas.
     return { imagenes: urls.slice(0, 8), total: urls.length }
+  }
+
+  const prendasDeLaMaleta = (() => {
+    const unicas = new Map()
+    conjuntos.forEach(c => {
+      ;(c.conjunto_prenda || []).forEach(cp => {
+        if (cp.prendas && !unicas.has(cp.prenda_id)) unicas.set(cp.prenda_id, cp.prendas)
+      })
+    })
+    return [...unicas.values()]
+  })()
+
+  const hechas = marcadas.filter(id => prendasDeLaMaleta.some(p => p.id === id)).length
+
+  function alternarChecklist(id) {
+    if (!maletaActiva) return
+    const nuevas = marcadas.includes(id) ? marcadas.filter(x => x !== id) : [...marcadas, id]
+    setMarcadas(nuevas)
+    guardarCache(`checklist_${maletaActiva.id}`, nuevas)
+    vibrar(8)
   }
 
   const itemsFiltrados = !maletaActiva ? maletas.filter(m => m.nombre.toLowerCase().includes(busqueda.toLowerCase())) : conjuntos.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()))
@@ -364,7 +465,44 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
               <Icono nombre="borrar" />
             </button>
           </div>
-          <WidgetClima destino={maletaActiva.nombre} />
+          <WidgetClima maleta={maletaActiva} />
+
+          {prendasDeLaMaleta.length > 0 && (
+            <div className="mt-1">
+              <button
+                onClick={() => setChecklistAbierta(!checklistAbierta)}
+                aria-expanded={checklistAbierta}
+                className="min-h-9 flex items-center gap-2 text-sm font-semibold text-acento"
+              >
+                <Icono nombre="lista" className="w-4 h-4" />
+                Lista de la maleta · {hechas}/{prendasDeLaMaleta.length}
+              </button>
+
+              {checklistAbierta && (
+                <ul className="mt-2 rounded-xl border border-linea divide-y divide-linea overflow-hidden">
+                  {prendasDeLaMaleta.map(prenda => {
+                    const hecha = marcadas.includes(prenda.id)
+                    return (
+                      <li key={prenda.id}>
+                        <label className="flex items-center gap-3 px-3 py-2 min-h-11 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={hecha}
+                            onChange={() => alternarChecklist(prenda.id)}
+                            className="w-5 h-5 shrink-0 accent-acento"
+                          />
+                          <span className={`flex-1 min-w-0 truncate text-sm ${hecha ? 'line-through text-tenue' : ''}`}>{prenda.nombre}</span>
+                          <span className="w-8 h-8 shrink-0 rounded bg-foto p-0.5">
+                            <Miniatura url={prenda.imagen_url} alt="" className="w-full h-full object-contain" />
+                          </span>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Maletas</h2>
@@ -399,7 +537,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
             const llena = imagenes.length > 4
             const ancho = columnas === 1 ? 100 : llena ? 52 : 62
             const alto = filas === 1 ? 100 : 100 / filas + (llena ? 3 : 14)
-            const outfits = m.conjuntos?.length || 0
+            const outfits = m.outfits ?? (m.conjuntos?.length || 0)
             const abierta = abriendoId === m.id
             return (
               <button key={m.id} onClick={() => entrarMaleta(m)} aria-label={`Abrir ${m.nombre}`} className="min-w-0 self-start text-center rounded-xl">
@@ -518,11 +656,7 @@ export default function VistaConjuntos({ onCrearMaleta, mostrarToast, setDialogo
                 </button>
               </div>
 
-              <div id={`lienzo-${conj.id}`} data-sin-swipe className="relative w-full h-100 md:h-125 bg-foto overflow-hidden z-0">
-                {conj.conjunto_prenda.filter(cp => cp.prendas).map((cp, idx) => (
-                  <PrendaArrastrable key={cp.prenda_id} cp={cp} index={idx} maxZ={maxZ} setMaxZ={setMaxZ} onGuardarEstado={actualizarEstado} />
-                ))}
-              </div>
+              <LienzoOutfit conjunto={conj} onGuardarEstado={actualizarEstado} />
             </article>
           ))}
         </div>

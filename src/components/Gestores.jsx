@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
-import { vibrar } from '../App'
+import { vibrar } from '../lib/vibrar'
+import { borrarArchivo } from '../lib/imagenes'
 import Icono from './Icono'
 
 export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarToast }) {
@@ -9,11 +10,7 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
   const [nombre, setNombre] = useState('')
   const [tipoRelacionado, setTipoRelacionado] = useState('')
 
-  useEffect(() => {
-    cargarDatos()
-  }, [seccion])
-
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     if (seccion === 'tipos') {
       const { data } = await supabase.from('tipos').select('*').order('nombre')
       if (data) setItems(data)
@@ -23,7 +20,11 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
       const { data: dataTipos } = await supabase.from('tipos').select('*').order('nombre')
       if (dataTipos) setTipos(dataTipos)
     }
-  }
+  }, [seccion])
+
+  useEffect(() => {
+    cargarDatos()
+  }, [cargarDatos])
 
   async function crearItem(e) {
     e.preventDefault()
@@ -31,10 +32,12 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
     if (!nom) return
 
     if (seccion === 'tipos') {
-      await supabase.from('tipos').insert([{ nombre: nom }])
+      const { error } = await supabase.from('tipos').insert([{ nombre: nom }])
+      if (error) return mostrarToast('No se pudo crear el tipo', 'error')
     } else {
       if (!tipoRelacionado) return mostrarToast("Selecciona un tipo base.", "error")
-      await supabase.from('categorias').insert([{ nombre: nom, tipo_id: tipoRelacionado }])
+      const { error } = await supabase.from('categorias').insert([{ nombre: nom, tipo_id: tipoRelacionado }])
+      if (error) return mostrarToast('No se pudo crear la categoría', 'error')
     }
     
     setNombre('')
@@ -54,7 +57,7 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
         textoConfirmar: 'Eliminar',
         onConfirm: async () => {
           const { error } = await supabase.from('tipos').delete().eq('id', item.id)
-          if (error) mostrarToast("No se puede eliminar, está en uso.", "error")
+          if (error) mostrarToast("No se puede eliminar: tiene categorías o prendas dentro.", "error")
           else {
             cargarDatos()
             if (onCambio) onCambio()
@@ -82,7 +85,7 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
             textoConfirmar: 'Sí, eliminar todo',
             onConfirm: async () => {
               const idsPrendas = (prendasAsociadas || []).map(p => p.id)
-              const archivos = (prendasAsociadas || []).map(p => p.imagen_url.split('/').pop())
+              const urls = (prendasAsociadas || []).map(p => p.imagen_url)
 
               // Primero la base de datos: si algo falla, las fotos siguen ahí.
               if (idsPrendas.length > 0) {
@@ -94,8 +97,8 @@ export default function Gestores({ seccion, onCambio, setDialogoGlobal, mostrarT
               // Después la categoría (Prenda) y, solo si eso fue bien, los archivos.
               const { error } = await supabase.from('categorias').delete().eq('id', item.id)
 
-              if (!error && archivos.length > 0) {
-                await supabase.storage.from('prendas').remove(archivos)
+              if (!error && urls.length > 0) {
+                for (const url of urls) await borrarArchivo(url)
               }
               
               if (error) {

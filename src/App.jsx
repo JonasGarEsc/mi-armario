@@ -2,38 +2,46 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useSwipeable } from 'react-swipeable'
 import FormularioEdicion from './components/FormularioEdicion'
 import FormularioMaleta from './components/FormularioMaleta'
+import FormularioSemana from './components/FormularioSemana'
 import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
+import VistaSemanas from './components/VistaSemanas'
+import SelectorPrendas from './components/SelectorPrendas'
 import Gestores from './components/Gestores'
 import Icono from './components/Icono'
 import Acceso from './components/Acceso'
+import NuevaContrasena from './components/NuevaContrasena'
+import ResumenUsos from './components/ResumenUsos'
 import { supabase } from './supabase'
 import { esDuplicado } from './lib/outfits'
 import { fijarEspacio } from './lib/cache'
+import { vibrar } from './lib/vibrar'
+import { nombreLibre } from './lib/nombres'
+import { etiquetaDia } from './lib/fechas'
+import { contarCopia, importarCopia } from './lib/backup'
 
 // El motor de recorte pesa cientos de kB: solo se descarga al abrir el formulario.
 const FormularioPrenda = lazy(() => import('./components/FormularioPrenda'))
 
-export const vibrar = (ms = 50) => {
-  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms)
-}
-
 const SECCIONES = [
   { id: 'ropa', nombre: 'Armario', icono: 'percha' },
-  { id: 'conjuntos', nombre: 'Maletas', icono: 'maleta' }
+  { id: 'conjuntos', nombre: 'Maletas', icono: 'maleta' },
+  { id: 'semana', nombre: 'Semana', icono: 'calendario' }
 ]
 
 // Puerta de entrada: sin sesión no se monta el armario, así ninguna consulta sale
 // antes de que Supabase sepa quién eres (y RLS no devuelva vacío).
 export default function App() {
   const [sesion, setSesion] = useState(undefined)
+  const [recuperando, setRecuperando] = useState(false)
 
   useEffect(() => {
     let activo = true
 
     // La caché va por cuenta: en un móvil compartido no se cuela la ropa ajena.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evento, nueva) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((evento, nueva) => {
       if (!activo) return
+      if (evento === 'PASSWORD_RECOVERY') setRecuperando(true)
       fijarEspacio(nueva?.user?.id)
       setSesion(nueva ?? null)
     })
@@ -48,6 +56,7 @@ export default function App() {
   }, [])
 
   if (sesion === undefined) return <PantallaCarga />
+  if (sesion && recuperando) return <NuevaContrasena onListo={() => setRecuperando(false)} />
   if (!sesion) return <Acceso />
   return <Armario sesion={sesion} />
 }
@@ -72,6 +81,7 @@ function Armario({ sesion }) {
   const [prendaAEditar, setPrendaAEditar] = useState(null)
   const [prendasParaConjunto, setPrendasParaConjunto] = useState([])
   const [maletasDisponibles, setMaletasDisponibles] = useState([])
+  const [objetivoSemana, setObjetivoSemana] = useState(null)
 
   const [toasts, setToasts] = useState([])
   
@@ -131,10 +141,10 @@ function Armario({ sesion }) {
 
   const cerrarToast = (id) => setToasts(prev => prev.filter(t => t.id !== id))
 
-  // Copia de seguridad manual: las cuatro tablas, en un JSON que se descarga.
+  // Copia de seguridad manual: todo el armario en un JSON que se descarga.
   async function exportarDatos() {
-    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'conjuntos', 'conjunto_prenda']
-    const copia = { exportado_en: new Date().toISOString(), version: 2 }
+    const tablas = ['categorias', 'tipos', 'prendas', 'maletas', 'semanas', 'conjuntos', 'conjunto_prenda', 'usos']
+    const copia = { exportado_en: new Date().toISOString(), version: 3 }
     for (const tabla of tablas) {
       const { data, error } = await supabase.from(tabla).select('*')
       if (error) return mostrarToast(`No se pudo exportar ${tabla}`, 'error')
@@ -147,6 +157,42 @@ function Armario({ sesion }) {
     a.click()
     URL.revokeObjectURL(url)
     mostrarToast('Copia descargada', 'exito')
+  }
+
+  async function alElegirCopia(e) {
+    const archivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!archivo) return
+
+    let crudo
+    try {
+      crudo = JSON.parse(await archivo.text())
+    } catch {
+      return mostrarToast('Ese archivo no es una copia válida', 'error')
+    }
+
+    let cuenta
+    try {
+      cuenta = contarCopia(crudo)
+    } catch (error) {
+      return mostrarToast(error.message, 'error')
+    }
+
+    solicitarConfirmacionGlobal({
+      mensaje: `¿Restaurar la copia? Se añadirán ${cuenta.prendas} prendas y ${cuenta.conjuntos} outfits a lo que ya tienes.`,
+      esDestructivo: false,
+      textoConfirmar: 'Restaurar',
+      onConfirm: async () => {
+        try {
+          const resumen = await importarCopia(supabase, crudo)
+          vibrar([50, 50])
+          mostrarToast(`Copia restaurada: ${resumen.prendas} prendas y ${resumen.conjuntos} outfits`, 'exito')
+          recargarVistas()
+        } catch (error) {
+          mostrarToast(error.message || 'No se pudo restaurar la copia', 'error')
+        }
+      },
+    })
   }
 
   const recargarVistas = () => setActualizaciones(prev => prev + 1)
@@ -168,6 +214,7 @@ function Armario({ sesion }) {
       setModalActivo(null)
       setPrendaAEditar(null)
       setPrendasParaConjunto([])
+      setObjetivoSemana(null)
       requestAnimationFrame(() => origenFoco.current?.focus?.({ preventScroll: true }))
     }, 220)
   }
@@ -191,8 +238,16 @@ function Armario({ sesion }) {
 
   // Arrastrar una prenda dentro de un outfit no debe cambiar de sección.
   const swipeNavegacion = useSwipeable({
-    onSwipedLeft: ({ event }) => { if (!event.target.closest('[data-sin-swipe]')) irA('conjuntos') },
-    onSwipedRight: ({ event }) => { if (!event.target.closest('[data-sin-swipe]')) irA('ropa') },
+    onSwipedLeft: ({ event }) => {
+      if (event.target.closest('[data-sin-swipe]')) return
+      if (pestañaActiva === 'ropa') irA('conjuntos')
+      else if (pestañaActiva === 'conjuntos') irA('semana')
+    },
+    onSwipedRight: ({ event }) => {
+      if (event.target.closest('[data-sin-swipe]')) return
+      if (pestañaActiva === 'semana') irA('conjuntos')
+      else if (pestañaActiva === 'conjuntos') irA('ropa')
+    },
     preventScrollOnSwipe: false,
     trackMouse: false,
     delta: 60
@@ -228,13 +283,15 @@ function Armario({ sesion }) {
     const nombre = e.target.nombreConjunto.value.trim()
     const maleta_id = e.target.maletaId.value
     
-    const { data: conjuntosExistentes, error: errConsulta } = await supabase.from('conjuntos').select('id, conjunto_prenda(prenda_id)').eq('maleta_id', maleta_id)
+    const { data: conjuntosExistentes, error: errConsulta } = await supabase.from('conjuntos').select('id, nombre, conjunto_prenda(prenda_id)').eq('maleta_id', maleta_id)
     if (errConsulta) return mostrarToast('No se pudo comprobar duplicados', 'error')
     if (esDuplicado(conjuntosExistentes, prendasParaConjunto)) return mostrarToast('Esa combinación ya existe', 'error')
 
+    const nombreFinal = nombreLibre(nombre, (conjuntosExistentes || []).map(c => c.nombre))
+
     // Una sola llamada: si falla, no queda un outfit vacío.
     const { error } = await supabase.from('conjuntos').insert([{
-      nombre,
+      nombre: nombreFinal,
       maleta_id,
       conjunto_prenda: prendasParaConjunto.map(prenda_id => ({ prenda_id }))
     }])
@@ -247,6 +304,42 @@ function Armario({ sesion }) {
     setPestañaActiva('conjuntos')
   }
 
+  async function crearOutfitSemana(nombre, ids) {
+    if (!objetivoSemana?.semana || !objetivoSemana?.fecha || ids.length === 0) return
+    const { semana, fecha } = objetivoSemana
+
+    const { data: existentes, error: errConsulta } = await supabase
+      .from('conjuntos')
+      .select('id, nombre, conjunto_prenda(prenda_id)')
+      .eq('semana_id', semana.id)
+      .eq('fecha', fecha)
+    if (errConsulta) {
+      mostrarToast('No se pudo comprobar duplicados', 'error')
+      return
+    }
+    if (esDuplicado(existentes, ids)) {
+      mostrarToast('Esa combinación ya existe ese día', 'error')
+      return
+    }
+
+    const nombreFinal = nombreLibre(nombre, (existentes || []).map(c => c.nombre))
+    const { error } = await supabase.from('conjuntos').insert([{
+      nombre: nombreFinal,
+      semana_id: semana.id,
+      fecha,
+      conjunto_prenda: ids.map(prenda_id => ({ prenda_id })),
+    }])
+    if (error) {
+      mostrarToast('Error al guardar', 'error')
+      return
+    }
+
+    vibrar([50, 50])
+    mostrarToast(`Outfit guardado el ${etiquetaDia(fecha)}`, 'exito')
+    cerrarModal()
+    recargarVistas()
+  }
+
   const aplicarFiltro = (categoria) => {
     setFiltroActual(categoria)
     setPestañaActiva('ropa')
@@ -256,7 +349,8 @@ function Armario({ sesion }) {
 
   const chip = (activo) => `min-h-11 px-4 rounded-full ${activo ? 'bg-acento text-sobre-acento font-semibold' : 'bg-lamina text-tinta'}`
   const seccion = SECCIONES.find(s => s.id === pestañaActiva)
-  const panel = 'relative w-1/2 min-w-0 h-full flex flex-col overflow-y-auto overscroll-y-contain sin-barra px-4 md:px-8 pt-2 md:pt-8 pb-4 md:pb-8 touch-pan-y'
+  const indiceSeccion = { ropa: 0, conjuntos: 1, semana: 2 }[pestañaActiva] ?? 0
+  const panel = 'relative w-1/3 min-w-0 h-full flex flex-col overflow-y-auto overscroll-y-contain sin-barra px-4 md:px-8 pt-2 md:pt-8 pb-4 md:pb-8 touch-pan-y'
 
   return (
     <div className="h-dvh bg-papel text-tinta w-full overflow-hidden font-sans">
@@ -300,7 +394,7 @@ function Armario({ sesion }) {
         </header>
 
         <main {...swipeNavegacion} className="flex-1 min-h-0 w-full max-w-6xl mx-auto overflow-hidden">
-          <div className="flex w-[200%] h-full transition-transform duration-250 ease-suave" style={{ transform: pestañaActiva === 'ropa' ? 'translateX(0%)' : 'translateX(-50%)' }}>
+          <div className="flex w-[300%] h-full transition-transform duration-250 ease-suave" style={{ transform: `translateX(-${indiceSeccion * (100 / 3)}%)` }}>
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
               <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
               <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAnadirPrenda={() => { abrirModal('formulario'); vibrar(30) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
@@ -308,11 +402,20 @@ function Armario({ sesion }) {
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
               <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
             </section>
+            <section aria-label="Semana" inert={pestañaActiva !== 'semana'} className={panel}>
+              <VistaSemanas
+                recarga={actualizaciones}
+                onCrearSemana={() => { abrirModal('crear_semana'); vibrar(30) }}
+                onAnadirOutfit={(semana, fecha) => { setObjetivoSemana({ semana, fecha }); abrirModal('elegir_prendas'); vibrar(30) }}
+                mostrarToast={mostrarToast}
+                setDialogoGlobal={solicitarConfirmacionGlobal}
+              />
+            </section>
           </div>
         </main>
 
         <nav aria-label="Secciones" className="md:hidden shrink-0 bg-superficie border-t border-linea pb-safe">
-          <div className="grid grid-cols-2">
+          <div className="grid grid-cols-3">
             {SECCIONES.map(s => (
               <button key={s.id} onClick={() => irA(s.id)} aria-current={pestañaActiva === s.id ? 'page' : undefined} className={`h-16 flex flex-col items-center justify-center gap-0.5 text-sm ${pestañaActiva === s.id ? 'text-acento font-semibold' : 'text-tenue'}`}>
                 <Icono nombre={s.icono} />
@@ -342,6 +445,15 @@ function Armario({ sesion }) {
               )}
               {modalActivo === 'editar' && prendaAEditar && <FormularioEdicion prenda={prendaAEditar} onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Prenda editada", "exito") }} onCancelar={cerrarModal} />}
               {modalActivo === 'crear_maleta' && <FormularioMaleta onExito={() => { cerrarModal(); recargarVistas(); vibrar([50, 50]); mostrarToast("Maleta creada", "exito") }} onCancelar={cerrarModal} />}
+              {modalActivo === 'crear_semana' && <FormularioSemana onExito={() => { cerrarModal(); recargarVistas(); setPestañaActiva('semana'); vibrar([50, 50]); mostrarToast("Semana creada", "exito") }} onCancelar={cerrarModal} />}
+              {modalActivo === 'elegir_prendas' && objetivoSemana && (
+                <SelectorPrendas
+                  fecha={objetivoSemana.fecha}
+                  nombreSemana={objetivoSemana.semana.nombre}
+                  onGuardar={crearOutfitSemana}
+                  onCancelar={cerrarModal}
+                />
+              )}
 
               {modalActivo === 'crear_conjunto' && (
                 <form onSubmit={guardarConjunto} className="flex flex-col gap-4">
@@ -396,6 +508,13 @@ function Armario({ sesion }) {
                     Descargar copia de seguridad
                     <Icono nombre="descargar" />
                   </button>
+                  <label className="boton boton-secundario justify-between! cursor-pointer">
+                    Restaurar copia de seguridad
+                    <input type="file" accept=".json,application/json" onChange={alElegirCopia} className="sr-only" />
+                    <Icono nombre="lista" />
+                  </label>
+                  <p className="text-sm text-tenue -mt-2">La copia se añade a lo que ya tienes; no borra nada.</p>
+                  <ResumenUsos />
                   <div className="pt-3 mt-1 border-t border-linea">
                     <p className="text-sm text-tenue mb-2 truncate">Sesión: {sesion.user?.email}</p>
                     <button onClick={() => { cerrarModal(); supabase.auth.signOut() }} className="boton boton-secundario w-full justify-between!">
@@ -403,7 +522,7 @@ function Armario({ sesion }) {
                       <Icono nombre="salir" />
                     </button>
                   </div>
-                  <p className="text-sm text-tenue pt-2">Perletta v2</p>
+                  <p className="text-sm text-tenue pt-2">Perletta v3</p>
                 </div>
               )}
 

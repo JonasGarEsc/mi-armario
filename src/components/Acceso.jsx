@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { supabase } from '../supabase'
 
 const MENSAJES = {
@@ -17,6 +17,7 @@ export default function Acceso() {
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const emailRef = useRef(null)
 
   async function enviar(e) {
     e.preventDefault()
@@ -49,6 +50,25 @@ export default function Acceso() {
     setAviso('')
   }
 
+  async function recuperar() {
+    const email = emailRef.current?.value.trim()
+    if (!email) {
+      setError('Escribe tu correo y pulsa otra vez.')
+      setAviso('')
+      emailRef.current?.focus()
+      return
+    }
+    setEnviando(true)
+    setError('')
+    setAviso('')
+    const { error: fallo } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    setEnviando(false)
+    if (fallo) setError(MENSAJES[fallo.message] || 'No se pudo enviar el correo. Inténtalo otra vez.')
+    else setAviso('Te hemos enviado un enlace para cambiar la contraseña. Mira tu correo.')
+  }
+
   const creando = modo === 'crear'
 
   return (
@@ -65,6 +85,7 @@ export default function Acceso() {
             <input
               id="email"
               name="email"
+              ref={emailRef}
               type="email"
               required
               autoComplete="email"
@@ -98,6 +119,12 @@ export default function Acceso() {
         <button onClick={cambiarModo} className="text-sm text-tenue mt-6 mx-auto underline hover:text-tinta">
           {creando ? '¿Ya tienes cuenta? Entrar' : '¿No tienes cuenta? Crear una'}
         </button>
+
+        {!creando && (
+          <button onClick={recuperar} disabled={enviando} className="block text-sm text-tenue mt-3 mx-auto underline hover:text-tinta">
+            ¿Olvidaste la contraseña?
+          </button>
+        )}
       </div>
     </div>
   )

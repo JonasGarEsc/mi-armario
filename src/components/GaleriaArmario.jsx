@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
-import { vibrar } from '../App'
+import { vibrar } from '../lib/vibrar'
 import { leerCache, guardarCache } from '../lib/cache'
+import { etiquetaFechaCorta, isoLocal } from '../lib/fechas'
+import { borrarArchivo } from '../lib/imagenes'
 import Icono from './Icono'
 import Miniatura from './Miniatura'
 
@@ -11,7 +13,11 @@ const resumenPrenda = (p) => ({
   nombre: p.nombre,
   imagen_url: p.imagen_url,
   categoria_id: p.categoria_id,
-  categorias: p.categorias ? { nombre: p.categorias.nombre } : null
+  tipo_id: p.categorias?.tipos?.id || p.tipo_id || null,
+  categorias: p.categorias
+    ? { nombre: p.categorias.nombre, tipos: p.categorias.tipos ? { id: p.categorias.tipos.id } : null }
+    : null,
+  usos: Array.isArray(p.usos) ? p.usos.map(u => ({ fecha: u.fecha })) : [],
 })
 
 export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
@@ -25,7 +31,19 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
 
   useEffect(() => {
     async function obtenerPrendas() {
-      const { data } = await supabase.from('prendas').select('*, categorias(nombre, tipos(id, nombre))').order('creado_en', { ascending: false })
+      let { data } = await supabase
+        .from('prendas')
+        .select('*, categorias(nombre, tipos(id, nombre)), usos(fecha)')
+        .order('creado_en', { ascending: false })
+
+      if (!data) {
+        // Base de datos sin la tabla usos: se carga el armario igual.
+        ;({ data } = await supabase
+          .from('prendas')
+          .select('*, categorias(nombre, tipos(id, nombre))')
+          .order('creado_en', { ascending: false }))
+      }
+
       if (data) { setPrendas(data); guardarCache('prendas', data.map(resumenPrenda)); }
       setCargando(false)
     }
@@ -57,15 +75,38 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
     else setSeleccionadas([...seleccionadas, id])
   }
 
-  function solicitarEliminacionPrenda(prenda, e) {
+  async function relacionesDeLaPrenda(prendaId) {
+    let { data } = await supabase
+      .from('conjunto_prenda')
+      .select('conjunto_id, prenda_id, pos_x, pos_y, z_index, ranura')
+      .eq('prenda_id', prendaId)
+    if (!data) {
+      ;({ data } = await supabase
+        .from('conjunto_prenda')
+        .select('conjunto_id, prenda_id, pos_x, pos_y, z_index')
+        .eq('prenda_id', prendaId))
+    }
+    return data || []
+  }
+
+  async function solicitarEliminacionPrenda(prenda, e) {
     e.stopPropagation()
+    const relaciones = await relacionesDeLaPrenda(prenda.id)
+    const numOutfits = new Set(relaciones.map(r => r.conjunto_id)).size
+
     setDialogoGlobal({
-      mensaje: '¿Eliminar esta prenda?',
+      mensaje: numOutfits > 0
+        ? `¿Eliminar esta prenda? También saldrá de ${numOutfits === 1 ? '1 outfit' : `${numOutfits} outfits`}.`
+        : '¿Eliminar esta prenda?',
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
+        if (relaciones.length > 0) {
+          await supabase.from('conjunto_prenda').delete().eq('prenda_id', prenda.id)
+        }
         const { error } = await supabase.from('prendas').delete().eq('id', prenda.id)
         if (error) return mostrarToast('No se pudo eliminar la prenda', 'error')
+
         const nuevasPrendas = prendas.filter(p => p.id !== prenda.id)
         setPrendas(nuevasPrendas)
         guardarCache('prendas', nuevasPrendas.map(resumenPrenda))
@@ -73,8 +114,6 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
         vibrar([50, 50])
 
         // La foto se borra 7 s después. Mientras el aviso siga en pantalla, se puede deshacer.
-        // La ruta lleva la carpeta del usuario delante: se recorta desde el bucket, no solo el nombre.
-        const archivo = decodeURIComponent(prenda.imagen_url.split('/prendas/').pop())
         let deshecho = false
         mostrarToast('Prenda eliminada', 'info', {
           texto: 'Deshacer',
@@ -83,15 +122,43 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
             const fila = { id: prenda.id, nombre: prenda.nombre, imagen_url: prenda.imagen_url, categoria_id: prenda.categoria_id }
             const { error: errRecuperar } = await supabase.from('prendas').insert([fila])
             if (errRecuperar) return mostrarToast('No se pudo recuperar la prenda', 'error')
+
+            // También vuelven sus outfits y sus usos, no solo la ficha.
+            if (relaciones.length > 0) await supabase.from('conjunto_prenda').insert(relaciones)
+            const usos = (prenda.usos || [])
+              .filter(u => u.fecha)
+              .map(u => ({ prenda_id: prenda.id, fecha: u.fecha }))
+            if (usos.length > 0) await supabase.from('usos').insert(usos)
+
             const recuperadas = [prenda, ...nuevasPrendas]
             setPrendas(recuperadas)
             guardarCache('prendas', recuperadas.map(resumenPrenda))
             mostrarToast('Prenda recuperada', 'exito')
           }
         })
-        setTimeout(() => { if (!deshecho) supabase.storage.from('prendas').remove([archivo]) }, 7500)
+        setTimeout(() => { if (!deshecho) borrarArchivo(prenda.imagen_url) }, 7500)
       }
     })
+  }
+
+  async function marcarUso(prenda) {
+    setMenuAbierto(null)
+    const hoy = isoLocal(new Date())
+    const { error } = await supabase.from('usos').insert([{ prenda_id: prenda.id, fecha: hoy }])
+    if (error) return mostrarToast('No se pudo anotar el uso', 'error')
+
+    const nuevas = prendas.map(p => (
+      p.id === prenda.id ? { ...p, usos: [...(p.usos || []), { fecha: hoy }] } : p
+    ))
+    setPrendas(nuevas)
+    guardarCache('prendas', nuevas.map(resumenPrenda))
+    vibrar(20)
+    mostrarToast('Anotado: te lo has puesto hoy', 'exito')
+  }
+
+  function ultimaVez(prenda) {
+    const fechas = (prenda.usos || []).map(u => u.fecha).filter(Boolean).sort()
+    return fechas.length > 0 ? fechas[fechas.length - 1] : null
   }
 
   const prendasVisibles = prendasFiltradas.slice(0, limiteVisibles)
@@ -167,6 +234,7 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
                     )}
                     {menuAbierto === prenda.id && (
                       <div className="aparece absolute inset-0 rounded-xl bg-velo flex flex-col justify-end gap-2 p-2" onClick={() => setMenuAbierto(null)} onKeyDown={(e) => { if (e.key === 'Escape') setMenuAbierto(null) }}>
+                        <button onClick={() => marcarUso(prenda)} aria-label={`Anotar que hoy te has puesto ${nombre}`} className="boton boton-secundario">Me lo he puesto</button>
                         <button autoFocus onClick={() => { setMenuAbierto(null); onEditarPrenda(prenda) }} aria-label={`Editar ${nombre}`} className="boton boton-secundario">Editar</button>
                         <button onClick={(e) => { setMenuAbierto(null); solicitarEliminacionPrenda(prenda, e) }} aria-label={`Eliminar ${nombre}`} className="boton boton-peligro">Eliminar</button>
                       </div>
@@ -177,6 +245,9 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold leading-6 truncate">{nombre}</p>
                       <p className="text-sm leading-6 text-tenue truncate">{prenda.categorias?.nombre || 'Sin categoría'}</p>
+                      {ultimaVez(prenda) && (
+                        <p className="text-xs leading-5 text-tenue truncate">Usada el {etiquetaFechaCorta(ultimaVez(prenda))}</p>
+                      )}
                     </div>
                     <button onClick={() => setMenuAbierto(menuAbierto === prenda.id ? null : prenda.id)} aria-label={`Opciones de ${nombre}`} aria-expanded={menuAbierto === prenda.id} className="boton-icono -mr-2 text-tenue">
                       <Icono nombre="puntos" />
@@ -199,8 +270,8 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
           <button onClick={() => setSeleccionadas([])} aria-label="Quitar la selección" className="boton-icono">
             <Icono nombre="cerrar" />
           </button>
-          <button onClick={() => onCrearConjunto(seleccionadas)} disabled={seleccionadas.length < 2} className="boton boton-primario flex-1 min-w-0 md:px-8">
-            {seleccionadas.length < 2 ? 'Elige otra prenda' : `Crear outfit con ${seleccionadas.length} prendas`}
+          <button onClick={() => onCrearConjunto(seleccionadas)} className="boton boton-primario flex-1 min-w-0 md:px-8">
+            {`Crear outfit con ${seleccionadas.length} ${seleccionadas.length === 1 ? 'prenda' : 'prendas'}`}
           </button>
         </div>
       ) : !cargando && prendas.length > 0 && (

@@ -6,7 +6,7 @@
 --   2. Cambia las políticas: cada uno lee y escribe solo sus filas.
 --   3. Prepara el bucket para carpetas por usuario.
 --   4. Borra la lista de miembros (ya no hace falta).
---   5. Copia el catálogo de tipos y categorías a cada cuenta nueva.
+--   5. Retira la herencia antigua: cada cuenta empieza vacía y crea su catálogo.
 
 -- 1. Dueño de lo que ya hay: el usuario más antiguo (tú).
 do $$

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
-import imageCompression from 'browser-image-compression'
-import { removeBackground } from '@imgly/background-removal'
+import { borrarArchivo } from '../lib/imagenes'
+import { prepararFoto, subirFoto } from '../lib/imagen'
 
 export default function FormularioPrenda({ onExito }) {
   const [tipos, setTipos] = useState([])
@@ -41,44 +41,20 @@ export default function FormularioPrenda({ onExito }) {
     }
 
     try {
-      setEstadoProceso('Comprimiendo imagen…')
-
-      // 900 px sobra: la rejilla pinta a 150 y el lienzo del outfit a 130.
-      // useWebWorker en false evita cuelgues en Safari iOS al comprimir.
-      const opcionesCompresion = { maxSizeMB: 0.25, maxWidthOrHeight: 900, useWebWorker: false, fileType: 'image/webp' }
-      let archivoProcesado = await imageCompression(archivoOriginal, opcionesCompresion)
-
-      if (quitarFondo) {
-        setEstadoProceso('Recortando fondo (IA)…')
-        // Sin publicPath: la librería usa el CDN de su propia versión (1.7.0).
-        // Fijarlo a 1.4.5 descuadraba los modelos con la librería instalada.
-        const blobSinFondo = await removeBackground(archivoProcesado)
-        const recorte = new File([blobSinFondo], 'recorte.png', { type: 'image/png' })
-        setEstadoProceso('Comprimiendo recorte…')
-        // El recorte sale en PNG a tamaño completo (400 kB por prenda): se reencodea a WebP.
-        try {
-          archivoProcesado = await imageCompression(recorte, opcionesCompresion)
-        } catch {
-          archivoProcesado = recorte
-        }
-      }
-
-      const extension = archivoProcesado.type === 'image/png' ? 'png' : 'webp'
-      // Carpeta por usuario: así cada cuenta solo puede escribir (y borrar) lo suyo.
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Sesión caducada. Vuelve a entrar.')
-      const nombreArchivo = `${user.id}/prenda-${Date.now()}.${extension}`
-
-      setEstadoProceso('Subiendo al servidor…')
-      const { error: errImg } = await supabase.storage.from('prendas').upload(nombreArchivo, archivoProcesado)
-      if (errImg) throw new Error('Error al subir imagen. Revisa tu conexión.')
-
-      const { data: { publicUrl } } = supabase.storage.from('prendas').getPublicUrl(nombreArchivo)
+      const archivoProcesado = await prepararFoto(archivoOriginal, {
+        quitarFondo,
+        onEstado: setEstadoProceso,
+      })
+      const subida = await subirFoto(archivoProcesado, { onEstado: setEstadoProceso })
 
       setEstadoProceso('Guardando en base de datos…')
-      const { error: errPrenda } = await supabase.from('prendas').insert([{ nombre, imagen_url: publicUrl, categoria_id: categoriaId }])
+      const { error: errPrenda } = await supabase.from('prendas').insert([{ nombre, imagen_url: subida.url, categoria_id: categoriaId }])
 
-      if (errPrenda) throw new Error('Error en base de datos al guardar la ropa.')
+      if (errPrenda) {
+        // Si la fila falla, la foto no se queda huérfana en el bucket.
+        await borrarArchivo(subida.url)
+        throw new Error('Error en base de datos al guardar la ropa.')
+      }
 
       form.reset()
       setTipoSeleccionado('')
@@ -111,6 +87,7 @@ export default function FormularioPrenda({ onExito }) {
         <input type="checkbox" id="toggleFondo" checked={quitarFondo} onChange={(e) => setQuitarFondo(e.target.checked)} className="w-6 h-6 shrink-0 accent-acento cursor-pointer" />
         <label htmlFor="toggleFondo" className="flex-1 py-2.5 cursor-pointer select-none">Quitar el fondo automáticamente</label>
       </div>
+      <p className="text-sm text-tenue -mt-2">La primera vez descarga el modelo de recorte (~24 MB; unos 6 MB comprimidos).</p>
 
       <div>
         <label htmlFor="nombrePrenda" className="etiqueta">Nombre</label>
