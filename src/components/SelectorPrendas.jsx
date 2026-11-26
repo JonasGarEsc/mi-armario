@@ -1,31 +1,17 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../supabase'
+import { useState } from 'react'
 import { esDelArmario } from '../lib/filtros'
 import { etiquetaDia } from '../lib/fechas'
+import { usePrendas } from '../lib/almacen'
 import Icono from './Icono'
 import Miniatura from './Miniatura'
 
 export default function SelectorPrendas({ fecha, nombreSemana, onGuardar, onCancelar }) {
-  const [prendas, setPrendas] = useState([])
-  const [cargando, setCargando] = useState(true)
+  const { prendas: todas, cargando } = usePrendas()
+  const prendas = todas.filter(esDelArmario)
   const [busqueda, setBusqueda] = useState('')
   const [seleccionadas, setSeleccionadas] = useState([])
   const [nombre, setNombre] = useState('')
   const [guardando, setGuardando] = useState(false)
-
-  useEffect(() => {
-    let vivo = true
-    supabase
-      .from('prendas')
-      .select('*, categorias(nombre, tipos(nombre))')
-      .order('creado_en', { ascending: false })
-      .then(({ data }) => {
-        if (!vivo) return
-        setPrendas((data || []).filter(esDelArmario))
-        setCargando(false)
-      })
-    return () => { vivo = false }
-  }, [])
 
   const filtradas = prendas.filter((p) => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
 

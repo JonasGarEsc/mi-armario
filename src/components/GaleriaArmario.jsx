@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { vibrar } from '../lib/vibrar'
-import { leerCache, guardarCache } from '../lib/cache'
 import { etiquetaFechaCorta, isoLocal } from '../lib/fechas'
 import { PUNTO_FAMILIA } from '../lib/colores'
 import { escribir } from '../lib/offline'
@@ -10,29 +9,11 @@ import {
   FAMILIAS_COLOR, GRUPOS_FORMALIDAD, TEMPORADAS, filtrarPrendas, hayFiltros, sinFiltros, ultimaVez,
 } from '../lib/filtros'
 import { borrarArchivo } from '../lib/imagenes'
+import { actualizarPrenda, quitarPrenda, reponerPrenda, usePrendas } from '../lib/almacen'
 import BotonQueMePongo from './BotonQueMePongo'
 import Icono from './Icono'
 import ListaDeseos from './ListaDeseos'
 import Miniatura from './Miniatura'
-
-// La caché solo necesita lo que pinta la rejilla, no el árbol de categorías entero.
-const resumenPrenda = (p) => ({
-  id: p.id,
-  nombre: p.nombre,
-  imagen_url: p.imagen_url,
-  categoria_id: p.categoria_id,
-  tipo_id: p.categorias?.tipos?.id || p.tipo_id || null,
-  categorias: p.categorias
-    ? { nombre: p.categorias.nombre, tipos: p.categorias.tipos ? { id: p.categorias.tipos.id } : null }
-    : null,
-  usos: Array.isArray(p.usos) ? p.usos.map(u => ({ fecha: u.fecha })) : [],
-  creado_en: p.creado_en ?? null,
-  etiquetas_auto: p.etiquetas_auto ?? null,
-  archivada: p.archivada ?? false,
-  salida: p.salida ?? null,
-  deseada: p.deseada ?? false,
-  ...Object.fromEntries(CAMPOS_ETIQUETA.map(c => [c, p[c] ?? null])),
-})
 
 const chipFiltro = (activo) =>
   `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
@@ -41,37 +22,25 @@ const chipFiltro = (activo) =>
 // La pestaña (Mi ropa / Quiero) se recuerda aunque la galería se vuelva a montar al guardar algo.
 let vistaRecordada = 'ropa'
 
-export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAnadirDeseo, onVerOutfitsDeseo, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal }) {
-  const [prendas, setPrendas] = useState(() => leerCache('prendas') || [])
+export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnadirPrenda, onAnadirDeseo, onVerOutfitsDeseo, onQueMePongo, onAbrirFiltros, onQuitarFiltro, mostrarToast, filtroCategoria, setDialogoGlobal, onCambio }) {
+  const { prendas, cargando } = usePrendas()
   const [menuAbierto, setMenuAbierto] = useState(null)
   const [seleccionadas, setSeleccionadas] = useState([])
-  const [cargando, setCargando] = useState(() => !leerCache('prendas'))
   const [busqueda, setBusqueda] = useState('')
   const [filtros, setFiltros] = useState(sinFiltros)
   const [vista, setVista] = useState(vistaRecordada)
   const [limiteVisibles, setLimiteVisibles] = useState(24)
   const observadorReferencia = useRef(null)
 
+  // Si algo desaparece (borrado aquí o desde otra vista), su selección y su menú se limpian.
   useEffect(() => {
-    async function obtenerPrendas() {
-      let { data } = await supabase
-        .from('prendas')
-        .select('*, categorias(nombre, tipos(id, nombre)), usos(fecha)')
-        .order('creado_en', { ascending: false })
-
-      if (!data) {
-        // Base de datos sin la tabla usos: se carga el armario igual.
-        ;({ data } = await supabase
-          .from('prendas')
-          .select('*, categorias(nombre, tipos(id, nombre))')
-          .order('creado_en', { ascending: false }))
-      }
-
-      if (data) { setPrendas(data); guardarCache('prendas', data.map(resumenPrenda)); }
-      setCargando(false)
-    }
-    obtenerPrendas()
-  }, [])
+    const ids = new Set(prendas.map(p => p.id))
+    setSeleccionadas(sel => {
+      const limpias = sel.filter(id => ids.has(id))
+      return limpias.length === sel.length ? sel : limpias
+    })
+    setMenuAbierto(actual => (actual && !ids.has(actual) ? null : actual))
+  }, [prendas])
 
   useEffect(() => { setLimiteVisibles(24) }, [busqueda, filtroCategoria, filtros])
 
@@ -126,17 +95,26 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
       esDestructivo: true,
       textoConfirmar: 'Eliminar',
       onConfirm: async () => {
-        if (relaciones.length > 0) {
-          await supabase.from('conjunto_prenda').delete().eq('prenda_id', prenda.id)
-        }
-        const { error } = await supabase.from('prendas').delete().eq('id', prenda.id)
-        if (error) return mostrarToast('No se pudo eliminar la prenda', 'error')
-
-        const nuevasPrendas = prendas.filter(p => p.id !== prenda.id)
-        setPrendas(nuevasPrendas)
-        guardarCache('prendas', nuevasPrendas.map(resumenPrenda))
+        // Primero se pinta: la prenda desaparece al instante y luego se guarda.
+        quitarPrenda(prenda.id)
         setSeleccionadas(seleccionadas.filter(sel => sel !== prenda.id))
         vibrar([50, 50])
+
+        if (relaciones.length > 0) {
+          const { error: errRel } = await supabase.from('conjunto_prenda').delete().eq('prenda_id', prenda.id)
+          if (errRel) {
+            reponerPrenda(prenda)
+            return mostrarToast('No se pudo eliminar la prenda', 'error')
+          }
+        }
+        const { error } = await supabase.from('prendas').delete().eq('id', prenda.id)
+        if (error) {
+          reponerPrenda(prenda)
+          if (relaciones.length > 0) await supabase.from('conjunto_prenda').insert(relaciones)
+          return mostrarToast('No se pudo eliminar la prenda', 'error')
+        }
+
+        onCambio?.()
 
         // La foto se borra 7 s después. Mientras el aviso siga en pantalla, se puede deshacer.
         let deshecho = false
@@ -157,9 +135,8 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
               .map(u => ({ prenda_id: prenda.id, fecha: u.fecha }))
             if (usos.length > 0) await supabase.from('usos').insert(usos)
 
-            const recuperadas = [prenda, ...nuevasPrendas]
-            setPrendas(recuperadas)
-            guardarCache('prendas', recuperadas.map(resumenPrenda))
+            reponerPrenda(prenda)
+            onCambio?.()
             mostrarToast('Prenda recuperada', 'exito')
           }
         })
@@ -171,16 +148,17 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
   async function marcarUso(prenda) {
     setMenuAbierto(null)
     const hoy = isoLocal(new Date())
-    // Sin conexión se guarda en el móvil y se envía al volver la red.
-    const estado = await escribir({ tabla: 'usos', accion: 'insert', datos: { prenda_id: prenda.id, fecha: hoy } })
-    if (estado === 'error') return mostrarToast('No se pudo anotar el uso', 'error')
-
-    const nuevas = prendas.map(p => (
-      p.id === prenda.id ? { ...p, usos: [...(p.usos || []), { fecha: hoy }] } : p
-    ))
-    setPrendas(nuevas)
-    guardarCache('prendas', nuevas.map(resumenPrenda))
+    const usosAntes = prenda.usos || []
+    // Se pinta al instante; sin conexión la cola lo enviará al volver la red.
+    actualizarPrenda(prenda.id, { usos: [...usosAntes, { fecha: hoy }] })
     vibrar(20)
+
+    const estado = await escribir({ tabla: 'usos', accion: 'insert', datos: { prenda_id: prenda.id, fecha: hoy } })
+    if (estado === 'error') {
+      actualizarPrenda(prenda.id, { usos: usosAntes })
+      return mostrarToast('No se pudo anotar el uso', 'error')
+    }
+
     mostrarToast(estado === 'encolada' ? 'Anotado: se enviará cuando vuelva la conexión' : 'Anotado: te lo has puesto hoy', 'exito')
   }
 
@@ -193,11 +171,13 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
   }
 
   async function cambiarDeseo(deseo, campos, mensaje) {
+    const antes = Object.fromEntries(Object.keys(campos).map(c => [c, deseo[c] ?? null]))
+    actualizarPrenda(deseo.id, campos)
     const { error } = await supabase.from('prendas').update(campos).eq('id', deseo.id)
-    if (error) return mostrarToast('No se pudo guardar', 'error')
-    const nuevas = prendas.map(p => (p.id === deseo.id ? { ...p, ...campos } : p))
-    setPrendas(nuevas)
-    guardarCache('prendas', nuevas.map(resumenPrenda))
+    if (error) {
+      actualizarPrenda(deseo.id, antes)
+      return mostrarToast('No se pudo guardar', 'error')
+    }
     mostrarToast(mensaje, 'exito')
   }
 
@@ -208,13 +188,14 @@ export default function GaleriaArmario({ onCrearConjunto, onEditarPrenda, onAnad
       esDestructivo: true,
       textoConfirmar: 'Quitar',
       onConfirm: async () => {
-        const { error } = await supabase.from('prendas').delete().eq('id', deseo.id)
-        if (error) return mostrarToast('No se pudo quitar', 'error')
-        const nuevas = prendas.filter(p => p.id !== deseo.id)
-        setPrendas(nuevas)
-        guardarCache('prendas', nuevas.map(resumenPrenda))
-        borrarArchivo(deseo.imagen_url)
+        quitarPrenda(deseo.id)
         vibrar([50, 50])
+        const { error } = await supabase.from('prendas').delete().eq('id', deseo.id)
+        if (error) {
+          reponerPrenda(deseo)
+          return mostrarToast('No se pudo quitar', 'error')
+        }
+        borrarArchivo(deseo.imagen_url)
       },
     })
   }

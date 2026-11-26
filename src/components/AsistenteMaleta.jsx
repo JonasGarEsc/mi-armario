@@ -9,6 +9,7 @@ import { esDuplicado } from '../lib/outfits'
 import { RANURAS } from '../lib/maniqui'
 import { OCASIONES_VIAJE, huecoDe } from '../lib/sugerir'
 import { vibrar } from '../lib/vibrar'
+import { usePrendas } from '../lib/almacen'
 import LienzoOutfit from './LienzoOutfit'
 
 const MANUAL = [
@@ -34,7 +35,7 @@ function comoConjunto(outfit) {
 /** Asistente que prepara la maleta: un outfit distinto por día con las menos prendas posibles. */
 export default function AsistenteMaleta({ maleta, mostrarToast, onHecho }) {
   const fechas = useMemo(() => diasDelViaje(maleta.fecha_inicio, maleta.fecha_fin), [maleta])
-  const [prendas, setPrendas] = useState(null)
+  const { prendas, cargando: cargandoPrendas } = usePrendas()
   const [prevision, setPrevision] = useState('cargando') // 'cargando' | null | { dias, nombre, pais }
   const [manual, setManual] = useState(null)
   const [ocasiones, setOcasiones] = useState({})
@@ -47,8 +48,6 @@ export default function AsistenteMaleta({ maleta, mostrarToast, onHecho }) {
 
   useEffect(() => {
     let vivo = true
-    supabase.from('prendas').select('*, categorias(nombre, tipos(nombre)), usos(fecha)')
-      .then(({ data }) => { if (vivo) setPrendas(data || []) })
     previsionViaje({ destino, fechas, hoy: isoLocal(new Date()) }).then((p) => { if (vivo) setPrevision(p) })
     return () => { vivo = false }
   }, [destino, fechas])
@@ -116,7 +115,7 @@ export default function AsistenteMaleta({ maleta, mostrarToast, onHecho }) {
     }
   }
 
-  const cargando = prendas === null || prevision === 'cargando'
+  const cargando = cargandoPrendas || prevision === 'cargando'
 
   return (
     <div className="flex flex-col gap-4 text-left">

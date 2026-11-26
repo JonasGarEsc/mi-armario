@@ -8,6 +8,7 @@ import { RANURAS } from '../lib/maniqui'
 import { semanaNuevaPara, semanaParaFecha } from '../lib/semanas'
 import { OCASIONES, huecoDe, sugerirOutfits } from '../lib/sugerir'
 import { vibrar } from '../lib/vibrar'
+import { usePrendas } from '../lib/almacen'
 import LienzoOutfit from './LienzoOutfit'
 import Miniatura from './Miniatura'
 
@@ -35,7 +36,7 @@ function comoConjunto(outfit) {
 }
 
 export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null }) {
-  const [prendas, setPrendas] = useState(null)
+  const { prendas, cargando: cargandoPrendas } = usePrendas()
   const [tiempo, setTiempo] = useState('cargando') // 'cargando' | null | { clima, origen, ciudad }
   const [manual, setManual] = useState(null)
   const [ciudad, setCiudad] = useState(ciudadGuardada())
@@ -49,10 +50,6 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
 
   useEffect(() => {
     let vivo = true
-    supabase
-      .from('prendas')
-      .select('*, categorias(nombre, tipos(nombre)), usos(fecha)')
-      .then(({ data }) => { if (vivo) setPrendas(data || []) })
     climaDeHoy().then((t) => { if (vivo) setTiempo(t) })
     return () => { vivo = false }
   }, [])
@@ -61,12 +58,12 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
 
   // Se recalculan las tres propuestas al cambiar el tiempo, la ocasión o lo fijado.
   useEffect(() => {
-    if (!prendas || !clima) { setPropuestas([]); return }
+    if (cargandoPrendas || !clima) { setPropuestas([]); return }
     vistos.current = new Set()
     const nuevas = sugerirOutfits(prendas, { clima, hoy, ocasion, fijadas, n: 3 })
     nuevas.forEach((o) => vistos.current.add(o.clave))
     setPropuestas(nuevas)
-  }, [prendas, clima, ocasion, fijadas, hoy])
+  }, [prendas, cargandoPrendas, clima, ocasion, fijadas, hoy])
 
   const conjuntos = useMemo(() => propuestas.map(comoConjunto), [propuestas])
 
@@ -136,7 +133,7 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
     }
   }
 
-  const cargandoTodo = prendas === null || tiempo === 'cargando'
+  const cargandoTodo = cargandoPrendas || tiempo === 'cargando'
   const sinTiempo = !cargandoTodo && !clima
 
   return (
@@ -173,7 +170,7 @@ export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null
         </>
       )}
 
-      {clima && prendas && propuestas.length === 0 && (
+      {clima && !cargandoPrendas && propuestas.length === 0 && (
         <div className="py-8 text-center text-tenue">
           <p className="font-semibold text-tinta">No encuentro un conjunto completo</p>
           <p className="mt-1">Hace falta al menos una prenda de arriba y otra de abajo (o un vestido). {fijadas.length > 0 && 'Prueba a quitar lo fijado.'}</p>

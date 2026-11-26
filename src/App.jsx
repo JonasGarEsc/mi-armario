@@ -3,6 +3,7 @@ import { useArrastrarHoja } from './lib/useArrastrarHoja'
 import { useDeslizarPaneles } from './lib/useDeslizarPaneles'
 import { fijarSeccionVisual, useSeccionVisual } from './lib/seccionVisual'
 import { crearGestorAtras } from './lib/atras'
+import { refrescarPrendas, reiniciarPrendas } from './lib/almacen'
 import GaleriaArmario from './components/GaleriaArmario'
 import VistaConjuntos from './components/VistaConjuntos'
 import VistaSemanas from './components/VistaSemanas'
@@ -66,18 +67,27 @@ export default function App() {
 
   useEffect(() => {
     let activo = true
+    let usuario = undefined
 
     // La caché va por cuenta: en un móvil compartido no se cuela la ropa ajena.
+    const cambiarEspacio = (nueva) => {
+      const id = nueva?.user?.id || null
+      if (id === usuario) return
+      usuario = id
+      fijarEspacio(id)
+      reiniciarPrendas()
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((evento, nueva) => {
       if (!activo) return
       if (evento === 'PASSWORD_RECOVERY') setRecuperando(true)
-      fijarEspacio(nueva?.user?.id)
+      cambiarEspacio(nueva)
       setSesion(nueva ?? null)
     })
 
     supabase.auth.getSession().then(({ data }) => {
       if (!activo) return
-      fijarEspacio(data.session?.user?.id)
+      cambiarEspacio(data.session)
       setSesion(actual => (actual === undefined ? (data.session ?? null) : actual))
     })
 
@@ -100,7 +110,7 @@ export default function App() {
   if (sesion === undefined) return <PantallaCarga />
   if (sesion && recuperando) return <NuevaContrasena onListo={() => setRecuperando(false)} />
   if (!sesion) return <Acceso />
-  return <Armario sesion={sesion} />
+  return <Armario key={sesion.user?.id || 'sesion'} sesion={sesion} />
 }
 
 // La barra de pestañas y el título leen la sección visible por su cuenta:
@@ -244,6 +254,8 @@ function Armario({ sesion }) {
            categorias: categorias.filter(c => c.tipo_id === t.id)
          }))
          setDatosMenu(menuEstructurado)
+         // Un filtro que apunte a una categoría borrada (o renombrada) se limpia solo.
+         setFiltroActual(actual => (actual ? categorias.find(c => c.id === actual.id) || null : actual))
       }
     }
     cargarDatosMenu()
@@ -314,7 +326,11 @@ function Armario({ sesion }) {
     })
   }
 
-  const recargarVistas = () => setActualizaciones(prev => prev + 1)
+  // Refresca lo compartido (prendas) y avisa a las vistas persistentes (maletas, semanas).
+  const recargarVistas = () => {
+    setActualizaciones(prev => prev + 1)
+    void refrescarPrendas()
+  }
 
   function prepararMaleta(maleta) {
     setMaletaAsistente(maleta)
@@ -528,10 +544,10 @@ function Armario({ sesion }) {
           <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
               <h2 className="max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
-              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} key={`g-${actualizaciones}`} />
+              <GaleriaArmario onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} onCambio={recargarVistas} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>
-              <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} onPrepararMaleta={prepararMaleta} refresco={refrescoMaleta} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} key={`c-${actualizaciones}`} />
+              <VistaConjuntos onCrearMaleta={() => { abrirModal('crear_maleta'); vibrar(30) }} onPrepararMaleta={prepararMaleta} refresco={refrescoMaleta} recarga={actualizaciones} mostrarToast={mostrarToast} setDialogoGlobal={solicitarConfirmacionGlobal} />
             </section>
             <section aria-label="Semana" inert={pestañaActiva !== 'semana'} className={panel}>
               <VistaSemanas

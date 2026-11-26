@@ -1,27 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { supabase } from '../supabase'
 import { esDelArmario } from '../lib/filtros'
 import { guardarResuelto, usosPorAnadir } from '../lib/uso'
 import { vibrar } from '../lib/vibrar'
 import { etiquetaDia, desdeISO } from '../lib/fechas'
+import { usePrendas } from '../lib/almacen'
 import Miniatura from './Miniatura'
 
 /** «Cambié algo»: eliges qué prendas te pusiste de verdad ese día (parten marcadas las del outfit). */
 export default function ConfirmarUso({ outfit, mostrarToast, onHecho }) {
-  const [prendas, setPrendas] = useState(null)
+  const { prendas, cargando } = usePrendas()
   const [elegidas, setElegidas] = useState(() => outfit.conjunto_prenda.map((cp) => cp.prenda_id))
   const [busqueda, setBusqueda] = useState('')
   const [guardando, setGuardando] = useState(false)
 
-  useEffect(() => {
-    let vivo = true
-    supabase.from('prendas').select('*').order('creado_en', { ascending: false })
-      .then(({ data }) => { if (vivo) setPrendas((data || []).filter(esDelArmario)) })
-    return () => { vivo = false }
-  }, [])
-
+  const delArmario = useMemo(() => (prendas || []).filter(esDelArmario), [prendas])
   const alternar = (id) => { vibrar(8); setElegidas((e) => (e.includes(id) ? e.filter((x) => x !== id) : [...e, id])) }
-  const visibles = (prendas || []).filter((p) => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+  const visibles = delArmario.filter((p) => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
 
   async function guardar() {
     setGuardando(true)
@@ -41,7 +36,7 @@ export default function ConfirmarUso({ outfit, mostrarToast, onHecho }) {
       <h2 className="titulo-hoja">¿Qué te pusiste el {etiquetaDia(desdeISO(outfit.fecha))}?</h2>
       <input type="search" aria-label="Buscar prendas" placeholder="Buscar prendas" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
 
-      {prendas === null ? (
+      {cargando ? (
         <div role="status" aria-label="Cargando" className="esqueleto h-40 w-full" />
       ) : (
         <ul className="rounded-xl border border-linea divide-y divide-linea overflow-y-auto max-h-[45dvh]">

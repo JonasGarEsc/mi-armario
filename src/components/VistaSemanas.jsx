@@ -149,25 +149,39 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
 
     if (tipo === 'semana') {
       if (semanaActiva?.id !== id) return
-      if (semanaActiva.nombre === nombre) return
-      const { error } = await supabase.from('semanas').update({ nombre }).eq('id', id)
-      if (error) return mostrarToast('No se pudo cambiar el nombre', 'error')
-      const nueva = { ...semanaActiva, nombre }
-      setSemanaActiva(nueva)
+      const anterior = semanaActiva.nombre
+      if (anterior === nombre) return
+
+      // Primero se pinta el nombre nuevo y luego se guarda.
+      setSemanaActiva({ ...semanaActiva, nombre })
       const lista = semanas.map((s) => (s.id === id ? { ...s, nombre } : s))
       setSemanas(lista)
       guardarCache('semanas', lista)
+
+      const { error } = await supabase.from('semanas').update({ nombre }).eq('id', id)
+      if (error) {
+        setSemanaActiva({ ...semanaActiva, nombre: anterior })
+        const antes = semanas.map((s) => (s.id === id ? { ...s, nombre: anterior } : s))
+        setSemanas(antes)
+        guardarCache('semanas', antes)
+        return mostrarToast('No se pudo cambiar el nombre', 'error')
+      }
       mostrarToast('Nombre cambiado', 'exito')
       return
     }
 
     const anterior = conjuntos.find((c) => c.id === id)
     if (!anterior || anterior.nombre === nombre) return
+
+    setConjuntos((lista) => lista.map((c) => (c.id === id ? { ...c, nombre } : c)))
+    guardarCache(`semana_${semanaActiva.id}`, conjuntos.map((c) => (c.id === id ? { ...c, nombre } : c)))
+
     const { error } = await supabase.from('conjuntos').update({ nombre }).eq('id', id)
-    if (error) return mostrarToast('Ese nombre ya existe ese día', 'error')
-    const nuevos = conjuntos.map((c) => (c.id === id ? { ...c, nombre } : c))
-    setConjuntos(nuevos)
-    guardarCache(`semana_${semanaActiva.id}`, nuevos)
+    if (error) {
+      setConjuntos((lista) => lista.map((c) => (c.id === id ? { ...c, nombre: anterior.nombre } : c)))
+      guardarCache(`semana_${semanaActiva.id}`, conjuntos.map((c) => (c.id === id ? { ...c, nombre: anterior.nombre } : c)))
+      return mostrarToast('Ese nombre ya existe ese día', 'error')
+    }
     mostrarToast('Nombre cambiado', 'exito')
   }
 

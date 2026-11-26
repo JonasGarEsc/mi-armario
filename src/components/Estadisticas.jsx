@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { supabase } from '../supabase'
 import { PUNTO_FAMILIA } from '../lib/colores'
 import { dinero, costePorUso, estadisticasArmario, numUsos } from '../lib/estadisticas'
 import { isoLocal } from '../lib/fechas'
 import { huecosDelArmario } from '../lib/huecos'
 import { vibrar } from '../lib/vibrar'
+import { actualizarPrenda, usePrendas } from '../lib/almacen'
 import GraficoBarras from './GraficoBarras'
 import Miniatura from './Miniatura'
 
@@ -34,37 +35,38 @@ function Bloque({ titulo, vacio, hijos, children }) {
 
 /** «Mi armario en números»: qué usas, qué compraste bien y qué sobra. */
 export default function Estadisticas({ mostrarToast, onProponer, onCambio }) {
-  const [prendas, setPrendas] = useState(null)
+  const { prendas, cargando } = usePrendas()
   const hoy = isoLocal(new Date())
-
-  useEffect(() => {
-    let vivo = true
-    supabase.from('prendas').select('*, categorias(nombre, tipos(nombre)), usos(fecha)')
-      .then(({ data }) => { if (vivo) setPrendas(data || []) })
-    return () => { vivo = false }
-  }, [])
 
   const e = useMemo(() => (prendas ? estadisticasArmario(prendas, hoy) : null), [prendas, hoy])
   const huecos = useMemo(() => (prendas ? huecosDelArmario(prendas) : []), [prendas])
 
   async function cambiar(prenda, campos, mensaje) {
     vibrar(15)
+    const antes = Object.fromEntries(Object.keys(campos).map((c) => [c, prenda[c] ?? (c === 'archivada' ? false : null)]))
+    // Primero se pinta; si el servidor dice que no, se deshace solo.
+    actualizarPrenda(prenda.id, campos)
     const { error } = await supabase.from('prendas').update(campos).eq('id', prenda.id)
-    if (error) return mostrarToast('No se pudo guardar. ¿Has ejecutado actualizacion-v4.sql en Supabase?', 'error')
-    setPrendas((lista) => lista.map((p) => (p.id === prenda.id ? { ...p, ...campos } : p)))
+    if (error) {
+      actualizarPrenda(prenda.id, antes)
+      return mostrarToast('No se pudo guardar. ¿Has ejecutado actualizacion-v4.sql en Supabase?', 'error')
+    }
     mostrarToast(mensaje, 'exito', {
       texto: 'Deshacer',
       onClick: async () => {
-        const antes = Object.fromEntries(Object.keys(campos).map((c) => [c, prenda[c] ?? (c === 'archivada' ? false : null)]))
+        actualizarPrenda(prenda.id, antes)
         const { error: errDeshacer } = await supabase.from('prendas').update(antes).eq('id', prenda.id)
-        if (errDeshacer) return mostrarToast('No se pudo deshacer', 'error')
-        setPrendas((lista) => lista.map((p) => (p.id === prenda.id ? { ...p, ...antes } : p)))
+        if (errDeshacer) {
+          actualizarPrenda(prenda.id, campos)
+          return mostrarToast('No se pudo deshacer', 'error')
+        }
+        onCambio?.()
       },
     })
     onCambio?.()
   }
 
-  if (!e) return <div className="flex flex-col gap-4"><h2 className="titulo-hoja">Mi armario en números</h2><div role="status" aria-label="Cargando" className="esqueleto h-48 w-full" /></div>
+  if (cargando) return <div className="flex flex-col gap-4"><h2 className="titulo-hoja">Mi armario en números</h2><div role="status" aria-label="Cargando" className="esqueleto h-48 w-full" /></div>
 
   if (e.total === 0 && e.archivadas.length === 0) {
     return (

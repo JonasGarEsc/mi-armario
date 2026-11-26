@@ -127,7 +127,7 @@ function WidgetClima({ maleta }) {
   )
 }
 
-export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refresco = 0, mostrarToast, setDialogoGlobal }) {
+export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refresco = 0, recarga = 0, mostrarToast, setDialogoGlobal }) {
   const [maletas, setMaletas] = useState(() => leerCache('maletas') || [])
   const [conjuntos, setConjuntos] = useState([])
   const [cargando, setCargando] = useState(() => !leerCache('maletas'))
@@ -170,14 +170,14 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
     const nombre = valor.trim()
     if (!nombre) return
     const lista = tipo === 'maleta' ? maletas : conjuntos
-    if (lista.find(x => x.id === id)?.nombre === nombre) return
+    const anterior = lista.find(x => x.id === id)?.nombre
+    if (anterior === undefined) return
+    if (anterior === nombre) return
 
     const repetido = lista.some(x => x.id !== id && x.nombre.toLowerCase() === nombre.toLowerCase())
     if (repetido) return mostrarToast(tipo === 'maleta' ? 'Ya tienes una maleta con ese nombre' : 'Ese nombre ya existe en esta maleta', 'error')
 
-    const { error } = await supabase.from(tipo === 'maleta' ? 'maletas' : 'conjuntos').update({ nombre }).eq('id', id)
-    if (error) return mostrarToast('No se pudo cambiar el nombre', 'error')
-
+    // Primero se pinta el nombre nuevo y luego se guarda.
     if (tipo === 'maleta') {
       const nuevas = maletas.map(m => m.id === id ? { ...m, nombre } : m)
       setMaletas(nuevas); guardarCache('maletas', cacheMaletas(nuevas))
@@ -185,6 +185,19 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
     } else {
       const nuevos = conjuntos.map(c => c.id === id ? { ...c, nombre } : c)
       setConjuntos(nuevos); guardarCache(`conjuntos_${maletaActiva.id}`, nuevos)
+    }
+
+    const { error } = await supabase.from(tipo === 'maleta' ? 'maletas' : 'conjuntos').update({ nombre }).eq('id', id)
+    if (error) {
+      if (tipo === 'maleta') {
+        const nuevas = maletas.map(m => m.id === id ? { ...m, nombre: anterior } : m)
+        setMaletas(nuevas); guardarCache('maletas', cacheMaletas(nuevas))
+        if (maletaActiva?.id === id) setMaletaActiva({ ...maletaActiva, nombre: anterior })
+      } else {
+        const nuevos = conjuntos.map(c => c.id === id ? { ...c, nombre: anterior } : c)
+        setConjuntos(nuevos); guardarCache(`conjuntos_${maletaActiva.id}`, nuevos)
+      }
+      return mostrarToast('No se pudo cambiar el nombre', 'error')
     }
     mostrarToast('Nombre cambiado', 'exito')
   }
@@ -238,7 +251,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
       setCargando(false)
     }
     cargarDatos()
-  }, [maletaActiva, refresco])
+  }, [maletaActiva, refresco, recarga])
 
   function solicitarEliminar(tipo, id, e) {
     if (e) e.stopPropagation()
