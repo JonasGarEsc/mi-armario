@@ -1,6 +1,6 @@
 /** Filtro del armario por tipo y categoría, con acceso a sus gestores. */
 export default function Filtros({ datosMenu, filtroActual, onAplicar, onAbrirTipos, onAbrirCategorias }) {
-  const chip = (activo) => `min-h-11 px-4 rounded-full ${activo ? 'bg-acento text-sobre-acento font-semibold' : 'bg-lamina text-tinta'}`
+  const chip = (activo) => `min-h-11 px-4 rounded-[10px] ${activo ? 'bg-acento text-sobre-acento font-semibold' : 'bg-lamina text-tinta'}`
   return (
     <div className="flex flex-col gap-5">
       <h2 className="titulo-hoja">Filtrar</h2>

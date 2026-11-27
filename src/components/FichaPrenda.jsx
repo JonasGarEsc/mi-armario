@@ -79,9 +79,9 @@ export default function FichaPrenda({ prenda, mostrarToast, onEditar, onQueMePon
       <div>
         <h2 className="titulo-hoja text-2xl!">{nombre}</h2>
         {etiquetas.length > 0 && (
-          <ul className="flex flex-wrap gap-2 mt-3" aria-label="Etiquetas">
+          <ul className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-sm text-tenue" aria-label="Etiquetas">
             {etiquetas.map((etiqueta) => (
-              <li key={etiqueta} className="rounded-full bg-lamina px-3 py-1 text-sm text-tinta">{etiqueta}</li>
+              <li key={etiqueta}>{etiqueta}</li>
             ))}
           </ul>
         )}

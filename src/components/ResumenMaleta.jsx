@@ -22,7 +22,7 @@ export default function ResumenMaleta({ maleta, conjuntos, onListo }) {
       aria-hidden="true"
       style={{
         position: 'fixed', left: '-10000px', top: 0, width: 760, padding: 36, boxSizing: 'border-box',
-        background: '#f6f6f7', color: '#17181b', fontFamily: 'system-ui, -apple-system, sans-serif',
+        background: '#f7f6f4', color: '#1c1b19', fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
       <h2 style={{ margin: 0, fontSize: 38, lineHeight: 1.15, fontWeight: 800 }}>{maleta.nombre}</h2>

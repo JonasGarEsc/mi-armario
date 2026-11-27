@@ -314,7 +314,7 @@ export default function VistaConjuntos({ onCrearMaleta, onPrepararMaleta, refres
           mostrarToast={mostrarToast}
         />
       ) : (
-        <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Maletas</h2>
+        <h2 className="titular max-md:sr-only shrink-0 text-3xl min-h-12 mb-5">Maletas</h2>
       )}
 
       {errorConjuntos && <p role="alert" className="aviso-error mb-4">{errorConjuntos}</p>}

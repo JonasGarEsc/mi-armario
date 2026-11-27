@@ -4,7 +4,7 @@ import {
 } from '../lib/etiquetas'
 
 const chip = (activo) =>
-  `min-h-11 px-4 rounded-full border text-sm font-medium ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
+  `min-h-11 px-4 rounded-[10px] border text-sm font-medium ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
 const mayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1)
 
@@ -48,7 +48,7 @@ export default function CamposEtiquetas({ valor, onChange, sugerido = false, ana
               </span>
             ))}
             {valor.colores.length < 3 && (
-              <label className="inline-flex items-center justify-center min-h-11 px-4 rounded-full border border-dashed border-linea text-sm text-tenue cursor-pointer">
+              <label className="inline-flex items-center justify-center min-h-11 px-4 rounded-[10px] border border-dashed border-linea text-sm text-tenue cursor-pointer">
                 + Color
                 <input
                   type="color"

@@ -17,7 +17,7 @@ export default class LimiteErrores extends Component {
     if (!this.state.roto) return this.props.children
     return (
       <div className="h-dvh flex flex-col items-center justify-center gap-4 p-6 text-center bg-papel text-tinta font-sans">
-        <h1 className="text-xl font-bold">Algo se ha quedado atascado</h1>
+        <h1 className="text-xl font-semibold">Algo se ha quedado atascado</h1>
         <p className="text-tenue max-w-sm">
           Suele pasar cuando hay datos guardados de una versión anterior.
         </p>

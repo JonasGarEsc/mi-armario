@@ -95,7 +95,7 @@ export default function FormularioSemana({ onExito, onCancelar }) {
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-tenue" aria-hidden="true">
-        {DIAS.map((dia) => <span key={dia} className="py-1 uppercase">{dia}</span>)}
+        {DIAS.map((dia) => <span key={dia} className="py-1">{dia}</span>)}
       </div>
 
       <div className="grid grid-cols-7 gap-1 -mt-2">
@@ -112,7 +112,7 @@ export default function FormularioSemana({ onExito, onCancelar }) {
               aria-pressed={seleccionado}
               className={`relative h-10 rounded-lg text-sm transition-colors ${
                 seleccionado
-                  ? 'bg-acento text-sobre-acento font-bold'
+                  ? 'bg-acento text-sobre-acento font-semibold'
                   : enSemana
                     ? 'bg-lamina text-tinta font-semibold'
                     : 'text-tinta hover:bg-lamina'

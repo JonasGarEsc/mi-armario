@@ -42,7 +42,7 @@ export default function CabeceraMaleta({
           <Icono nombre="volver" />
         </button>
         <h2 className="flex-1 min-w-0 flex">
-          {nombreEditable('maleta', maleta.id, maleta.nombre, 'titular min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
+          {nombreEditable('maleta', maleta.id, maleta.nombre, 'titular min-h-11 max-w-full text-2xl md:text-3xl')}
         </h2>
         <button onClick={onCompartirResumen} disabled={resumenAbierto || !hayConjuntos} aria-label={`Compartir imagen resumen de ${maleta.nombre}`} className="boton-icono disabled:opacity-40">
           <Icono nombre="compartir" />

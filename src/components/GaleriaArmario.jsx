@@ -21,7 +21,7 @@ import ListaDeseos from './ListaDeseos'
 import Miniatura from './Miniatura'
 
 const chipFiltro = (activo) =>
-  `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
+  `shrink-0 min-h-11 px-4 rounded-[10px] border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
 // Una tarjeta del armario. Un toque abre la ficha; la pulsación larga (o el clic
 // derecho) abre el menú de siempre. En modo selección, el toque sigue marcando.

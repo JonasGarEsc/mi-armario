@@ -74,9 +74,9 @@ export default function Acceso() {
   return (
     <div className="min-h-dvh flex flex-col justify-center bg-papel text-tinta font-sans px-6 py-10 pt-safe pb-safe">
       <div className="w-full max-w-sm mx-auto">
-        <p className="text-xs font-semibold tracking-[0.18em] uppercase text-tenue">Perletta</p>
-        <h1 className="text-3xl font-bold tracking-tight mt-2 mb-8">
-          {creando ? 'Tu armario, desde cero.' : 'Tu armario, solo tuyo.'}
+        <p className="titular text-lg text-tenue">Perletta</p>
+        <h1 className="titular text-3xl mt-2 mb-8">
+          {creando ? 'Tu armario, desde cero' : 'Tu armario, solo tuyo'}
         </h1>
 
         <form onSubmit={enviar} className="flex flex-col gap-4">

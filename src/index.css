@@ -1,12 +1,13 @@
 /* Hallmark · shape: app screen · genre: modern-minimal · theme: custom
- * paper: #f6f6f7 · accent: #1d4ed8 · display: system-ui · body: system-ui
+ * paper: #f7f6f4 · accent: #8c2f3a (granate de hilo), primario: tinta · display: system-ui · body: system-ui
  * nav: tab bar abajo en móvil, pestañas en la cabecera en escritorio · signature: la rejilla de prendas · states: loading, empty, full
  * waive: 28a, las miniaturas de la rejilla siguen en carga diferida (arreglo de la auditoría)
  * axes: light+dark/sans/cobalt · posture: tool · contrast: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V3 · weakest: V, la personalidad la ponen las fotos y no el marco, a propósito */
 @import "tailwindcss";
 
-/* Perletta. El marco es neutro, el color lo pone la ropa. Un acento para la acción principal y la selección.
+/* Perletta. El marco es neutro, apenas cálido como el papel de patrón; el color lo pone la ropa.
+   La acción principal va en tinta; el granate de hilo marca solo la selección y lo activo.
    Radios: 12 px en controles y fotos, 24 px en hojas, redondo en botones de icono y filtros. */
 @theme {
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -21,6 +22,8 @@
   --color-linea: var(--linea);
   --color-acento: var(--acento);
   --color-sobre-acento: var(--sobre-acento);
+  --color-primario: var(--primario);
+  --color-sobre-primario: var(--sobre-primario);
   --color-peligro: var(--peligro);
   --color-velo: var(--velo);
   --ease-suave: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -28,15 +31,17 @@
 }
 
 :root {
-  --papel: #f6f6f7;
+  --papel: #f7f6f4;
   --superficie: #ffffff;
-  --lamina: #eceef1;
+  --lamina: #eeece8;
   --foto: #ffffff;
-  --tinta: #17181b;
-  --tenue: #585c66;
-  --linea: #e0e2e6;
-  --acento: #1d4ed8;
+  --tinta: #1c1b19;
+  --tenue: #5d5a55;
+  --linea: #e3e0db;
+  --acento: #8c2f3a;
   --sobre-acento: #ffffff;
+  --primario: #1c1b19;
+  --sobre-primario: #ffffff;
   --peligro: #b3261e;
   --velo: rgb(10 12 16 / 0.45);
   --sombra: 0 6px 24px rgb(10 12 16 / 0.16);
@@ -44,15 +49,17 @@
 }
 
 :root.modo-oscuro {
-  --papel: #0f1012;
-  --superficie: #191b1e;
-  --lamina: #25282c;
-  --foto: #3b3f46;
-  --tinta: #f0f1f3;
-  --tenue: #a6abb4;
-  --linea: #2e3136;
-  --acento: #8ab0ff;
-  --sobre-acento: #0b1530;
+  --papel: #11100f;
+  --superficie: #1b1a18;
+  --lamina: #272523;
+  --foto: #3d3a36;
+  --tinta: #f1efea;
+  --tenue: #aaa59e;
+  --linea: #302d2a;
+  --acento: #e08a92;
+  --sobre-acento: #2a0f13;
+  --primario: #f1efea;
+  --sobre-primario: #1c1b19;
   --peligro: #ff8a80;
   --velo: rgb(0 0 0 / 0.65);
   --sombra: 0 6px 24px rgb(0 0 0 / 0.5);
@@ -133,8 +140,8 @@ body {
     white-space: nowrap;
   }
   .boton-primario {
-    background: var(--acento);
-    color: var(--sobre-acento);
+    background: var(--primario);
+    color: var(--sobre-primario);
   }
   .boton-secundario {
     background: var(--lamina);
@@ -186,6 +193,7 @@ body {
   }
   .titular {
     font-family: var(--font-display);
+    font-weight: 500;
     letter-spacing: -0.01em;
     text-wrap: balance;
   }
@@ -194,7 +202,7 @@ body {
     padding-right: 3rem;
     font-family: var(--font-display);
     font-size: 1.5rem;
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: -0.01em;
     line-height: 1.25;
     overflow-wrap: break-word;

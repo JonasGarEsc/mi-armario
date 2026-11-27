@@ -21,7 +21,7 @@ const MANUAL = [
 ]
 
 const chip = (activo) =>
-  `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
+  `shrink-0 min-h-11 px-4 rounded-[10px] border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
 export default function QueMePongo({ mostrarToast, onHecho, prendaInicial = null }) {
   const { prendas, cargando: cargandoPrendas } = usePrendas()

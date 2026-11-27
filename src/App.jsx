@@ -39,7 +39,7 @@ function pintarTema(oscuro) {
   // Quitar 'media' evita que el navegador imponga el suyo y deje las dos etiquetas descoordinadas.
   document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
     meta.removeAttribute('media')
-    meta.setAttribute('content', oscuro ? '#0f1012' : '#f6f6f7')
+    meta.setAttribute('content', oscuro ? '#11100f' : '#f7f6f4')
   })
 }
 
@@ -420,7 +420,7 @@ function Armario({ sesion }) {
       <div className="h-full flex flex-col" inert={!!(modalActivo || dialogoGlobal)}>
         <header className="shrink-0 pt-safe md:border-b md:border-linea md:bg-superficie">
           <div className="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
-            <h1 className="titular min-w-0 text-[1.85rem] md:text-2xl font-bold tracking-tight">
+            <h1 className="titular min-w-0 text-[1.85rem] md:text-2xl">
               <span className="md:hidden"><TituloSeccion respaldo={pestañaActiva} /></span>
               <span className="hidden md:inline">Perletta</span>
             </h1>
@@ -442,7 +442,7 @@ function Armario({ sesion }) {
         <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto overflow-hidden">
           <div ref={pistaRef} className="flex w-[300%] h-full">
             <section aria-label="Armario" inert={pestañaActiva !== 'ropa'} className={panel}>
-              <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Armario</h2>
+              <h2 className="titular max-md:sr-only shrink-0 text-3xl min-h-12 mb-5">Armario</h2>
               <GaleriaArmario limpiarSeleccion={outfitsGuardados} onCrearConjunto={iniciarCreacionConjunto} onEditarPrenda={iniciarEdicion} onAbrirFicha={abrirFicha} onQueMePongo={() => { setPrendaFijada(null); abrirModal('que_me_pongo'); vibrar(30) }} onAnadirPrenda={() => { setModoDeseo(false); abrirModal('formulario'); vibrar(30) }} onAnadirDeseo={() => { setModoDeseo(true); abrirModal('formulario'); vibrar(30) }} onVerOutfitsDeseo={(d) => { setDeseoElegido(d); abrirModal('deseo_outfits'); vibrar(20) }} onAbrirFiltros={() => abrirModal('filtros')} onQuitarFiltro={() => setFiltroActual(null)} mostrarToast={mostrarToast} filtroCategoria={filtroActual} setDialogoGlobal={solicitarConfirmacionGlobal} onCambio={recargarVistas} />
             </section>
             <section aria-label="Maletas" inert={pestañaActiva !== 'conjuntos'} className={panel}>

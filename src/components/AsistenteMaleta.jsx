@@ -21,7 +21,7 @@ const MANUAL = [
 ]
 
 const chip = (activo) =>
-  `shrink-0 min-h-11 px-4 rounded-full border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
+  `shrink-0 min-h-11 px-4 rounded-[10px] border text-sm font-medium whitespace-nowrap ${activo ? 'bg-acento text-sobre-acento border-acento' : 'bg-superficie border-linea text-tinta'}`
 
 function comoConjunto(outfit) {
   return {
@@ -178,7 +178,7 @@ export default function AsistenteMaleta({ maleta, mostrarToast, onHecho }) {
             <p className="py-6 text-center text-tenue">Con tu armario no he podido montar ningún outfit. Hace falta al menos una prenda de arriba y otra de abajo (o un vestido).</p>
           ) : (
             <>
-              <p className="text-lg font-bold">{resultado.resumen.prendas} prendas → {resultado.resumen.outfits} outfits</p>
+              <p className="text-lg font-semibold">{resultado.resumen.prendas} prendas → {resultado.resumen.outfits} outfits</p>
               {resultado.resumen.repetidos > 0 && (
                 <p className="text-sm text-tenue">Tu armario no da para {resultado.resumen.outfits} combinaciones distintas: {resultado.resumen.repetidos} outfits se repiten.</p>
               )}

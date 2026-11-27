@@ -27,7 +27,7 @@ function Fila({ prenda, dato, children }) {
 function Bloque({ titulo, vacio, hijos, children }) {
   return (
     <section className="flex flex-col gap-1">
-      <h3 className="text-lg font-bold">{titulo}</h3>
+      <h3 className="text-lg font-semibold">{titulo}</h3>
       {hijos === 0 ? <p className="text-sm text-tenue">{vacio}</p> : <ul className="divide-y divide-linea">{children}</ul>}
     </section>
   )
@@ -87,7 +87,7 @@ export default function Estadisticas({ mostrarToast, onProponer, onCambio }) {
       <div className="grid grid-cols-3 gap-2">
         {[['Prendas', e.total], ['Usos', e.usosTotales], ['Invertido', e.conPrecio ? dinero(e.inversion) : '—']].map(([etiqueta, valor]) => (
           <div key={etiqueta} className="rounded-xl bg-lamina p-3 text-center">
-            <p className="text-xl font-bold tabular-nums">{valor}</p>
+            <p className="text-xl font-semibold tabular-nums">{valor}</p>
             <p className="text-xs text-tenue">{etiqueta}</p>
           </div>
         ))}
@@ -96,7 +96,7 @@ export default function Estadisticas({ mostrarToast, onProponer, onCambio }) {
 
       {huecos.length > 0 && (
         <section className="flex flex-col gap-2" aria-labelledby="huecos-titulo">
-          <h3 id="huecos-titulo" className="text-lg font-bold">Huecos del armario</h3>
+          <h3 id="huecos-titulo" className="text-lg font-semibold">Huecos del armario</h3>
           <ul className="rounded-xl bg-lamina divide-y divide-linea px-3">
             {huecos.map((h) => (
               <li key={`${h.hueco}-${h.color}`} className="flex items-center gap-3 py-2.5">

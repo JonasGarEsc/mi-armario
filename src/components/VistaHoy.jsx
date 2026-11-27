@@ -143,7 +143,7 @@ export default function VistaHoy({ mostrarToast, onHecho }) {
 
       {!cargando && clima && (
         <p className="text-tenue -mt-2">
-          {`Hoy${tiempo?.ciudad ? ` en ${tiempo.ciudad}` : ''}: ${clima.min}° – ${clima.max}°`}
+          {`${tiempo?.ciudad ? `${tiempo.ciudad} · ` : ''}${clima.min}° – ${clima.max}°`}
           {clima.lluvia && ' · lluvia'}
         </p>
       )}

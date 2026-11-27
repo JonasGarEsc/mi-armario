@@ -162,7 +162,7 @@ async function main() {
 
     await paso('entrar con la contraseña falsa', async () => {
       await pagina.goto(appUrl, { waitUntil: 'domcontentloaded' })
-      await pagina.getByRole('heading', { name: 'Tu armario, solo tuyo.' }).waitFor()
+      await pagina.getByRole('heading', { name: 'Tu armario, solo tuyo' }).waitFor()
       await pagina.locator('#email').fill(CORREO)
       await pagina.locator('#password').fill(CONTRASENA)
       await pagina.getByRole('button', { name: 'Entrar', exact: true }).click()
@@ -304,7 +304,7 @@ async function main() {
       await dialogo().getByRole('heading', { name: 'Hoy' }).waitFor()
       const propuesta = dialogo().getByRole('article', { name: 'Propuesta de hoy' })
       await propuesta.waitFor()
-      await dialogo().getByText(/Hoy( en [^:]+)?: \d+° – \d+°/).waitFor()
+      await dialogo().getByText(/^(?:.+ · )?\d+° – \d+°$/).waitFor()
       const gusta = propuesta.getByRole('button', { name: 'Me gusta', exact: true })
       await gusta.click()
       await pagina.locator('button[aria-pressed="true"]', { hasText: 'Me gusta' }).waitFor()

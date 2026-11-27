@@ -301,7 +301,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
               <Icono nombre="volver" />
             </button>
             <h2 className="flex-1 min-w-0 flex">
-              {nombreEditable('semana', semanaActiva.id, semanaActiva.nombre, 'titular min-h-11 max-w-full text-2xl md:text-3xl font-bold tracking-tight')}
+              {nombreEditable('semana', semanaActiva.id, semanaActiva.nombre, 'titular min-h-11 max-w-full text-2xl md:text-3xl')}
             </h2>
             <button onClick={eliminarSemana} aria-label={`Eliminar ${semanaActiva.nombre}`} className="boton-icono -mr-2">
               <Icono nombre="borrar" />
@@ -326,8 +326,8 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
                     activo ? 'bg-acento text-sobre-acento font-semibold' : 'bg-lamina text-tinta'
                   }`}
                 >
-                  <span className="uppercase tracking-wide">{DIAS[i]}</span>
-                  <span className="text-base font-bold leading-none">{dia.getDate()}</span>
+                  <span>{DIAS[i]}</span>
+                  <span className="text-base font-semibold leading-none tabular-nums">{dia.getDate()}</span>
                   <span className={`w-1 h-1 rounded-full ${lleno ? (activo ? 'bg-sobre-acento' : 'bg-acento') : 'bg-transparent'}`} />
                 </button>
               )
@@ -336,7 +336,7 @@ export default function VistaSemanas({ activa = false, recarga = 0, onCrearSeman
         </div>
       ) : (
         <>
-          <h2 className="titular max-md:sr-only shrink-0 text-3xl font-bold tracking-tight min-h-12 mb-5">Semana</h2>
+          <h2 className="titular max-md:sr-only shrink-0 text-3xl min-h-12 mb-5">Semana</h2>
           <BotonQueMePongo onClick={onQueMePongo} className="mb-4 md:self-start" />
         </>
       )}
